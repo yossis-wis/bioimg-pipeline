@@ -1,0 +1,5 @@
+input_relpath: raw_staging\test_image.tif
+output_runs_dir: runs
+threshold: 150
+pixel_size_nm: 65
+channel: 1
