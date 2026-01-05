@@ -1,0 +1,17 @@
+name: bioimg-slice0
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - pip
+  - numpy
+  - pandas
+  - pyyaml
+  - tifffile
+  - matplotlib
+  - scikit-image
+  - pyarrow
+  - jupyterlab
+  - ipykernel
+  - jupytext
+  - pytest
