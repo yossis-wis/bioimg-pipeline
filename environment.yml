@@ -1,17 +1,20 @@
 name: bioimg-slice0
 channels:
   - conda-forge
+  - defaults
 dependencies:
-  - python=3.11
   - pip
-  - numpy
-  - pandas
   - pyyaml
-  - tifffile
-  - matplotlib
   - scikit-image
-  - pyarrow
-  - jupyterlab
+  - matplotlib
   - ipykernel
+  - numpy
   - jupytext
   - pytest
+  - jupyterlab
+  - pyarrow
+  - tifffile
+  - python=3.11
+  - pandas
+  - spyder
+prefix: C:\Users\yossis\AppData\Local\miniconda3\envs\bioimg-slice0
