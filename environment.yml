@@ -17,4 +17,3 @@ dependencies:
   - python=3.11
   - pandas
   - spyder
-prefix: C:\Users\yossis\AppData\Local\miniconda3\envs\bioimg-slice0
