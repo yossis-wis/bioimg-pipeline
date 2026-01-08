@@ -82,7 +82,7 @@ This makes the code portable across machines without changing paths in code.
 
 Open **PowerShell** and run:
 
-```powershell
+```plaintext
 [Environment]::SetEnvironmentVariable("BIOIMG_DATA_ROOT","D:\bioimg-data","User")
 ```
 
