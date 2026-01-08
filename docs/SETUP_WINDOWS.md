@@ -140,17 +140,15 @@ python scripts/verify_setup.py
    - Search: **Python: Select Interpreter**
    - Choose: **bioimg-slice0**
 
-### Terminal behavior (important)
+### Set the default terminal in VS Code to Command Prompt (recommended)
 
-VS Code may open a terminal that does **not** auto-activate conda.
+1. Open **VS Code**
+2. Go to **File → Preferences → Settings**
+3. Search for `default profile windows`
+4. Find **"Terminal › Integrated: Default Profile Windows"**
+5. Select **"Command Prompt"** from the dropdown
 
-If you open a terminal and you do not see `(bioimg-slice0)` in the prompt, run:
-
-```bat
-conda activate bioimg-slice0
-```
-
-That’s OK—manual activation is normal on Windows.
+After this change, new terminals in VS Code will open as Command Prompt with the conda environment auto-activated. 
 
 ---
 
