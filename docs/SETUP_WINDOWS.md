@@ -21,3 +21,26 @@ Code for a reproducible bioimaging analysis pipeline.
 ```bash
 git clone <repo-url>
 cd bioimg-pipeline
+
+### 3) Create the data bench folders
+Create (example):
+
+D:\bioimg-data\raw_staging
+D:\bioimg-data\runs
+D:\bioimg-data\cache
+D:\bioimg-data\models
+
+### 4) Set environment variable
+
+PowerShell:
+[Environment]::SetEnvironmentVariable("BIOIMG_DATA_ROOT","D:\bioimg-data","User")
+
+### 5) Create and verify conda environment
+conda env create -f environment.yml
+conda activate bioimg-slice0
+python scripts/verify_setup.py
+
+### 6) VS Code
+
+Open folder: C:\Code\bioimg-pipeline
+Select interpreter: bioimg-slice0
