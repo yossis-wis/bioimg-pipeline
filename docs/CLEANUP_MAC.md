@@ -51,7 +51,7 @@ This ensures no conflicting library versions remain.
 
 2. Remove the environment:
    ```zsh
-   conda remove --na bioimg-slice0 --all
+   conda remove -n bioimg-slice0 --all
    ```
 
 3. Verify it's gone:
