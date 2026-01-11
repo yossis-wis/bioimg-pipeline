@@ -86,6 +86,126 @@ def _select_2d_plane(arr: np.ndarray, channel: Optional[int]) -> np.ndarray:
     return flat[0]
 
 
+def _read_ims_2d(input_path: Path, cfg: Dict[str, Any]) -> Tuple[np.ndarray, Dict[str, Any]]:
+    """Read a 2D plane from an Imaris .ims file.
+
+    Imaris .ims is HDF5-backed. In many files, the pixel data lives at:
+
+        DataSet/ResolutionLevel <R>/TimePoint <T>/Channel <C>/Data
+
+    where the dataset typically has shape (Z, Y, X) (or sometimes (Y, X)).
+
+    Config keys (all optional):
+      - channel: 1-based (1 => Channel 0, 2 => Channel 1, ...)
+      - ims_resolution_level: int (default 0)
+      - ims_time_index: int (default 0)
+      - ims_z_index: int (default 0)
+
+    Returns:
+      (image_2d, info_dict)
+    """
+    try:
+        import h5py  # type: ignore
+    except Exception as e:  # pragma: no cover
+        raise RuntimeError(
+            "h5py is required to read .ims files. "
+            "Install it (recommended): conda install -c conda-forge h5py"
+        ) from e
+
+    # channel is treated as 1-based if >=1; allow channel=0 to mean first channel
+    ch_raw = cfg.get("channel", 1)
+    ch = int(ch_raw) if ch_raw is not None else 1
+    ch_idx = ch - 1 if ch >= 1 else 0
+
+    rl = int(cfg.get("ims_resolution_level", 0))
+    tp = int(cfg.get("ims_time_index", 0))
+    z = int(cfg.get("ims_z_index", 0))
+
+    dset_path = f"DataSet/ResolutionLevel {rl}/TimePoint {tp}/Channel {ch_idx}/Data"
+
+    with h5py.File(str(input_path), "r") as f:
+        if dset_path not in f:
+            # Provide a helpful message with a few candidate dataset paths
+            candidates: list[str] = []
+
+            def _collector(name: str, obj: Any) -> None:
+                try:
+                    import h5py as _h5py  # type: ignore
+                    if isinstance(obj, _h5py.Dataset) and name.endswith("/Data"):
+                        candidates.append(name)
+                except Exception:
+                    return
+
+            try:
+                f.visititems(_collector)
+            except Exception:
+                pass
+
+            hint = ""
+            if candidates:
+                preview = "\n".join(f"  - {p}" for p in candidates[:10])
+                hint = f"\nFound these /Data datasets (showing up to 10):\n{preview}"
+
+            raise KeyError(
+                f"Expected dataset not found in .ims: {dset_path}{hint}"
+            )
+
+        dset = f[dset_path]
+
+        # Typical: (Z, Y, X)
+        if dset.ndim == 3:
+            z_clamped = max(0, min(z, int(dset.shape[0]) - 1))
+            img2d = np.asarray(dset[z_clamped, :, :])
+        elif dset.ndim == 2:
+            z_clamped = 0
+            img2d = np.asarray(dset[:, :])
+        else:
+            # Fallback: flatten leading dims and take first plane
+            arr = np.asarray(dset)
+            flat = arr.reshape(-1, arr.shape[-2], arr.shape[-1])
+            z_clamped = 0
+            img2d = flat[0]
+
+    info: Dict[str, Any] = {
+        "input_format": "ims",
+        "ims_dataset_path": dset_path,
+        "ims_resolution_level": rl,
+        "ims_time_index": tp,
+        "ims_channel_index": ch_idx,
+        "ims_z_index": z_clamped,
+    }
+    return img2d, info
+
+
+def _read_input_image_2d(input_path: Path, cfg: Dict[str, Any]) -> Tuple[np.ndarray, Dict[str, Any]]:
+    """Read an input image and return a 2D plane for Slice0.
+
+    Supported:
+      - TIFF (.tif/.tiff) via tifffile
+      - Imaris (.ims) via h5py
+
+    Returns:
+      (image_2d, info_dict)
+    """
+    suf = input_path.suffix.lower()
+
+    if suf in {".tif", ".tiff"}:
+        arr = tifffile.imread(str(input_path))
+        img2d = _select_2d_plane(np.asarray(arr), channel=cfg.get("channel"))
+        info: Dict[str, Any] = {
+            "input_format": "tiff",
+            "selected_channel": cfg.get("channel", None),
+        }
+        return img2d, info
+
+    if suf == ".ims":
+        return _read_ims_2d(input_path, cfg)
+
+    raise ValueError(
+        f"Unsupported input file extension: {suf}. Supported: .tif/.tiff, .ims"
+    )
+
+
 def _write_qc_overlay(image_2d: np.ndarray, spots: pd.DataFrame, out_path: Path) -> None:
     img = np.asarray(image_2d)
 
@@ -108,19 +228,16 @@ def _write_qc_overlay(image_2d: np.ndarray, spots: pd.DataFrame, out_path: Path)
 def run_slice0(config_path: Path) -> Path:
     cfg = _load_config(config_path)
     data_root = _data_root()
-
-    # Resolve input TIFF path
+    # Resolve input image path (TIFF or Imaris .ims)
     input_relpath = cfg.get("input_relpath")
     if not input_relpath:
         raise ValueError("config missing required key: input_relpath")
     input_path = (data_root / input_relpath).resolve()
     if not input_path.exists():
-        raise FileNotFoundError(f"Input TIFF not found: {input_path}")
+        raise FileNotFoundError(f"Input image not found: {input_path}")
 
-    # Read TIFF
-    arr = tifffile.imread(str(input_path))
-    img2d = _select_2d_plane(np.asarray(arr), channel=cfg.get("channel"))
-
+    # Read input -> 2D plane for Slice0
+    img2d, input_info = _read_input_image_2d(input_path, cfg)
     # Detect
     params = Slice0Params(
         threshold=float(cfg.get("threshold", 0.0)),
@@ -157,6 +274,8 @@ def run_slice0(config_path: Path) -> Path:
         "kernel_params": asdict(params),
     }
 
+    manifest.update(input_info)
+
     manifest_path = out_dir / "run_manifest.yaml"
     with manifest_path.open("w", encoding="utf-8") as f:
         yaml.safe_dump(manifest, f, sort_keys=False)
@@ -165,7 +284,7 @@ def run_slice0(config_path: Path) -> Path:
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description="Run Slice0 on a TIFF image")
+    ap = argparse.ArgumentParser(description="Run Slice0 on a single image (TIFF or Imaris .ims)")
     ap.add_argument("--config", default="configs/dev.yaml", help="Path to YAML config (relative or absolute)")
     args = ap.parse_args()
 

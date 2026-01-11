@@ -1,0 +1,23 @@
+# Example config: run Slice0 on a real Imaris .ims file
+#
+# 1) Put your .ims under $BIOIMG_DATA_ROOT/raw_staging/
+# 2) Update input_relpath below to match your filename
+# 3) Pick channel + detector params
+
+input_relpath: raw_staging/my_image.ims
+output_runs_dir: runs
+
+# Channel is 1-based:
+#   channel: 1  -> Imaris "Channel 0"
+#   channel: 2  -> Imaris "Channel 1"
+channel: 1
+
+# Imaris selection (only used for .ims inputs)
+ims_resolution_level: 0
+ims_time_index: 0
+ims_z_index: 0
+
+# Detector parameters
+threshold: 400
+min_distance: 5
+smooth_sigma: 1.0
