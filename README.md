@@ -42,11 +42,17 @@ conda install -c conda-forge h5py
 `$BIOIMG_DATA_ROOT/raw_staging/my_image.ims`
 
 2) Create a config (or edit the example):
+
+LINUX
 ```bash
 # copy the example and edit input_relpath + detector params
 cp configs/ims_example.yaml configs/ims.yaml
 ```
-
+WINDOWS CMD
+```bash
+# copy the example and edit input_relpath + detector params
+copy configs/ims_example.yaml configs/ims.yaml
+```
 3) Run Slice0:
 ```bash
 python drivers/run_slice0.py --config configs/ims.yaml
