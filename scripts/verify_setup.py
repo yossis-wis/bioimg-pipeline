@@ -6,6 +6,7 @@ import subprocess
 from pathlib import Path
 
 
+# Modules required for Slice0 + file I/O
 REQUIRED_IMPORTS = [
     "numpy",
     "pandas",
@@ -13,6 +14,16 @@ REQUIRED_IMPORTS = [
     "yaml",
     "pyarrow",
     "skimage",
+    "matplotlib",
+    "h5py",  # needed for reading Imaris .ims
+]
+
+# Modules needed for Slice1 (StarDist) — treated as optional so Slice0-only users
+# can still pass verify_setup if they haven't installed the heavy deps yet.
+OPTIONAL_IMPORTS = [
+    "stardist",
+    "csbdeep",
+    "tensorflow",
 ]
 
 
@@ -29,6 +40,14 @@ def try_git_commit(repo_root: Path) -> str | None:
         return None
 
 
+def _try_import(module: str) -> bool:
+    try:
+        __import__(module)
+        return True
+    except Exception:
+        return False
+
+
 def main() -> int:
     repo_root = Path(__file__).resolve().parents[1]
     print("=== bioimg-pipeline :: verify_setup ===")
@@ -41,7 +60,9 @@ def main() -> int:
     data_root = os.environ.get("BIOIMG_DATA_ROOT")
     if not data_root:
         print("ERROR: BIOIMG_DATA_ROOT is not set.")
-        print(r"Fix (PowerShell): [Environment]::SetEnvironmentVariable('BIOIMG_DATA_ROOT','D:\bioimg-data','User')")
+        print(
+            r"Fix (PowerShell): [Environment]::SetEnvironmentVariable('BIOIMG_DATA_ROOT','D:\bioimg-data','User')"
+        )
         return 2
 
     data_root = Path(data_root)
@@ -72,7 +93,7 @@ def main() -> int:
             return 2
     print("repo files: OK")
 
-    # 4) Imports
+    # 4) Required imports
     for mod in REQUIRED_IMPORTS:
         try:
             __import__(mod)
@@ -81,13 +102,19 @@ def main() -> int:
             print(f"ERROR: import {mod} failed: {e}")
             return 2
 
-    # 5) Write test to runs/
+    # 5) Optional Slice1 imports
+    print("\nOptional Slice1 (StarDist) imports:")
+    for mod in OPTIONAL_IMPORTS:
+        ok = _try_import(mod)
+        print(f"  {mod}: {'OK' if ok else 'MISSING'}")
+
+    # 6) Write test to runs/
     test_dir = data_root / "runs" / "_setup_write_test"
     test_dir.mkdir(parents=True, exist_ok=True)
     (test_dir / "touch.txt").write_text("ok\n", encoding="utf-8")
-    print(f"write test: OK ({test_dir})")
+    print(f"\nwrite test: OK ({test_dir})")
 
-    # 6) Git commit (optional)
+    # 7) Git commit (optional)
     commit = try_git_commit(repo_root)
     if commit:
         print(f"git_commit: {commit[:12]}")

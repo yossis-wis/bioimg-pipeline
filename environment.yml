@@ -1,19 +1,38 @@
 name: bioimg-slice0
 channels:
   - conda-forge
-  - defaults
+
 dependencies:
-  - pip
-  - pyyaml
-  - scikit-image
-  - matplotlib
-  - ipykernel
-  - numpy
-  - jupytext
-  - pytest
-  - jupyterlab
-  - pyarrow
-  - tifffile
+  # Core
+  # If TensorFlow/StarDist wheels get fussy on your machine, try python=3.10.
   - python=3.11
-  - pandas
-  - spyder
+  - pip=24.*
+
+  # Scientific stack (pin to a TensorFlow-compatible NumPy range)
+  - numpy=1.24.3
+  - scipy=1.10.*
+  - pandas=2.0.*
+
+  # I/O + configs
+  - pyyaml=6.*
+  - tifffile=2023.7.*
+  - h5py=3.11.*
+  - pyarrow=14.*
+
+  # Image processing + plots
+  - scikit-image=0.21.*
+  - matplotlib=3.7.*
+
+  # Dev / notebooks
+  - ipykernel=6.*
+  - jupyterlab=4.*
+  - jupytext=1.*
+  - pytest=8.*
+  - ruff=0.7.*
+
+  # Slice1 (StarDist) lives on pip (TensorFlow wheels are most reliable via pip)
+  - pip:
+      - stardist==0.9.1
+      - csbdeep==0.8.1
+      - tensorflow==2.13.0
+      - keras==2.13.1
