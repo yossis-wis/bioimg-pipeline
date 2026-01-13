@@ -38,6 +38,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 
 from skimage.segmentation import find_boundaries  # noqa: E402
+from skimage.morphology import dilation, disk  # noqa: E402
 from skimage.measure import regionprops_table  # noqa: E402
 
 # Allow running without packaging
@@ -98,24 +99,45 @@ def _resolve_model_dir(cfg: Dict[str, Any], data_root: Path) -> Path:
 
 
 def _write_qc_overlay(image_2d: np.ndarray, labels: np.ndarray, out_png: Path) -> None:
-    """Write a simple QC overlay: boundaries (red) on image."""
+    """Write a QC overlay: nucleus boundaries on the raw image.
+
+    We intentionally render the boundary overlay as an explicit RGBA image (instead
+    of relying on a colormap), because that is the most robust way to ensure the
+    outlines remain high-contrast across viewers.
+    """
 
     b = find_boundaries(labels > 0, mode="outer")
+
+    # Thicken the boundary for visibility (≈3 px). Increase disk(2) if you want thicker.
+    b = dilation(b, disk(1))
 
     vmin, vmax = np.percentile(image_2d.astype(np.float32), [1, 99])
     fig = plt.figure(figsize=(8, 8), dpi=150)
     ax = fig.add_subplot(111)
-    ax.imshow(image_2d, cmap="gray", vmin=vmin, vmax=vmax)
+    ax.imshow(
+        image_2d,
+        cmap="gray",
+        vmin=vmin,
+        vmax=vmax,
+        interpolation="nearest",
+    )
 
-    # Masked overlay so background is transparent
-    overlay = np.ma.masked_where(~b, b)
-    ax.imshow(overlay, cmap="Reds", alpha=0.8)
+    # Explicit RGBA overlay (pure red, mostly opaque)
+    overlay_rgba = np.zeros((b.shape[0], b.shape[1], 4), dtype=np.float32)
+    overlay_rgba[b, 0] = 1.0  # red
+    overlay_rgba[b, 3] = 0.9  # alpha
+    ax.imshow(
+        overlay_rgba,
+        interpolation="nearest",
+        resample=False,
+    )
 
     ax.set_axis_off()
     ax.set_title(f"Slice1 nuclei: {int(labels.max())} instances")
     fig.tight_layout(pad=0)
     fig.savefig(out_png, bbox_inches="tight")
     plt.close(fig)
+
 
 
 def run_slice1_nuclei(config_path: Path) -> Path:
@@ -185,6 +207,9 @@ def run_slice1_nuclei(config_path: Path) -> Path:
     _write_qc_overlay(image_2d, labels, qc_path)
 
     # Optional nuclei table
+    nuclei_parquet_path: Optional[Path] = None
+    nuclei_csv_path: Optional[Path] = None
+
     if bool(cfg.get("write_nuclei_table", False)):
         props = regionprops_table(
             labels,
@@ -199,7 +224,12 @@ def run_slice1_nuclei(config_path: Path) -> Path:
             ),
         )
         df = pd.DataFrame(props)
-        df.to_parquet(out_dir / "nuclei.parquet", index=False)
+        nuclei_parquet_path = out_dir / "nuclei.parquet"
+        df.to_parquet(nuclei_parquet_path, index=False)
+
+        # CSV is handy for quick QC (click-to-preview in many editors)
+        nuclei_csv_path = out_dir / "nuclei.csv"
+        df.to_csv(nuclei_csv_path, index=False)
 
     # Manifest
     manifest: Dict[str, Any] = {
@@ -222,6 +252,12 @@ def run_slice1_nuclei(config_path: Path) -> Path:
         "override_thresholds": override_thresholds,
         "final_thresholds": final_thresholds,
     }
+
+
+    if nuclei_parquet_path is not None:
+        manifest["nuclei_table_parquet"] = str(nuclei_parquet_path)
+    if nuclei_csv_path is not None:
+        manifest["nuclei_table_csv"] = str(nuclei_csv_path)
 
     with (out_dir / "run_manifest.yaml").open("w", encoding="utf-8") as f:
         yaml.safe_dump(manifest, f, sort_keys=False)
