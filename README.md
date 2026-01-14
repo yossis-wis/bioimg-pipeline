@@ -71,6 +71,18 @@ python drivers/run_slice0.py --config configs/ims.yaml
 - `ims_time_index` (default `0`)
 - `ims_z_index` (default `0`)
 
+Optional (mirrors the realtime script's masking steps):
+
+- `valid_mask_relpath`: path (relative to `$BIOIMG_DATA_ROOT`) to a 2D mask image
+  (nonzero=True). If provided, candidate maxima are restricted to this mask.
+  Aliases accepted: `aoi_mask_relpath`, `illumination_mask_relpath`.
+- `nuclei_labels_relpath`: path to a 2D label image (e.g. Slice1 output
+  `nuclei_labels.tif`). If provided, candidate maxima are restricted to labels>0.
+  Alias accepted: `nuclei_mask_relpath`.
+- `crop_to_valid_bbox` (default `false`): if true and `valid_mask_relpath` is
+  provided, Slice0 will crop to the mask's bounding box before detection, then
+  map spot coordinates back to the full image.
+
 The output artifacts are the same as the TIFF path:
 - `spots.parquet`
 - `run_manifest.yaml`

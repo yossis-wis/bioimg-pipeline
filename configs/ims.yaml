@@ -10,7 +10,7 @@ output_runs_dir: runs
 # Channel is 1-based:
 #   channel: 1  -> Imaris "Channel 0"
 #   channel: 2  -> Imaris "Channel 1"
-channel: 1
+channel: 2
 
 # Imaris selection (only used for .ims inputs)
 ims_resolution_level: 0
@@ -18,6 +18,19 @@ ims_time_index: 0
 ims_z_index: 0
 
 # Detector parameters
-threshold: 500
-min_distance: 5
-smooth_sigma: 1.0
+# --- LoG spot detector params (mirrors realtime analysis script) ---
+pixel_size_nm: 65
+lambda_nm: 667
+zR: 344.5
+
+q_min: 1
+se_size: 15
+
+# keep spot if (mean(in5) - background_ring_median) > u0_min
+u0_min: 40
+
+# Optional: restrict detection like the realtime script
+# valid_mask_relpath: raw_staging/my_aoi_mask.tif
+# nuclei_labels_relpath: runs/<timestamp>__slice1_nuclei/nuclei_labels.tif
+nuclei_labels_relpath: runs/20260113T174703Z__slice1_nuclei\nuclei_labels.tif
+# crop_to_valid_bbox: true

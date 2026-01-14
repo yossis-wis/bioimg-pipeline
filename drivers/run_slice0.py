@@ -35,6 +35,24 @@ sys.path.insert(0, str(REPO_ROOT / "src"))
 from slice0_kernel import Slice0Params, detect_spots, REQUIRED_COLUMNS  # noqa: E402
 
 
+def _cfg_first(cfg: Dict[str, Any], keys: list[str], default: Any) -> Any:
+    """Return the first present key in `keys`, else default.
+
+    This helps us accept a few common alias names from notebooks/legacy scripts
+    (e.g. lambda0_nm vs lambda_nm).
+    """
+    for k in keys:
+        if k in cfg and cfg[k] is not None:
+            return cfg[k]
+    return default
+
+
+def _load_optional_tiff_2d(path: Path, *, channel: Optional[int] = None) -> np.ndarray:
+    """Load a TIFF and best-effort select a 2D plane."""
+    arr = tifffile.imread(str(path))
+    return _select_2d_plane(np.asarray(arr), channel=channel)
+
+
 def _load_config(path: Path) -> Dict[str, Any]:
     with path.open("r", encoding="utf-8") as f:
         return yaml.safe_load(f)
@@ -238,13 +256,96 @@ def run_slice0(config_path: Path) -> Path:
 
     # Read input -> 2D plane for Slice0
     img2d, input_info = _read_input_image_2d(input_path, cfg)
-    # Detect
-    params = Slice0Params(
-        threshold=float(cfg.get("threshold", 0.0)),
-        min_distance=int(cfg.get("min_distance", 3)),
-        smooth_sigma=float(cfg.get("smooth_sigma", 1.0)),
+
+    # Optional: restrict detection to an AOI/illumination mask.
+    # This mirrors `maxima_padded = maxima_padded * mask_crop` in your realtime script.
+    valid_mask_rel = _cfg_first(
+        cfg,
+        ["valid_mask_relpath", "aoi_mask_relpath", "illumination_mask_relpath"],
+        None,
     )
-    spots = detect_spots(img2d, params)
+    valid_mask = None
+    valid_mask_path = None
+    if valid_mask_rel:
+        valid_mask_path = (data_root / str(valid_mask_rel)).resolve()
+        if not valid_mask_path.exists():
+            raise FileNotFoundError(f"valid_mask_relpath not found: {valid_mask_path}")
+        valid_mask = _load_optional_tiff_2d(valid_mask_path)
+        valid_mask = (np.asarray(valid_mask) > 0)
+
+    # Optional: restrict detection to spots inside nuclei labels.
+    # This mirrors `maxima_padded = maxima_padded * nuclei_mask` in your realtime script.
+    nuclei_labels_rel = _cfg_first(cfg, ["nuclei_labels_relpath", "nuclei_mask_relpath"], None)
+    nuclei_labels = None
+    nuclei_labels_path = None
+    if nuclei_labels_rel:
+        nuclei_labels_path = (data_root / str(nuclei_labels_rel)).resolve()
+        if not nuclei_labels_path.exists():
+            raise FileNotFoundError(f"nuclei_labels_relpath not found: {nuclei_labels_path}")
+        nuclei_labels = _load_optional_tiff_2d(nuclei_labels_path)
+
+    # Detect (LoG-based; mirrors your realtime analysis script)
+    # Back-compat note: older configs used `threshold` for peak_local_max.
+    # We now interpret `threshold` as the u0 (mean(in5)-bkg) cutoff unless
+    # `u0_min` is explicitly set.
+    # max-filter window for local maxima detection.
+    # If a legacy config provides `min_distance` but not `se_size`, we map it to an
+    # odd window size (~2*min_distance+1) to preserve the rough intent.
+    if cfg.get("se_size", None) is None:
+        if "min_distance" in cfg:
+            se_size = int(2 * int(cfg.get("min_distance", 7)) + 1)
+        else:
+            se_size = 15
+    else:
+        se_size = int(cfg.get("se_size"))
+
+    # A few common key aliases are accepted for convenience.
+    zR = float(_cfg_first(cfg, ["zR", "zR_nm"], 344.5))
+    lambda_nm = float(_cfg_first(cfg, ["lambda_nm", "lambda0_nm", "lambda0"], 667.0))
+    pixel_size_nm = float(_cfg_first(cfg, ["pixel_size_nm", "pixel_size"], 65.0))
+
+    # u0 cutoff: prefer explicit u0_min/u0_threshold, else fall back to legacy `threshold`.
+    u0_min = _cfg_first(cfg, ["u0_min", "u0_threshold"], None)
+    if u0_min is None:
+        u0_min = cfg.get("threshold", 30.0)
+    u0_min = float(u0_min)
+
+    params = Slice0Params(
+        zR=zR,
+        lambda_nm=lambda_nm,
+        pixel_size_nm=pixel_size_nm,
+        q_min=float(cfg.get("q_min", 1.0)),
+        se_size=se_size,
+        window_radius_px=int(cfg.get("window_radius_px", 15)),
+        in5_radius_px=int(cfg.get("in5_radius_px", 2)),
+        in7_radius_px=int(cfg.get("in7_radius_px", 3)),
+        ring_outer_radius_px=int(cfg.get("ring_outer_radius_px", 10)),
+        ring_inner_radius_px=int(cfg.get("ring_inner_radius_px", 9)),
+        u0_min=u0_min,
+    )
+
+    # Optional: crop to the bounding box of the valid_mask to match the
+    # realtime script's "mask_indices" behavior (and speed up detection on large images).
+    crop_to_valid_bbox = bool(cfg.get("crop_to_valid_bbox", False))
+    crop_bbox_yxxy: Optional[list[int]] = None
+    if crop_to_valid_bbox and valid_mask is not None:
+        yy, xx = np.where(valid_mask)
+        if yy.size == 0:
+            spots = pd.DataFrame(columns=REQUIRED_COLUMNS)
+        else:
+            y0, y1 = int(yy.min()), int(yy.max()) + 1
+            x0, x1 = int(xx.min()), int(xx.max()) + 1
+            crop_bbox_yxxy = [y0, y1, x0, x1]
+            img_crop = np.asarray(img2d)[y0:y1, x0:x1]
+            vm_crop = np.asarray(valid_mask)[y0:y1, x0:x1]
+            nl_crop = np.asarray(nuclei_labels)[y0:y1, x0:x1] if nuclei_labels is not None else None
+
+            spots = detect_spots(img_crop, params, valid_mask=vm_crop, nuclei_labels=nl_crop)
+            if not spots.empty:
+                spots["y_px"] = spots["y_px"] + float(y0)
+                spots["x_px"] = spots["x_px"] + float(x0)
+    else:
+        spots = detect_spots(img2d, params, valid_mask=valid_mask, nuclei_labels=nuclei_labels)
 
     # Create run folder
     runs_dir = (data_root / cfg.get("output_runs_dir", "runs")).resolve()
@@ -272,6 +373,11 @@ def run_slice0(config_path: Path) -> Path:
         "num_spots": int(len(spots)),
         "qc_overlay": str(qc_path),
         "kernel_params": asdict(params),
+        # optional inputs (safe additions)
+        "valid_mask_path": str(valid_mask_path) if valid_mask_path is not None else None,
+        "nuclei_labels_path": str(nuclei_labels_path) if nuclei_labels_path is not None else None,
+        "crop_to_valid_bbox": bool(crop_to_valid_bbox),
+        "crop_bbox_yxxy": crop_bbox_yxxy,
     }
 
     manifest.update(input_info)
