@@ -1,0 +1,39 @@
+# Integrated Slice: Nuclei Segmentation + Spot Detection (Real Data)
+
+input_relpath: raw_staging/my_experiment.ims
+output_runs_dir: runs
+
+# Input Channels (1-based)
+# Check your Imaris file to see which channel is DAPI (Nuclei) vs FISH (Spots)
+# channel_spots can be a list, e.g. [2, 3]
+channel_nuclei: 1
+channel_spots: 2
+# Optional: path to precomputed nuclei labels (skip StarDist)
+# nuclei_labels_relpath: runs/<timestamp>__integrated/nuclei_labels.tif
+# Optional: skip segmentation when no nuclei channel is present
+# skip_nuclei_segmentation: true
+# Optional: restrict spot detection to a boolean mask (nonzero = valid)
+# valid_mask_relpath: raw_staging/my_valid_mask.tif
+
+# Imaris Selection
+ims_resolution_level: 0
+ims_time_index: 0
+ims_z_index: 0
+
+# --- Nuclei Segmentation (StarDist) ---
+stardist_model_dir: models/y22m01d12_model_0
+nuc_prob_thresh: 0.6
+nuc_normalize_pmin: 1.0
+nuc_normalize_pmax: 99.8
+
+# --- Spot Detection (LoG) ---
+spot_pixel_size_nm: 65
+spot_lambda_nm: 667
+spot_zR: 344.5
+spot_u0_min: 30
+
+# --- Visual QC ---
+qc_cutout_size: 80
+qc_max_cutouts: 50
+qc_montage_cols: 10
+# qc_sample_seed: 0

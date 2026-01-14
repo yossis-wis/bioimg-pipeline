@@ -51,7 +51,7 @@ This ensures no conflicting library versions remain.
 
 2. Remove the environment:
    ```zsh
-   conda remove -n bioimg-slice0 --all
+   conda remove -n bioimg-pipeline --all
    ```
 
 3. Verify it's gone:
@@ -59,7 +59,7 @@ This ensures no conflicting library versions remain.
    conda env list
    ```
 
-   Ensure `bioimg-slice0` is not in the list.
+   Ensure `bioimg-pipeline` is not in the list.
 
 ---
 
@@ -194,7 +194,7 @@ find ~/Code -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null
 Before starting the setup guide: 
 
 ```zsh
-# Should show no bioimg-slice0
+# Should show no bioimg-pipeline
 conda env list
 
 # Should say "No such file or directory"
@@ -231,8 +231,8 @@ echo "Step 1: Deactivating conda..."
 conda deactivate 2>/dev/null
 
 echo ""
-echo "Step 2: Removing conda environment 'bioimg-slice0'..."
-conda remove --name bioimg-slice0 --all -y 2>/dev/null && echo "  ✅ Removed" || echo "  ℹ️  Not found"
+echo "Step 2: Removing conda environment 'bioimg-pipeline'..."
+conda remove --name bioimg-pipeline --all -y 2>/dev/null && echo "  ✅ Removed" || echo "  ℹ️  Not found"
 
 echo ""
 echo "Step 3: Cleaning conda cache..."

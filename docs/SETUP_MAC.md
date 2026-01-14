@@ -57,7 +57,7 @@ If you have a standalone Spyder installation, **uninstall it** before proceeding
    rm -rf ~/Library/Application\ Support/spyder-py3
    ```
 
-**Why?** The standalone Spyder uses its own bundled Python and won't see your `bioimg-slice0` packages.  Your `environment.yml` already includes Spyder—use that version instead.
+**Why?** The standalone Spyder uses its own bundled Python and won't see your `bioimg-pipeline` packages.  Your `environment.yml` already includes Spyder—use that version instead.
 
 ---
 
@@ -137,7 +137,7 @@ From the repo root (`~/Code/bioimg-pipeline`):
 ```zsh
 cd ~/Code/bioimg-pipeline
 conda env create -f environment.yml
-conda activate bioimg-slice0
+conda activate bioimg-pipeline
 python scripts/verify_setup.py
 ```
 
@@ -148,7 +148,7 @@ Expected: the script ends with `SETUP OK ✅`.
 If `environment.yml` changes in the future:
 
 ```zsh
-conda activate bioimg-slice0
+conda activate bioimg-pipeline
 conda env update -f environment.yml --prune
 python scripts/verify_setup.py
 ```
@@ -162,9 +162,9 @@ python scripts/verify_setup.py
 3. Select the interpreter:
    - Press `Cmd+Shift+P`
    - Search: **Python: Select Interpreter**
-   - Choose: **bioimg-slice0**
+   - Choose: **bioimg-pipeline**
 
-VS Code should now show `bioimg-slice0` in the bottom status bar.
+VS Code should now show `bioimg-pipeline` in the bottom status bar.
 
 ---
 
@@ -173,7 +173,7 @@ VS Code should now show `bioimg-slice0` in the bottom status bar.
 If you open a `.ipynb` notebook:
 
 1. Click **Select Kernel** (top-right in the notebook toolbar)
-2. Choose the kernel/interpreter for **bioimg-slice0**
+2. Choose the kernel/interpreter for **bioimg-pipeline**
 
 Quick sanity cell:
 
@@ -183,7 +183,7 @@ print(sys.executable)
 print(os.environ.get("BIOIMG_DATA_ROOT"))
 ```
 
-You should see the `.../miniforge3/envs/bioimg-slice0/bin/python` path and your data root.
+You should see the `.../miniforge3/envs/bioimg-pipeline/bin/python` path and your data root.
 
 ---
 
@@ -192,7 +192,7 @@ You should see the `.../miniforge3/envs/bioimg-slice0/bin/python` path and your 
 Launch Spyder from within the activated environment:
 
 ```zsh
-conda activate bioimg-slice0
+conda activate bioimg-pipeline
 spyder &
 ```
 
@@ -209,7 +209,7 @@ Recommendation:
 
 | Action | Command |
 |--------|---------|
-| Activate environment | `conda activate bioimg-slice0` |
+| Activate environment | `conda activate bioimg-pipeline` |
 | Deactivate environment | `conda deactivate` |
 | Update environment | `conda env update -f environment.yml --prune` |
 | List environments | `conda env list` |
