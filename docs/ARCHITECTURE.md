@@ -1,74 +1,26 @@
-# One-Page White Paper: “Slice 0” Plan
+# One-Page White Paper: Integrated Slice
 
-**Goal:** a minimal, end-to-end working pipeline that can evolve into the full system.
+**Goal:** An end-to-end pipeline that segments nuclei and detects spots within them.
 
-## Objective
+## Workflow
 
-Produce a reproducible, portable pipeline “vertical slice” that:
+1. **Input:** Multi-channel image (TIFF or Imaris .ims).
+   - Optional Channel A: Nuclear marker (e.g., DAPI)
+   - One or more spot channels (e.g., FISH, protein)
+2. **Kernel 1 (Segmentation):** StarDist runs on Channel A -> `nuclei_labels.tif` (or reuse a precomputed label image).
+3. **Kernel 2 (Detection):** LoG detector runs on each spot channel, masked by `nuclei_labels` if provided -> `spots.parquet`.
+4. **QC Generation:**
+   - **Overlay:** Full frame image showing nuclei contours and spot locations.
+   - **Montage:** 80x80 pixel cutouts of spots from both channels, stitched into a multi-channel TIFF.
 
-- Reads a single microscopy image (TIFF)
-- Detects candidate spots with a simple method (baseline detector)
-- Outputs a standardized table of spot coordinates and basic metrics
-- Writes a run manifest capturing metadata and reproducibility details
+## Contracts
 
-## Architecture: Kernel – Driver – Manifest
+### Spots Table (`spots.parquet`)
+- `y_px`, `x_px`: Spot coordinates.
+- `intensity`: Spot intensity.
+- `nucleus_label`: ID of the nucleus containing the spot.
+- `snr`: Signal-to-noise ratio.
 
-**Kernel:** pure computation (no file I/O).  
-Input: image array + parameters. Output: spot table.
-
-Example signature:
-
-- `detect_spots(I, θ) -> T_spots`
-
-**Driver:** orchestrates file I/O and run structure.  
-Loads config, reads image, calls kernel, writes outputs.
-
-Example:
-
-- `run_slice0(config.yaml) -> run_folder`
-
-**Manifest:** stored with outputs for reproducibility.  
-Contains timestamp, input file path, config snapshot, git commit hash, environment info.
-
-## Storage and Compute Geography
-
-Separate concerns:
-
-- **Code repo** (small, versioned): lives in Git (e.g. `C:\Code\bioimg-pipeline`)
-- **Data bench** (large, not versioned): lives outside Git (e.g. `D:\bioimg-data`)
-- **Docs** (human-readable): can live in OneDrive separately
-
-| Layer | Location | Rule |
-|---|---|---|
-| Code | Git repo | Only source + configs + docs |
-| Raw/Intermediate data | Data bench | Never committed, not synced |
-| Outputs (runs) | Data bench / `runs/` | Timestamped, reproducible |
-| Docs | OneDrive | Notes, plots, papers |
-
-## Slice 0 Contracts
-
-### A) Spots table schema (minimal but future-compatible)
-
-- `frame` (int)
-- `y_px`, `x_px` (float)
-- `intensity_adu` (float)
-- `background_adu` (float)
-- `snr` (float)
-
-### B) Manifest keys
-
-- `timestamp`
-- `input_path`
-- `config_snapshot`
-- `git_commit`
-- `output_folder`
-
-## Incremental Steps to Implement Slice 0
-
-1. Create repo structure: `src/`, `drivers/`, `configs/`, `docs/`
-2. Create data bench folders: `raw_staging/`, `runs/`, `cache/`
-3. Set environment variable: `BIOIMG_DATA_ROOT = D:\bioimg-data`
-4. Write `configs/dev.yaml` for threshold + paths
-5. Implement kernel: simple detector (threshold or LoG)
-6. Implement driver: read TIFF, call kernel, write `spots.parquet` + `manifest.yaml`
-7. Verify end-to-end run on one image, commit code
+### Run Manifest (`run_manifest.yaml`)
+- `timestamp`, `git_commit`, `input_path`.
+- `outputs`: Filenames of all generated artifacts.

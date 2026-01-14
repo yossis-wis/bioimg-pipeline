@@ -30,7 +30,15 @@ import numpy as np
 import pandas as pd
 
 
-REQUIRED_COLUMNS = ["frame", "y_px", "x_px", "intensity", "background", "snr"]
+REQUIRED_COLUMNS = [
+    "frame",
+    "y_px",
+    "x_px",
+    "intensity",
+    "background",
+    "snr",
+    "nucleus_label",
+]
 
 
 @dataclass(frozen=True)

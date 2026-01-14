@@ -1,4 +1,4 @@
-name: bioimg-slice0
+name: bioimg-pipeline
 channels:
   - conda-forge
 

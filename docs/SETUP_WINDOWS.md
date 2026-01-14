@@ -113,7 +113,7 @@ From repo root (`C:\Code\bioimg-pipeline`):
 ```bat
 cd C:\Code\bioimg-pipeline
 conda env create -f environment.yml
-conda activate bioimg-slice0
+conda activate bioimg-pipeline
 python scripts/verify_setup.py
 ```
 
@@ -124,7 +124,7 @@ Expected: the script ends with `SETUP OK ✅`.
 If `environment.yml` changes in the future:
 
 ```bat
-conda activate bioimg-slice0
+conda activate bioimg-pipeline
 conda env update -f environment.yml --prune
 python scripts/verify_setup.py
 ```
@@ -138,7 +138,7 @@ python scripts/verify_setup.py
 3. Select the interpreter:
    - Press `Ctrl+Shift+P`
    - Search: **Python: Select Interpreter**
-   - Choose: **bioimg-slice0**
+   - Choose: **bioimg-pipeline**
 
 ### Set the default terminal in VS Code to Command Prompt (recommended)
 
@@ -157,7 +157,7 @@ After this change, new terminals in VS Code will open as Command Prompt with the
 If you open a `.ipynb` notebook:
 
 1. Click **Select Kernel** (top-right in the notebook toolbar)
-2. Choose the kernel/interpreter for **bioimg-slice0**
+2. Choose the kernel/interpreter for **bioimg-pipeline**
 
 Quick sanity cell:
 
@@ -167,7 +167,7 @@ print(sys.executable)
 print(os.environ.get("BIOIMG_DATA_ROOT"))
 ```
 
-You should see the `...miniconda3\envs\bioimg-slice0\python.exe` path and your data root.
+You should see the `...miniconda3\envs\bioimg-pipeline\python.exe` path and your data root.
 
 ---
 
@@ -176,7 +176,7 @@ You should see the `...miniconda3\envs\bioimg-slice0\python.exe` path and your d
 If Spyder is included in your environment, you can launch it from an activated terminal:
 
 ```bat
-conda activate bioimg-slice0
+conda activate bioimg-pipeline
 spyder
 ```
 

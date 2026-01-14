@@ -1,133 +1,56 @@
 # bioimg-pipeline
 
-## Slice0 (simulated TIFF first)
+## Integrated Slice (Nuclei + Spots)
 
-1) Verify your bench + environment:
+This pipeline performs **nuclear segmentation** (StarDist) and **spot detection** (LoG) in a single pass. It produces quality control artifacts including spot cutouts and visual overlays.
+
+### 1) Setup & Verification
 
 ```bash
 python scripts/verify_setup.py
 ```
 
-2) Generate a deterministic synthetic TIFF in your data bench:
+### 2) Run on Simulated Data
+
+Generate a synthetic 2-channel TIFF (Ch1: Nuclei, Ch2: Spots):
 
 ```bash
-python scripts/generate_phantom_tiff.py --config configs/sim.yaml
+python scripts/generate_phantom_tiff.py --config configs/integrated_sim.yaml
 ```
 
-3) Run Slice0 on that TIFF (same path you'd use for real data later):
+Run the integrated analysis:
 
 ```bash
-python drivers/run_slice0.py --config configs/sim.yaml
+python drivers/run_integrated.py --config configs/integrated_sim.yaml
 ```
 
-Outputs are written under:
+### 3) Run on Real Data (`.ims` or `.tif`)
 
-`$BIOIMG_DATA_ROOT/runs/<timestamp>__slice0/`
-
-Expected artifacts:
-- `spots.parquet`
-- `run_manifest.yaml`
-- `qc_overlay.png`
-## Slice0 on a real Imaris `.ims` file
-
-Your Andor Dragonfly/Imaris `.ims` files are HDF5-backed. This repo now supports reading a **single 2D plane**
-directly from `.ims` (no manual conversion required).
-
-Prerequisite (only needed for `.ims`):
-
-*If you created your environment from the current `environment.yml`, `h5py` is
-already included.*
-
-If you're using an older environment that doesn't have `h5py` yet:
+1. Copy your image to `$BIOIMG_DATA_ROOT/raw_staging/`.
+2. Ensure you have your StarDist model in `$BIOIMG_DATA_ROOT/models/`.
+3. Create a config (copy `configs/integrated_ims.yaml`) and update:
+   - `input_relpath`
+   - `channel_nuclei` and `channel_spots` (1-based indices; `channel_spots` can be a list like `[2, 3]`)
+   - Detector parameters
+4. (Optional) If you already have nuclei labels from another tool, set
+   `nuclei_labels_relpath` to skip StarDist segmentation.
+5. (Optional) If you have no nuclear channel, set `skip_nuclei_segmentation: true`
+   and omit `channel_nuclei`.
+6. (Optional) To restrict detection to a region of interest, set
+   `valid_mask_relpath` to a 2D mask (nonzero = valid).
 
 ```bash
-conda install -c conda-forge h5py
+python drivers/run_integrated.py --config configs/integrated_ims.yaml
 ```
 
-1) Copy your `.ims` into your data bench, e.g.:
-`$BIOIMG_DATA_ROOT/raw_staging/my_image.ims`
+### Outputs
 
-2) Create a config (or edit the example):
+Located in `$BIOIMG_DATA_ROOT/runs/<timestamp>__integrated/`:
 
-LINUX
-```bash
-# copy the example and edit input_relpath + detector params
-cp configs/ims_example.yaml configs/ims.yaml
-```
-WINDOWS CMD
-```bash
-# copy the example and edit input_relpath + detector params
-copy configs/ims_example.yaml configs/ims.yaml
-```
-3) Run Slice0:
-```bash
-python drivers/run_slice0.py --config configs/ims.yaml
-```
-
-### `.ims` config keys
-
-- `channel` (1-based): `1 => Channel 0`, `2 => Channel 1`, etc.
-- `ims_resolution_level` (default `0`)
-- `ims_time_index` (default `0`)
-- `ims_z_index` (default `0`)
-
-Optional (mirrors the realtime script's masking steps):
-
-- `valid_mask_relpath`: path (relative to `$BIOIMG_DATA_ROOT`) to a 2D mask image
-  (nonzero=True). If provided, candidate maxima are restricted to this mask.
-  Aliases accepted: `aoi_mask_relpath`, `illumination_mask_relpath`.
-- `nuclei_labels_relpath`: path to a 2D label image (e.g. Slice1 output
-  `nuclei_labels.tif`). If provided, candidate maxima are restricted to labels>0.
-  Alias accepted: `nuclei_mask_relpath`.
-- `crop_to_valid_bbox` (default `false`): if true and `valid_mask_relpath` is
-  provided, Slice0 will crop to the mask's bounding box before detection, then
-  map spot coordinates back to the full image.
-
-The output artifacts are the same as the TIFF path:
-- `spots.parquet`
-- `run_manifest.yaml`
-- `qc_overlay.png` (overlay of predicted spots on the 2D plane)
-
----
-
-## Slice1 (StarDist nuclei segmentation)
-
-Slice1 segments nuclei from a single 2D plane (TIFF or Imaris `.ims`) using a
-StarDist2D model.
-
-### 1) Put inputs in your data bench
-
-1. Put an input image under your bench, e.g.:
-   * `$BIOIMG_DATA_ROOT/raw_staging/my_image.ims`
-   * or `$BIOIMG_DATA_ROOT/raw_staging/my_image.tif`
-
-2. Put your StarDist model folder under your bench (outside git), e.g.:
-   * `$BIOIMG_DATA_ROOT/models/y22m01d12_model_0/`
-
-The model folder should contain files like `config.json`, `thresholds.json`, and
-`weights_best.h5`.
-
-### 2) Configure
-
-Edit `configs/slice1_nuclei.yaml`:
-
-* `input_relpath`: relative to `$BIOIMG_DATA_ROOT`
-* `channel` / `ims_*` keys if you are reading `.ims`
-* `stardist_model_dir`: absolute or relative to `$BIOIMG_DATA_ROOT`
-
-### 3) Run
-
-```bash
-python drivers/run_slice1_nuclei.py --config configs/slice1_nuclei.yaml
-```
-
-Outputs are written under:
-
-`$BIOIMG_DATA_ROOT/runs/<timestamp>__slice1_nuclei/`
-
-Expected artifacts:
-
-* `nuclei_labels.tif`
-* `qc_overlay.png`
-* `run_manifest.yaml`
-* (optional) `nuclei.parquet`
+- `spots.parquet`: Table of detected spots (inside nuclei).
+- `nuclei_labels.tif`: Integer labels of segmented nuclei.
+- `qc_overlay.png`: Spot channel image with nuclei outlines (red) and spots (cyan).
+- `qc_cutouts.tif`: Multi-channel TIFF montage of spot crops (open in Fiji).
+  For multiple spot channels, QC outputs are written per channel (e.g. `qc_overlay_ch2.png`).
+- By default the montage samples the highest-SNR spots; set `qc_sample_seed` to shuffle instead.
+- `run_manifest.yaml`: Run metadata.

@@ -6,7 +6,7 @@ import subprocess
 from pathlib import Path
 
 
-# Modules required for Slice0 + file I/O
+# Modules required for integrated workflow + file I/O
 REQUIRED_IMPORTS = [
     "numpy",
     "pandas",
@@ -16,11 +16,6 @@ REQUIRED_IMPORTS = [
     "skimage",
     "matplotlib",
     "h5py",  # needed for reading Imaris .ims
-]
-
-# Modules needed for Slice1 (StarDist) — treated as optional so Slice0-only users
-# can still pass verify_setup if they haven't installed the heavy deps yet.
-OPTIONAL_IMPORTS = [
     "stardist",
     "csbdeep",
     "tensorflow",
@@ -38,14 +33,6 @@ def try_git_commit(repo_root: Path) -> str | None:
         return out
     except Exception:
         return None
-
-
-def _try_import(module: str) -> bool:
-    try:
-        __import__(module)
-        return True
-    except Exception:
-        return False
 
 
 def main() -> int:
@@ -84,7 +71,8 @@ def main() -> int:
     required_repo_files = [
         "environment.yml",
         "docs/CONTRACTS.md",
-        "configs/dev.yaml",
+        "configs/integrated_sim.yaml",
+        "configs/integrated_ims.yaml",
     ]
     for rel in required_repo_files:
         p = repo_root / rel
@@ -102,19 +90,13 @@ def main() -> int:
             print(f"ERROR: import {mod} failed: {e}")
             return 2
 
-    # 5) Optional Slice1 imports
-    print("\nOptional Slice1 (StarDist) imports:")
-    for mod in OPTIONAL_IMPORTS:
-        ok = _try_import(mod)
-        print(f"  {mod}: {'OK' if ok else 'MISSING'}")
-
-    # 6) Write test to runs/
+    # 5) Write test to runs/
     test_dir = data_root / "runs" / "_setup_write_test"
     test_dir.mkdir(parents=True, exist_ok=True)
     (test_dir / "touch.txt").write_text("ok\n", encoding="utf-8")
     print(f"\nwrite test: OK ({test_dir})")
 
-    # 7) Git commit (optional)
+    # 6) Git commit (optional)
     commit = try_git_commit(repo_root)
     if commit:
         print(f"git_commit: {commit[:12]}")
