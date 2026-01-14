@@ -1,0 +1,40 @@
+# Simulation config for Slice0 (synthetic TIFF -> run Slice0)
+# 1) Generate the phantom TIFF:
+#    python scripts/generate_phantom_tiff.py --config configs/sim.yaml
+# 2) Run Slice0 on that TIFF:
+#    python drivers/run_slice0.py --config configs/sim.yaml
+
+input_relpath: raw_staging/phantom_slice0.tif
+output_runs_dir: runs
+
+# Detector parameters (LoG; mirrors realtime analysis script)
+pixel_size_nm: 65
+lambda_nm: 667
+zR: 344.5
+
+q_min: 1
+se_size: 15
+
+# keep spot if (mean(in5) - background_ring_median) > u0_min
+u0_min: 30
+
+# Optional: restrict detection like the realtime script
+# valid_mask_relpath: raw_staging/my_aoi_mask.tif
+# nuclei_labels_relpath: runs/<timestamp>__slice1_nuclei/nuclei_labels.tif
+# crop_to_valid_bbox: true
+
+# For multi-dimensional TIFFs (when you switch to real data):
+# channel is treated as 1-based if >=1 (channel: 1 means first channel).
+channel: 1
+
+# --- Simulation parameters (used only by scripts/generate_phantom_tiff.py) ---
+sim_seed: 42
+sim_height: 512
+sim_width: 512
+sim_num_spots: 40
+sim_sigma_px: 1.5
+sim_min_separation_px: 8.0
+sim_background_level: 100.0
+sim_noise_sigma: 10.0
+sim_intensity_min: 800.0
+sim_intensity_max: 2500.0
