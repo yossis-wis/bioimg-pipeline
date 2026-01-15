@@ -1,7 +1,26 @@
 # Integrated Slice: Nuclei Segmentation + Spot Detection (Real Data)
 
-input_relpath: raw_staging/my_experiment.ims
+# Input can be a single file, a list, or a glob pattern.
+# Use ONE of: input_relpath, input_relpaths, input_glob.
+# (Paths can be absolute; absolute paths will bypass BIOIMG_DATA_ROOT.)
+# input_glob: "S:/BIC/<user>/equipment/<instrument>/<date>/*/*.ims"
+# input_relpath: raw_staging/my_experiment.ims
+# input_relpaths:
+#   - raw_staging/sample_a.ims
+#   - raw_staging/sample_b.ims
+
+# Store intermediate outputs locally under BIOIMG_DATA_ROOT.
 output_runs_dir: runs
+# Optionally copy final outputs to a writable storWIS location.
+# publish_dir: "S:/<user>/bioimg-results/<date>"
+# publish_mirror: true
+# input_base_dir: "S:/BIC/<user>/equipment/<instrument>/<date>"
+
+# Batch behavior
+# continue_on_error: true
+# skip_existing: false
+# batch_dir_name: "2025-12-31__integrated_batch"
+# batch_aggregate_spots: false
 
 # Input Channels (1-based)
 # Check your Imaris file to see which channel is DAPI (Nuclei) vs FISH (Spots)
