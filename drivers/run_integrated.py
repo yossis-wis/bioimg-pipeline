@@ -135,6 +135,7 @@ def _publish_output_dir(
     publish_mirror: bool,
     input_base_dir: Optional[Path],
     publish_batch_root: Optional[str],
+    publish_mode: str,
 ) -> Path:
     if publish_mirror:
         if not input_base_dir:
@@ -152,8 +153,23 @@ def _publish_output_dir(
         target_root = target_root / publish_batch_root
     target_root.mkdir(parents=True, exist_ok=True)
     dest_dir = target_root / source_dir.name
-    shutil.copytree(source_dir, dest_dir, dirs_exist_ok=True)
+    mode = str(publish_mode or "error").lower()
+    if mode not in {"error", "overwrite", "merge"}:
+        raise ValueError(f"publish_mode must be one of: error, overwrite, merge (got {publish_mode})")
+    if dest_dir.exists():
+        if mode == "error":
+            raise FileExistsError(f"Publish destination already exists: {dest_dir}")
+        if mode == "overwrite":
+            shutil.rmtree(dest_dir)
+    shutil.copytree(source_dir, dest_dir, dirs_exist_ok=(mode == "merge"))
     return dest_dir
+
+
+def _is_run_complete(run_dir: Path) -> bool:
+    manifest_path = run_dir / "run_manifest.yaml"
+    spots_path = run_dir / "spots.parquet"
+    done_path = run_dir / "DONE"
+    return done_path.exists() or (manifest_path.exists() and spots_path.exists())
 
 
 def _assert_tiff_channel(path: Path, channel: int) -> None:
@@ -498,6 +514,9 @@ def _run_integrated_single(
     with (out_dir / "run_manifest.yaml").open("w", encoding="utf-8") as f:
         yaml.safe_dump(manifest, f, sort_keys=False)
 
+    with (out_dir / "DONE").open("w", encoding="utf-8") as f:
+        f.write(f"completed_at: {datetime.now(timezone.utc).isoformat()}\n")
+
     print(f"Integrated run complete: {out_dir}")
     return out_dir
 
@@ -515,12 +534,31 @@ def run_integrated(config_path: Path) -> Path:
     publish_dir = _resolve_optional_path(cfg.get("publish_dir"), data_root)
     publish_mirror = bool(cfg.get("publish_mirror", False))
     input_base_dir = _resolve_optional_path(cfg.get("input_base_dir"), data_root)
+    publish_mode = cfg.get("publish_mode", "error")
+    republish_skipped = bool(cfg.get("republish_skipped", False))
 
     if len(input_paths) == 1:
         out_dir = runs_dir / f"{stamp}__integrated"
         if out_dir.exists() and bool(cfg.get("skip_existing", False)):
-            print(f"Skipping existing output: {out_dir}")
-            return out_dir
+            if _is_run_complete(out_dir):
+                print(f"Skipping existing output: {out_dir}")
+                if publish_dir and republish_skipped:
+                    try:
+                        _publish_output_dir(
+                            out_dir,
+                            input_path=input_paths[0],
+                            publish_dir=publish_dir,
+                            publish_mirror=publish_mirror,
+                            input_base_dir=input_base_dir,
+                            publish_batch_root=None,
+                            publish_mode=publish_mode,
+                        )
+                    except Exception as exc:
+                        print(f"Republish failed for {input_paths[0]}: {exc}")
+                return out_dir
+            raise FileExistsError(
+                f"Output directory exists but is incomplete: {out_dir}"
+            )
         run_dir = _run_integrated_single(
             cfg,
             data_root=data_root,
@@ -538,6 +576,7 @@ def run_integrated(config_path: Path) -> Path:
                     publish_mirror=publish_mirror,
                     input_base_dir=input_base_dir,
                     publish_batch_root=None,
+                    publish_mode=publish_mode,
                 )
             except Exception as exc:
                 publish_status = "failed"
@@ -567,14 +606,48 @@ def run_integrated(config_path: Path) -> Path:
         run_name = _safe_run_name(input_path.stem)
         run_dir = batch_dir / f"{idx:03d}__{run_name}"
         if run_dir.exists() and skip_existing:
-            batch_entries.append(
-                {
+            if _is_run_complete(run_dir):
+                entry: Dict[str, Any] = {
                     "input_path": str(input_path),
                     "output_dir": str(run_dir),
                     "status": "skipped",
                 }
-            )
-            print(f"[{idx}/{len(input_paths)}] Skipping existing: {input_path}")
+                print(f"[{idx}/{len(input_paths)}] Skipping existing: {input_path}")
+                if publish_dir and republish_skipped:
+                    publish_status = "completed"
+                    publish_error = None
+                    published = None
+                    try:
+                        published = _publish_output_dir(
+                            run_dir,
+                            input_path=input_path,
+                            publish_dir=publish_dir,
+                            publish_mirror=publish_mirror,
+                            input_base_dir=input_base_dir,
+                            publish_batch_root=batch_dir.name,
+                            publish_mode=publish_mode,
+                        )
+                    except Exception as exc:
+                        publish_status = "failed"
+                        publish_error = str(exc)
+                        print(f"Republish failed for {input_path}: {exc}")
+                    entry["publish_status"] = publish_status
+                    if publish_error:
+                        entry["publish_error"] = publish_error
+                    if published:
+                        entry["published_dir"] = str(published)
+                batch_entries.append(entry)
+                continue
+            entry = {
+                "input_path": str(input_path),
+                "output_dir": str(run_dir),
+                "status": "failed",
+                "error": "Existing output directory is incomplete; remove it to rerun.",
+            }
+            batch_entries.append(entry)
+            print(f"[{idx}/{len(input_paths)}] Incomplete output exists: {input_path}")
+            if not continue_on_error:
+                break
             continue
 
         print(f"[{idx}/{len(input_paths)}] Running integrated analysis on: {input_path}")
@@ -602,6 +675,7 @@ def run_integrated(config_path: Path) -> Path:
                         publish_mirror=publish_mirror,
                         input_base_dir=input_base_dir,
                         publish_batch_root=batch_dir.name,
+                        publish_mode=publish_mode,
                     )
                 except Exception as exc:
                     publish_status = "failed"

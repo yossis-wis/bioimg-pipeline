@@ -37,10 +37,13 @@ python drivers/run_integrated.py --config configs/integrated_sim.yaml
    - Keep `output_runs_dir` under `BIOIMG_DATA_ROOT` for fast local writes.
    - Set `publish_dir` to a writable storWIS location to copy final outputs.
    - Set `publish_mirror: true` and `input_base_dir` to mirror subfolders (e.g. `.../5ms`, `.../45ms`).
-   - Batch publishes land under `publish_dir/<batch_dir_name-or-timestamp>/...` to avoid collisions.
+     - Mirror mode publishes to `publish_dir/<condition>/<batch_root>/<run_dir>`.
+     - Non-mirror mode publishes to `publish_dir/<batch_root>/<run_dir>`.
+   - Set `publish_mode` to control collisions (`error`, `overwrite`, `merge`).
 4. (Optional) For batch robustness:
    - `continue_on_error: true` to keep processing after a failed file.
-   - `skip_existing: true` to resume without redoing completed outputs.
+   - `skip_existing: true` to resume without redoing completed outputs (requires a prior `run_manifest.yaml`).
+   - `republish_skipped: true` to retry publishing for skipped runs.
    - `batch_dir_name` to reuse a stable output folder name across reruns.
    - `batch_aggregate_spots: true` to write a combined `spots_aggregate.parquet`.
 5. (Optional) If you already have nuclei labels from another tool, set
