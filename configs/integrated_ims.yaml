@@ -15,10 +15,12 @@ output_runs_dir: runs
 # publish_dir: "S:/<user>/bioimg-results/<date>"
 # publish_mirror: true
 # input_base_dir: "S:/BIC/<user>/equipment/<instrument>/<date>"
+# publish_mode: "error"  # error | overwrite | merge
 
 # Batch behavior
 # continue_on_error: true
 # skip_existing: false
+# republish_skipped: false
 # batch_dir_name: "2025-12-31__integrated_batch"
 # batch_aggregate_spots: false
 
