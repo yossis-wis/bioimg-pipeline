@@ -1,4 +1,5 @@
 # Integrated Slice: Nuclei Segmentation + Spot Detection (Real Data)
+# Template file. Copy to configs/local/integrated_ims.local.yaml and edit locally.
 
 # Input can be a single file, a list, or a glob pattern.
 # Use ONE of: input_relpath, input_relpaths, input_glob.
@@ -12,7 +13,7 @@
 # Store intermediate outputs locally under BIOIMG_DATA_ROOT.
 output_runs_dir: runs
 # Optionally copy final outputs to a writable storWIS location.
-# publish_dir: "S:/<user>/bioimg-results/<date>"
+# publish_dir: "S:/bioimg-results/<user>/<date>"
 # publish_mirror: true
 # input_base_dir: "S:/BIC/<user>/equipment/<instrument>/<date>"
 # publish_mode: "error"  # error | overwrite | merge
@@ -42,6 +43,7 @@ ims_time_index: 0
 ims_z_index: 0
 
 # --- Nuclei Segmentation (StarDist) ---
+# stardist_model_dir should point to a folder under BIOIMG_DATA_ROOT/models/
 stardist_model_dir: models/y22m01d12_model_0
 nuc_prob_thresh: 0.3
 nuc_normalize_pmin: 1.0
