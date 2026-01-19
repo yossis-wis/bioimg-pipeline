@@ -4,7 +4,7 @@ from pathlib import Path
 from datetime import datetime
 
 # --- Configuration ---
-OUTPUT_FILE = "repo_context.txt"
+OUTPUT_FILE = "reports/repo_context.txt"
 MAX_FILE_SIZE_KB = 500  # Skip files larger than this (avoids data dumps)
 
 # Even with git ls-files, we want to explicitly skip certain extensions 
