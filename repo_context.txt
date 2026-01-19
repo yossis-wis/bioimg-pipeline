@@ -1,0 +1,3577 @@
+REPO CONTEXT SNAPSHOT
+Generated: 2026-01-19T12:07:13.013065
+Source: bioimg-pipeline
+========================================
+
+Project Directory Structure:
+├── .gitattributes
+├── .gitignore
+├── README.md
+├── configs/integrated_ims.example.yaml
+├── configs/integrated_sim.yaml
+├── docs/ARCHITECTURE.md
+├── docs/CLEANUP_MAC.md
+├── docs/CONTRACTS.md
+├── docs/NOTEBOOKS.md
+├── docs/SETUP_MAC.md
+├── docs/SETUP_WINDOWS.md
+├── drivers/README.md
+├── drivers/__init__.py
+├── drivers/run_integrated.py
+├── environment.yml
+├── notebooks/01_step_by_step_integrated_qc.py
+├── notebooks/02_review_run_folder.py
+├── notebooks/_TEMPLATE__jupytext_percent.py
+├── scripts/generate_phantom_tiff.py
+├── scripts/verify_setup.py
+├── src/README.md
+├── src/__init__.py
+├── src/image_io.py
+├── src/simulate_phantom.py
+├── src/slice0_kernel.py
+├── src/slice1_nuclei_kernel.py
+├── src/stardist_utils.py
+├── src/vis_utils.py
+
+========================================
+
+----- START FILE: .gitattributes -----
+<file path=".gitattributes">
+# Auto detect text files and perform LF normalization
+* text=auto
+
+</file>
+----- END FILE: .gitattributes -----
+
+----- START FILE: .gitignore -----
+<file path=".gitignore">
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+
+# --- Packaging / builds ---
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# --- Test / tooling caches ---
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# --- Jupyter ---
+.ipynb_checkpoints/
+*.ipynb
+
+# --- VS Code ---
+.vscode/
+*.code-workspace
+
+# --- OS junk ---
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# --- Local artifacts (only if they ever appear at repo root) ---
+/runs/
+/cache/
+/raw_staging/
+configs/local/
+configs/*.local.yaml
+/reports/
+
+</file>
+----- END FILE: .gitignore -----
+
+----- START FILE: README.md -----
+<file path="README.md">
+# bioimg-pipeline
+
+## Integrated Slice (Nuclei + Spots)
+
+This pipeline performs **nuclear segmentation** (StarDist) and **spot detection** (LoG) in a single pass. It produces quality control artifacts including spot cutouts and visual overlays.
+Each run processes **one 2D plane per file**, controlled by `ims_resolution_level`, `ims_time_index`, and `ims_z_index` for `.ims` inputs.
+
+### Setup
+
+Follow the platform guide first:
+
+- Windows: [docs/SETUP_WINDOWS.md](docs/SETUP_WINDOWS.md)
+- macOS: [docs/SETUP_MAC.md](docs/SETUP_MAC.md)
+
+### Docs map
+
+- [Architecture](docs/ARCHITECTURE.md)
+- [Data contracts](docs/CONTRACTS.md)
+- [Notebooks (QC workflows)](docs/NOTEBOOKS.md)
+
+### 1) Setup & Verification
+
+```bash
+python scripts/verify_setup.py
+```
+
+### 2) Run on Simulated Data
+
+Generate a synthetic 2-channel TIFF (Ch1: Nuclei, Ch2: Spots):
+
+```bash
+python scripts/generate_phantom_tiff.py --config configs/integrated_sim.yaml
+```
+
+Run the integrated analysis:
+
+```bash
+python drivers/run_integrated.py --config configs/integrated_sim.yaml
+```
+
+### 3) Run on Real Data (`.ims` or `.tif`)
+
+1. Ensure you have your StarDist model in `$BIOIMG_DATA_ROOT/models/`.
+2. Create a **local** config from the tracked template:
+   - `mkdir -p configs/local`
+   - `cp configs/integrated_ims.example.yaml configs/local/integrated_ims.local.yaml`
+   - PowerShell:
+     - `New-Item -ItemType Directory -Force configs/local`
+     - `Copy-Item configs/integrated_ims.example.yaml configs/local/integrated_ims.local.yaml`
+   - Edit the local file (do not commit anything under `configs/local/`).
+3. Update your config with:
+   - `input_relpath` (single file), `input_relpaths` (list), or `input_glob` (batch).
+     - For storWIS: point `input_glob` at the network share (e.g. `S:/BIC/.../*.ims`)
+     - Relative paths resolve under `$BIOIMG_DATA_ROOT`; absolute paths are used as-is.
+   - `stardist_model_dir` (path to your StarDist model folder)
+   - `channel_nuclei` and `channel_spots` (1-based indices; `channel_spots` can be a list like `[2, 3]`)
+   - Detector parameters
+4. (Optional) If you want local intermediates + storWIS publish:
+   - Keep `output_runs_dir` under `BIOIMG_DATA_ROOT` for fast local writes.
+   - Set `publish_dir` to a writable storWIS location to copy final outputs.
+   - Set `publish_mirror: true` and `input_base_dir` to mirror subfolders (e.g. `.../5ms`, `.../45ms`).
+     - Mirror mode publishes to `publish_dir/<condition>/<batch_root>/<run_dir>`.
+     - Non-mirror mode publishes to `publish_dir/<batch_root>/<run_dir>`.
+   - Set `publish_mode` to control collisions (`error`, `overwrite`, `merge`).
+5. (Optional) For batch robustness:
+   - `continue_on_error: true` to keep processing after a failed file.
+   - `skip_existing: true` to resume without redoing completed outputs (requires a prior `run_manifest.yaml`).
+   - `republish_skipped: true` to retry publishing for skipped runs.
+   - `batch_dir_name` to reuse a stable output folder name across reruns.
+   - `batch_aggregate_spots: true` to write a combined `spots_aggregate.parquet`.
+6. (Optional) If you already have nuclei labels from another tool, set
+   `nuclei_labels_relpath` to skip StarDist segmentation.
+7. (Optional) If you have no nuclear channel, set `skip_nuclei_segmentation: true`
+   and omit `channel_nuclei`.
+8. (Optional) To restrict detection to a region of interest, set
+   `valid_mask_relpath` to a 2D mask (nonzero = valid).
+
+```bash
+python drivers/run_integrated.py --config configs/local/integrated_ims.local.yaml
+```
+
+### Quickstart: storWIS batch (recommended)
+
+Copy the template config first:
+
+```bash
+mkdir -p configs/local
+cp configs/integrated_ims.example.yaml configs/local/integrated_ims.local.yaml
+```
+
+PowerShell:
+
+```powershell
+New-Item -ItemType Directory -Force configs/local
+Copy-Item configs/integrated_ims.example.yaml configs/local/integrated_ims.local.yaml
+```
+
+Then **edit these keys in the copied template** (`configs/local/integrated_ims.local.yaml`).
+
+**1) Single folder of `.ims` files**
+
+```yaml
+input_glob: "S:/BIC/<user>/equipment/<instrument>/<date>/*.ims"
+stardist_model_dir: "models/y22m01d12_model_0"
+output_runs_dir: runs
+publish_dir: "S:/bioimg-results/<user>/<date>"
+publish_mode: "error"
+```
+
+**2) Subfolders (e.g. `5ms/`, `45ms/`) + mirror publish**
+
+```yaml
+input_glob: "S:/BIC/<user>/equipment/<instrument>/<date>/*/*.ims"
+stardist_model_dir: "models/y22m01d12_model_0"
+output_runs_dir: runs
+publish_dir: "S:/bioimg-results/<user>/<date>"
+publish_mirror: true
+input_base_dir: "S:/BIC/<user>/equipment/<instrument>/<date>"
+publish_mode: "error"
+```
+
+Run:
+
+```bash
+python drivers/run_integrated.py --config configs/local/integrated_ims.local.yaml
+```
+
+### Outputs
+
+Located in `$BIOIMG_DATA_ROOT/runs/<timestamp>__integrated/`:
+
+- `spots.parquet`: Table of detected spots (inside nuclei).
+- `nuclei_labels.tif`: Integer labels of segmented nuclei.
+- `qc_overlay.png`: Spot channel image with nuclei outlines (red) and spots (cyan).
+- `qc_cutouts.tif`: Multi-channel TIFF montage of spot crops (open in Fiji).
+  For multiple spot channels, QC outputs are written per channel (e.g. `qc_overlay_ch2.png`).
+- By default the montage samples the highest-SNR spots; set `qc_sample_seed` to shuffle instead.
+- `run_manifest.yaml`: Run metadata.
+For batch runs, outputs live under `$BIOIMG_DATA_ROOT/runs/<timestamp>__integrated_batch/`
+with a `batch_manifest.yaml` and optional `spots_aggregate.parquet` (includes a `condition`
+column derived from the input folder name).
+QC notebooks in [docs/NOTEBOOKS.md](docs/NOTEBOOKS.md) are the recommended way to visually
+validate these outputs.
+
+</file>
+----- END FILE: README.md -----
+
+----- START FILE: configs/integrated_ims.example.yaml -----
+<file path="configs/integrated_ims.example.yaml">
+# Integrated Slice: Nuclei Segmentation + Spot Detection (Real Data)
+# Template file. Copy to configs/local/integrated_ims.local.yaml and edit locally.
+
+# Input can be a single file, a list, or a glob pattern.
+# Use ONE of: input_relpath, input_relpaths, input_glob.
+# (Paths can be absolute; absolute paths will bypass BIOIMG_DATA_ROOT.)
+# input_glob: "S:/BIC/<user>/equipment/<instrument>/<date>/*/*.ims"
+# input_relpath: raw_staging/my_experiment.ims
+# input_relpaths:
+#   - raw_staging/sample_a.ims
+#   - raw_staging/sample_b.ims
+
+# Store intermediate outputs locally under BIOIMG_DATA_ROOT.
+output_runs_dir: runs
+# Optionally copy final outputs to a writable storWIS location.
+# publish_dir: "S:/bioimg-results/<user>/<date>"
+# publish_mirror: true
+# input_base_dir: "S:/BIC/<user>/equipment/<instrument>/<date>"
+# publish_mode: "error"  # error | overwrite | merge
+
+# Batch behavior
+# continue_on_error: true
+# skip_existing: false
+# republish_skipped: false
+# batch_dir_name: "2025-12-31__integrated_batch"
+# batch_aggregate_spots: false
+
+# Input Channels (1-based)
+# Check your Imaris file to see which channel is DAPI (Nuclei) vs FISH (Spots)
+# channel_spots can be a list, e.g. [2, 3]
+channel_nuclei: 1
+channel_spots: 2
+# Optional: path to precomputed nuclei labels (skip StarDist)
+# nuclei_labels_relpath: runs/<timestamp>__integrated/nuclei_labels.tif
+# Optional: skip segmentation when no nuclei channel is present
+# skip_nuclei_segmentation: true
+# Optional: restrict spot detection to a boolean mask (nonzero = valid)
+# valid_mask_relpath: raw_staging/my_valid_mask.tif
+
+# Imaris Selection
+ims_resolution_level: 0
+ims_time_index: 0
+ims_z_index: 0
+
+# --- Nuclei Segmentation (StarDist) ---
+# stardist_model_dir should point to a folder under BIOIMG_DATA_ROOT/models/
+stardist_model_dir: models/y22m01d12_model_0
+nuc_prob_thresh: 0.3
+nuc_normalize_pmin: 1.0
+nuc_normalize_pmax: 99.8
+
+# --- Spot Detection (LoG) ---
+spot_pixel_size_nm: 65
+spot_lambda_nm: 667
+spot_zR: 344.5
+spot_u0_min: 30
+
+# --- Visual QC ---
+qc_cutout_size: 80
+qc_max_cutouts: 50
+qc_montage_cols: 10
+# qc_sample_seed: 0
+
+</file>
+----- END FILE: configs/integrated_ims.example.yaml -----
+
+----- START FILE: configs/integrated_sim.yaml -----
+<file path="configs/integrated_sim.yaml">
+# Integrated Slice: Nuclei Segmentation + Spot Detection (Simulated)
+
+input_relpath: raw_staging/phantom_integrated.tif
+output_runs_dir: runs
+
+# Input Channels (1-based)
+# channel_spots can be a list, e.g. [2, 3]
+channel_nuclei: 1
+channel_spots: 2
+# Optional: restrict spot detection to a boolean mask (nonzero = valid)
+# valid_mask_relpath: raw_staging/my_valid_mask.tif
+
+# --- Nuclei Segmentation (StarDist) ---
+# Path relative to BIOIMG_DATA_ROOT
+stardist_model_dir: models/y22m01d12_model_0
+nuc_prob_thresh: 0.5
+nuc_nms_thresh: 0.3
+
+# --- Spot Detection (LoG) ---
+spot_pixel_size_nm: 65
+spot_lambda_nm: 667
+spot_zR: 344.5
+spot_u0_min: 30
+
+# --- Visual QC ---
+qc_cutout_size: 80
+qc_max_cutouts: 50
+qc_montage_cols: 10
+# qc_sample_seed: 0
+
+# --- Simulation Params (for generate_phantom_tiff.py) ---
+sim_height: 512
+sim_width: 512
+sim_num_nuclei: 15
+sim_num_spots: 100
+sim_seed: 42
+
+</file>
+----- END FILE: configs/integrated_sim.yaml -----
+
+----- START FILE: docs/ARCHITECTURE.md -----
+<file path="docs/ARCHITECTURE.md">
+# One-Page White Paper: Integrated Slice
+
+**Goal:** An end-to-end pipeline that segments nuclei and detects spots within them.
+
+## Workflow
+
+1. **Input:** Multi-channel image (TIFF or Imaris .ims).
+   - Optional Channel A: Nuclear marker (e.g., DAPI)
+   - One or more spot channels (e.g., FISH, protein)
+2. **Kernel 1 (Segmentation):** StarDist runs on Channel A -> `nuclei_labels.tif` (or reuse a precomputed label image).
+3. **Kernel 2 (Detection):** LoG detector runs on each spot channel, masked by `nuclei_labels` if provided -> `spots.parquet`.
+4. **QC Generation:**
+   - **Overlay:** Full frame image showing nuclei contours and spot locations.
+   - **Montage:** 80x80 pixel cutouts of spots from both channels, stitched into a multi-channel TIFF.
+
+## Contracts
+
+### Spots Table (`spots.parquet`)
+- `y_px`, `x_px`: Spot coordinates.
+- `intensity`: Spot intensity.
+- `nucleus_label`: ID of the nucleus containing the spot.
+- `snr`: Signal-to-noise ratio.
+
+### Run Manifest (`run_manifest.yaml`)
+- `timestamp`, `git_commit`, `input_path`.
+- `outputs`: Filenames of all generated artifacts.
+
+</file>
+----- END FILE: docs/ARCHITECTURE.md -----
+
+----- START FILE: docs/CLEANUP_MAC.md -----
+<file path="docs/CLEANUP_MAC.md">
+# bioimg-pipeline — macOS Cleanup & Reset Guide
+
+Follow these steps to cleanly remove old versions of the pipeline, environments, and configuration before a fresh install.
+
+**Use this guide when:**
+- Setting up on a new machine that has old configurations
+- Resetting after a broken environment
+- Switching from Anaconda to Miniforge
+
+---
+
+## 1) Backup important data first
+
+Before cleaning up, ensure you've: 
+
+- [ ] Pushed all important code changes to GitHub
+- [ ] Saved any local-only files or data you want to keep
+- [ ] Noted any custom configurations you want to preserve
+
+---
+
+## 2) Remove standalone Spyder (if installed)
+
+The standalone Spyder app uses its own Python and won't work with your conda environment.
+
+### Uninstall the app:
+
+1. Open **Finder → Applications**
+2. Find **Spyder** and drag to Trash
+3. Empty Trash
+
+### Remove Spyder settings:
+
+```zsh
+rm -rf ~/.spyder-py3
+rm -rf ~/Library/Application\ Support/spyder-py3
+```
+
+**Note:** After setup, you'll use Spyder from within the conda environment instead. 
+
+---
+
+## 3) Remove the conda environment
+
+This ensures no conflicting library versions remain.
+
+1. Deactivate the current environment (if active):
+   ```zsh
+   conda deactivate
+   ```
+
+2. Remove the environment:
+   ```zsh
+   conda remove -n bioimg-pipeline --all
+   ```
+
+3. Verify it's gone:
+   ```zsh
+   conda env list
+   ```
+
+   Ensure `bioimg-pipeline` is not in the list.
+
+---
+
+## 4) Archive or delete old repository
+
+### Option A: Delete (if you're sure)
+
+```zsh
+rm -rf ~/Code/bioimg-pipeline
+```
+
+### Option B:  Rename/Archive (Recommended)
+
+Move the old repo to a backup folder so the name is free for a fresh clone:
+
+```zsh
+mv ~/Code/bioimg-pipeline ~/Code/bioimg-pipeline_OLD_$(date +%Y%m%d)
+```
+
+---
+
+## 5) Remove from GitHub Desktop
+
+1. Open **GitHub Desktop**
+2. Find the old repository in the left sidebar
+3. Right-click → **Remove**
+4. Optionally check **"Also move this repository to Trash"**
+
+---
+
+## 6) Clean environment variable (if changing data location)
+
+If you previously set `BIOIMG_DATA_ROOT` to a different location:
+
+1. Open your config: 
+   ```zsh
+   nano ~/.zshrc
+   ```
+
+2. Find the line starting with `export BIOIMG_DATA_ROOT=... `
+
+3. Delete it or update the path. 
+
+4. Save and apply: 
+   ```zsh
+   source ~/.zshrc
+   ```
+
+---
+
+## 7) Reset data bench (optional)
+
+If you want to clear old run data but keep raw inputs:
+
+```zsh
+# Clear all previous run outputs
+rm -rf ~/bioimg-data/runs/*
+
+# Clear cache if needed
+rm -rf ~/bioimg-data/cache/*
+```
+
+---
+
+## 8) Clean conda installation (optional - full reset)
+
+Only do this if you want to completely reinstall conda. 
+
+### Check your current installation:
+
+```zsh
+which conda
+```
+
+- `/Users/yourname/anaconda3/... ` → Anaconda
+- `/Users/yourname/miniconda3/...` → Miniconda  
+- `/Users/yourname/miniforge3/...` → Miniforge
+
+### Remove conda entirely:
+
+```zsh
+# Remove the conda directory (adjust based on your installation)
+rm -rf ~/anaconda3      # if Anaconda
+rm -rf ~/miniconda3     # if Miniconda
+rm -rf ~/miniforge3     # if Miniforge
+
+# Remove conda config files
+rm -rf ~/.conda
+rm -f ~/.condarc
+```
+
+### Remove conda from shell config:
+
+```zsh
+nano ~/.zshrc
+```
+
+Find and delete the block that looks like:
+```
+# >>> conda initialize >>>
+... 
+# <<< conda initialize <<<
+```
+
+Save and reload: 
+```zsh
+source ~/.zshrc
+```
+
+---
+
+## 9) Clean caches (optional - frees disk space)
+
+```zsh
+# Conda cache (can be several GB)
+conda clean --all -y
+
+# Pip cache
+rm -rf ~/Library/Caches/pip
+
+# VS Code Python cache
+rm -rf ~/Library/Caches/com.microsoft.VSCode
+
+# Python bytecode files
+find ~/Code -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null
+```
+
+---
+
+## 10) Verify clean state
+
+Before starting the setup guide: 
+
+```zsh
+# Should show no bioimg-pipeline
+conda env list
+
+# Should say "No such file or directory"
+ls ~/Code/bioimg-pipeline
+
+# Should be empty or show your desired value
+echo $BIOIMG_DATA_ROOT
+```
+
+---
+
+## Quick cleanup script
+
+Save this as `cleanup.sh` and run with `bash cleanup.sh`:
+
+```bash
+#!/bin/bash
+# cleanup.sh - Bioimg pipeline cleanup script
+# Review before running! 
+
+echo "🧹 Bioimg Pipeline Cleanup"
+echo "=========================="
+echo ""
+read -p "This will remove the conda environment and clean caches. Continue? (y/n) " -n 1 -r
+echo ""
+
+if [[ !  $REPLY =~ ^[Yy]$ ]]; then
+    echo "Cancelled."
+    exit 1
+fi
+
+echo ""
+echo "Step 1: Deactivating conda..."
+conda deactivate 2>/dev/null
+
+echo ""
+echo "Step 2: Removing conda environment 'bioimg-pipeline'..."
+conda remove --name bioimg-pipeline --all -y 2>/dev/null && echo "  ✅ Removed" || echo "  ℹ️  Not found"
+
+echo ""
+echo "Step 3: Cleaning conda cache..."
+conda clean --all -y 2>/dev/null && echo "  ✅ Cleaned"
+
+echo ""
+echo "Step 4: Cleaning pip cache..."
+rm -rf ~/Library/Caches/pip && echo "  ✅ Cleaned"
+
+echo ""
+echo "Step 5: Removing Spyder settings..."
+rm -rf ~/.spyder-py3 && echo "  ✅ Cleaned"
+
+echo ""
+echo "🎉 Cleanup complete!"
+echo ""
+echo "Next steps:"
+echo "  1.  Optionally remove old repo:  rm -rf ~/Code/bioimg-pipeline"
+echo "  2. Optionally uninstall standalone Spyder from Applications"
+echo "  3. Follow SETUP_MAC.md for fresh installation"
+```
+
+---
+
+## Next steps
+
+After completing cleanup, proceed to **[SETUP_MAC.md](SETUP_MAC.md)** for fresh installation.
+
+</file>
+----- END FILE: docs/CLEANUP_MAC.md -----
+
+----- START FILE: docs/CONTRACTS.md -----
+<file path="docs/CONTRACTS.md">
+# Contracts
+
+## Integrated slice: spots table contract
+
+Output file: `spots.parquet`
+
+Required columns (minimal, future-compatible):
+
+| column        | type   | meaning |
+|---------------|--------|---------|
+| frame         | int    | frame index (0 for single-frame runs) |
+| y_px          | float  | y coordinate in pixels |
+| x_px          | float  | x coordinate in pixels |
+| intensity     | float  | spot intensity (ADU/counts unless calibrated) |
+| background    | float  | local background estimate |
+| snr           | float  | signal-to-noise ratio |
+| nucleus_label | int    | nucleus label containing the spot (0 if none) |
+
+Rules:
+- These columns must exist.
+- Additional columns are allowed, but do not remove/rename these.
+- Optional columns may include `spot_channel` (1-based spot channel index) for multi-channel runs.
+- Optional metadata: `valid_mask_path` in the run manifest records any detection mask used.
+
+## Integrated slice: run manifest contract
+
+Each run writes `run_manifest.yaml` next to outputs.
+
+Minimal keys:
+- timestamp
+- input_path (resolved absolute path)
+- config_snapshot (the YAML used for the run)
+- output_dir (resolved absolute path)
+- git_commit (if available)
+- outputs (filenames for spots, nuclei labels, and QC artifacts)
+
+</file>
+----- END FILE: docs/CONTRACTS.md -----
+
+----- START FILE: docs/NOTEBOOKS.md -----
+<file path="docs/NOTEBOOKS.md">
+# Notebooks
+
+This repo stores notebooks as **Jupytext percent-format `.py` files**. Keeping notebooks in plain Python:
+
+- produces clean diffs and code reviews
+- keeps notebooks runnable in VS Code or JupyterLab
+- avoids large binary `.ipynb` blobs in git
+
+The canonical notebooks live in `notebooks/`:
+
+- `_TEMPLATE__jupytext_percent.py` — copy this to start new analyses
+- `01_step_by_step_integrated_qc.py` — load a single plane, segment nuclei, detect spots, and visualize
+- `02_review_run_folder.py` — review a run folder (manifests, spots table, QC images)
+
+## Running notebooks
+
+### VS Code
+
+1. Install the Jupyter extension.
+2. Open any `notebooks/*.py` file (percent format).
+3. Use the **Run Cell** / **Run All** commands.
+
+### JupyterLab
+
+1. Launch JupyterLab and open a percent-format `.py` file.
+2. If Jupytext is missing, install it once in your environment:
+   `pip install jupytext`.
+   - Note: `environment.yml` already includes Jupytext.
+3. Jupytext will render the `.py` file as a notebook with cells.
+
+## Exporting HTML/PDF
+
+One recommended workflow (with execution):
+
+1. Convert to `.ipynb` (temporary artifact):
+   ```bash
+   jupytext --to ipynb notebooks/01_step_by_step_integrated_qc.py
+   ```
+2. Create the reports output directory:
+   ```bash
+   mkdir -p reports
+   ```
+3. Execute and export HTML (or PDF) with `nbconvert` (writes to `reports/`):
+   ```bash
+   jupyter nbconvert --execute --to html --output-dir reports notebooks/01_step_by_step_integrated_qc.ipynb
+   ```
+
+The generated `.ipynb` files are intentionally ignored by git.
+
+</file>
+----- END FILE: docs/NOTEBOOKS.md -----
+
+----- START FILE: docs/SETUP_MAC.md -----
+<file path="docs/SETUP_MAC.md">
+# bioimg-pipeline — macOS Setup Guide
+
+This document describes how to set up **bioimg-pipeline** on a **macOS workstation** (MacBook Pro / Mac Pro) in a reproducible way. 
+
+**Tested on:** MacBook Pro 16-inch 2019 (Intel Core i7), macOS Sequoia 15.6.1
+
+---
+
+## 0) Core idea: Code vs Data vs Docs (do not mix)
+
+- **Code (git repo):** a local folder, e.g.   
+  `~/Code/bioimg-pipeline`
+
+- **Data bench (NOT in git):** a folder in your home directory or external drive, e.g.  
+  `~/bioimg-data`  
+  (This holds raw staging data, run outputs, caches, models, etc.)
+
+- **Docs (optional):** iCloud/OneDrive/Dropbox folder.   
+  **Do not put the git repo inside a synced cloud folder.**
+
+**Rule of thumb:** the repo should always be "zip-able" and small; the bench can be huge. 
+
+---
+
+## 1) Prerequisites
+
+### Required
+
+1. **Git**
+   - GitHub Desktop (which you have) includes Git.
+   - Alternatively, install via Xcode command line tools:  `xcode-select --install`
+
+2. **Miniforge (recommended) or Miniconda**
+   - Miniforge is well-maintained and works great on Intel Macs.
+   - Install via Homebrew: `brew install miniforge`
+   - Verify:  `conda --version`
+
+3. **Visual Studio Code**
+   - Installed ✅
+
+### VS Code extensions (install from VS Code → Extensions)
+- **Python** (Microsoft)
+- **Pylance** (Microsoft)
+- **Jupyter** (Microsoft)
+
+### Remove Standalone Spyder ⚠️
+
+If you have a standalone Spyder installation, **uninstall it** before proceeding: 
+
+1. Open **Finder**
+2. Go to **Applications**
+3. Find **Spyder** and drag it to Trash
+4. Empty Trash
+5. Clean up Spyder settings: 
+   ```zsh
+   rm -rf ~/.spyder-py3
+   rm -rf ~/Library/Application\ Support/spyder-py3
+   ```
+
+**Why?** The standalone Spyder uses its own bundled Python and won't see your `bioimg-pipeline` packages.  Your `environment.yml` already includes Spyder—use that version instead.
+
+---
+
+## 2) Clone the repo
+
+Recommended location for code: `~/Code/`
+
+Open **Terminal** and run:
+
+```zsh
+mkdir -p ~/Code
+cd ~/Code
+git clone https://github.com/yossis-wis/bioimg-pipeline.git
+cd bioimg-pipeline
+```
+
+*Alternatively, use GitHub Desktop to clone into `~/Code/bioimg-pipeline`.*
+
+---
+
+## 3) Create the data bench folders (outside git)
+
+Choose a data root (example uses `~/bioimg-data`). For large datasets, consider an external SSD. 
+
+Create these folders:
+
+```zsh
+mkdir -p ~/bioimg-data/raw_staging
+mkdir -p ~/bioimg-data/runs
+mkdir -p ~/bioimg-data/cache
+mkdir -p ~/bioimg-data/models
+```
+
+Notes: 
+
+- `raw_staging/` is where you drop a small test `.tif` during development.
+- `runs/` is where each run writes outputs into its own subfolder. 
+- `cache/` and `models/` are reserved for later slices.
+
+---
+
+## 4) Set the BIOIMG_DATA_ROOT environment variable
+
+This makes the code portable across machines without changing paths in code.
+
+1. Open your zsh config:
+   ```zsh
+   nano ~/.zshrc
+   ```
+
+2. Add the following line to the bottom of the file:
+   ```zsh
+   export BIOIMG_DATA_ROOT="$HOME/bioimg-data"
+   ```
+
+3. Save and exit (`Ctrl+O`, `Enter`, `Ctrl+X`).
+
+4. **Apply the changes** (or restart terminal):
+   ```zsh
+   source ~/.zshrc
+   ```
+
+### Sanity check
+
+```zsh
+echo $BIOIMG_DATA_ROOT
+```
+
+Should print:  `/Users/yourusername/bioimg-data`
+
+---
+
+## 5) Create and verify the conda environment
+
+From the repo root (`~/Code/bioimg-pipeline`):
+
+```zsh
+cd ~/Code/bioimg-pipeline
+conda env create -f environment.yml
+conda activate bioimg-pipeline
+python scripts/verify_setup.py
+```
+
+Expected: the script ends with `SETUP OK ✅`.
+
+### Updating later (after `git pull`)
+
+If `environment.yml` changes in the future:
+
+```zsh
+conda activate bioimg-pipeline
+conda env update -f environment.yml --prune
+python scripts/verify_setup.py
+```
+
+---
+
+## 6) VS Code: select interpreter + run code
+
+1. Open VS Code
+2. **File → Open Folder…** → `~/Code/bioimg-pipeline`
+3. Select the interpreter:
+   - Press `Cmd+Shift+P`
+   - Search: **Python: Select Interpreter**
+   - Choose: **bioimg-pipeline**
+
+VS Code should now show `bioimg-pipeline` in the bottom status bar.
+
+---
+
+## 7) Jupyter in VS Code (optional for Slice 0)
+
+If you open a `.ipynb` notebook:
+
+1. Click **Select Kernel** (top-right in the notebook toolbar)
+2. Choose the kernel/interpreter for **bioimg-pipeline**
+
+Quick sanity cell:
+
+```python
+import sys, os
+print(sys.executable)
+print(os.environ.get("BIOIMG_DATA_ROOT"))
+```
+
+You should see the `.../miniforge3/envs/bioimg-pipeline/bin/python` path and your data root.
+
+---
+
+## 8) Spyder (from conda environment)
+
+Launch Spyder from within the activated environment:
+
+```zsh
+conda activate bioimg-pipeline
+spyder &
+```
+
+The `&` runs Spyder in the background so you can keep using the terminal.
+
+Recommendation:
+
+- Use Spyder as an interactive dev tool if it helps.
+- Keep the "authoritative" execution path as command-line drivers (later slices).
+
+---
+
+## 9) Quick reference commands
+
+| Action | Command |
+|--------|---------|
+| Activate environment | `conda activate bioimg-pipeline` |
+| Deactivate environment | `conda deactivate` |
+| Update environment | `conda env update -f environment.yml --prune` |
+| List environments | `conda env list` |
+| Pull latest code | `git pull origin main` |
+| Check Git status | `git status` |
+| Launch Spyder | `spyder &` (while env is active) |
+| Launch JupyterLab | `jupyter lab` (while env is active) |
+
+---
+
+## Troubleshooting
+
+### "conda:  command not found"
+
+```zsh
+# Re-initialize conda
+~/miniforge3/bin/conda init zsh
+# Restart terminal
+```
+
+### Environment creation fails
+
+```zsh
+# Update conda first
+conda update conda
+
+# Force recreate
+conda env create -f environment.yml --force
+```
+
+### VS Code doesn't see the environment
+
+1. Restart VS Code completely
+2. Press `Cmd+Shift+P` → "Python: Clear Cache and Reload Window"
+3. Try selecting interpreter again
+
+### verify_setup.py not found
+
+The script may not exist yet. Run this sanity check instead:
+
+```zsh
+python -c "import numpy, pandas, skimage, tifffile; print('SETUP OK ✅')"
+```
+
+</file>
+----- END FILE: docs/SETUP_MAC.md -----
+
+----- START FILE: docs/SETUP_WINDOWS.md -----
+<file path="docs/SETUP_WINDOWS.md">
+# bioimg-pipeline — Windows Setup Guide
+
+This document describes how to set up **bioimg-pipeline** on a **new Windows workstation** in a way that is reproducible and avoids OneDrive/file-lock issues.
+
+---
+
+## 0) Core idea: Code vs Data vs Docs (do not mix)
+
+- **Code (git repo):** a local folder, e.g.  
+  `C:\Code\bioimg-pipeline`
+
+- **Data bench (NOT in git):** a large local drive or network location, e.g.  
+  `D:\bioimg-data`  
+  (This holds raw staging data, run outputs, caches, models, etc.)
+
+- **Docs (optional):** OneDrive folder (Word/PDF/PowerPoint), e.g.  
+  `OneDrive\BioimgPipeline_Docs`  
+  **Do not put the git repo inside OneDrive.**
+
+**Rule of thumb:** the repo should always be “zip-able” and small; the bench can be huge.
+
+---
+
+## 1) Install prerequisites
+
+### Required
+1. **Git for Windows**
+   - You can use GitHub Desktop if you prefer, but Git itself is the foundation.
+
+2. **Miniconda**
+   - Install Miniconda (recommended over full Anaconda).
+   - **Do NOT add conda to PATH** during installation (avoids conflicts).
+
+3. **Visual Studio Code**
+   - Install VS Code.
+
+### VS Code extensions (install from VS Code → Extensions)
+- **Python** (Microsoft)
+- **Pylance** (Microsoft)
+- **Jupyter** (Microsoft)
+
+> Optional: GitHub Desktop (nice UI for commit/push, not required).
+
+---
+
+## 2) Clone the repo
+
+Recommended location for code: `C:\Code\`
+
+Open **Command Prompt** (or Git Bash) and run:
+
+```bat
+cd C:\Code
+git clone https://github.com/yossis-wis/bioimg-pipeline.git
+cd bioimg-pipeline
+```
+
+---
+
+## 3) Create the data bench folders (outside git)
+
+Choose a data root (example uses `D:\bioimg-data`).
+
+Create these folders:
+
+- `D:\bioimg-data\raw_staging`
+- `D:\bioimg-data\runs`
+- `D:\bioimg-data\cache`
+- `D:\bioimg-data\models`
+
+Notes:
+
+- `raw_staging\` is where you drop a small test `.tif` during development.
+- `runs\` is where each run writes outputs into its own subfolder.
+- `cache\` and `models\` are reserved for later slices.
+
+---
+
+## 4) Set the BIOIMG_DATA_ROOT environment variable (User)
+
+This makes the code portable across machines without changing paths in code.
+
+Open **PowerShell** and run:
+
+```plaintext
+[Environment]::SetEnvironmentVariable("BIOIMG_DATA_ROOT","D:\bioimg-data","User")
+```
+
+Then **close and reopen** terminals/VS Code so the new variable is visible.
+
+Sanity checks:
+
+- In PowerShell:
+
+  ```powershell
+  echo $env:BIOIMG_DATA_ROOT
+  ```
+
+- In Command Prompt:
+
+  ```bat
+  echo %BIOIMG_DATA_ROOT%
+  ```
+
+---
+
+## 5) Create and verify the conda environment
+
+> Run conda commands in **Anaconda Prompt (Miniconda3)** or a terminal where conda is available.
+
+From repo root (`C:\Code\bioimg-pipeline`):
+
+```bat
+cd C:\Code\bioimg-pipeline
+conda env create -f environment.yml
+conda activate bioimg-pipeline
+python scripts/verify_setup.py
+```
+
+Expected: the script ends with `SETUP OK ✅`.
+
+### Updating later (after `git pull`)
+
+If `environment.yml` changes in the future:
+
+```bat
+conda activate bioimg-pipeline
+conda env update -f environment.yml --prune
+python scripts/verify_setup.py
+```
+
+---
+
+## 6) VS Code: select interpreter + run code
+
+1. Open VS Code
+2. **File → Open Folder…** → `C:\Code\bioimg-pipeline`
+3. Select the interpreter:
+   - Press `Ctrl+Shift+P`
+   - Search: **Python: Select Interpreter**
+   - Choose: **bioimg-pipeline**
+
+### Set the default terminal in VS Code to Command Prompt (recommended)
+
+1. Open **VS Code**
+2. Go to **File → Preferences → Settings**
+3. Search for `default profile windows`
+4. Find **"Terminal › Integrated: Default Profile Windows"**
+5. Select **"Command Prompt"** from the dropdown
+
+After this change, new terminals in VS Code will open as Command Prompt with the conda environment auto-activated. 
+
+---
+
+## 7) Jupyter in VS Code (optional for Slice 0)
+
+If you open a `.ipynb` notebook:
+
+1. Click **Select Kernel** (top-right in the notebook toolbar)
+2. Choose the kernel/interpreter for **bioimg-pipeline**
+
+Quick sanity cell:
+
+```python
+import sys, os
+print(sys.executable)
+print(os.environ.get("BIOIMG_DATA_ROOT"))
+```
+
+You should see the `...miniconda3\envs\bioimg-pipeline\python.exe` path and your data root.
+
+---
+
+## 8) Spyder (optional)
+
+If Spyder is included in your environment, you can launch it from an activated terminal:
+
+```bat
+conda activate bioimg-pipeline
+spyder
+```
+
+Recommendation:
+
+- Use Spyder as an interactive dev tool if it helps.
+- Keep the “authoritative” execution path as command-line drivers (later slices).
+
+---
+
+
+</file>
+----- END FILE: docs/SETUP_WINDOWS.md -----
+
+----- START FILE: drivers/README.md -----
+<file path="drivers/README.md">
+Drivers live here
+</file>
+----- END FILE: drivers/README.md -----
+
+----- START FILE: drivers/__init__.py -----
+<file path="drivers/__init__.py">
+"""Driver scripts.
+
+These modules are intended to be executed as scripts, e.g.
+
+    python drivers/run_integrated.py --config configs/integrated_sim.yaml
+
+They are not meant to be imported as a public API.
+"""
+
+</file>
+----- END FILE: drivers/__init__.py -----
+
+----- START FILE: drivers/run_integrated.py -----
+<file path="drivers/run_integrated.py">
+from __future__ import annotations
+
+import argparse
+import glob
+import hashlib
+import os
+import re
+import shutil
+import subprocess
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any, Dict, Optional
+
+import numpy as np
+import pandas as pd
+import pyarrow  # noqa: F401
+import tifffile
+import yaml
+
+# Matplotlib: write PNGs without needing a display
+import matplotlib
+
+matplotlib.use("Agg")
+
+# Allow running without packaging
+REPO_ROOT = Path(__file__).resolve().parents[1]
+import sys
+
+sys.path.insert(0, str(REPO_ROOT / "src"))
+
+from image_io import PlaneSelection, read_image_2d  # noqa: E402
+from slice0_kernel import Slice0Params, detect_spots  # noqa: E402
+from slice1_nuclei_kernel import Slice1NucleiParams, segment_nuclei_stardist  # noqa: E402
+from stardist_utils import StardistModelRef, load_stardist2d  # noqa: E402
+from vis_utils import create_cutout_montage, write_qc_overlay  # noqa: E402
+
+
+def _load_config(path: Path) -> Dict[str, Any]:
+    with path.open("r", encoding="utf-8") as f:
+        return yaml.safe_load(f)
+
+
+def _data_root() -> Path:
+    root = os.environ.get("BIOIMG_DATA_ROOT")
+    if not root:
+        raise RuntimeError("BIOIMG_DATA_ROOT is not set (see docs/SETUP_WINDOWS.md)")
+    return Path(root).expanduser().resolve()
+
+
+def _try_git_commit(repo_root: Path) -> Optional[str]:
+    try:
+        out = subprocess.check_output(
+            ["git", "rev-parse", "HEAD"],
+            cwd=str(repo_root),
+            stderr=subprocess.STDOUT,
+            text=True,
+        ).strip()
+        return out or None
+    except Exception:
+        return None
+
+
+def _resolve_model_dir(cfg: Dict[str, Any], data_root: Path) -> Path:
+    model_dir_raw = cfg.get("stardist_model_dir")
+    if not model_dir_raw:
+        raise ValueError("Config must set stardist_model_dir")
+    return _resolve_path(model_dir_raw, data_root)
+
+
+def _resolve_path(value: Any, data_root: Path) -> Path:
+    path = Path(str(value))
+    if not path.is_absolute():
+        path = (data_root / path).resolve()
+    return path
+
+
+def _resolve_input_paths(cfg: Dict[str, Any], data_root: Path) -> list[Path]:
+    input_relpath = cfg.get("input_relpath")
+    input_relpaths = cfg.get("input_relpaths")
+    input_glob = cfg.get("input_glob")
+
+    provided = [v for v in (input_relpath, input_relpaths, input_glob) if v]
+    if len(provided) > 1:
+        raise ValueError("Set only one of input_relpath, input_relpaths, or input_glob")
+
+    if input_relpath:
+        paths = [_resolve_path(input_relpath, data_root)]
+    elif input_relpaths:
+        if not isinstance(input_relpaths, (list, tuple)):
+            raise ValueError("input_relpaths must be a list of paths")
+        paths = [_resolve_path(path, data_root) for path in input_relpaths]
+    elif input_glob:
+        pattern = str(input_glob)
+        pattern_path = Path(pattern)
+        if not pattern_path.is_absolute():
+            pattern = str((data_root / pattern_path).resolve())
+        matches = sorted(glob.glob(pattern, recursive=True))
+        if not matches:
+            raise FileNotFoundError(f"input_glob matched no files: {pattern}")
+        paths = [Path(match).resolve() for match in matches]
+    else:
+        raise ValueError("Config must set input_relpath, input_relpaths, or input_glob")
+
+    missing = [path for path in paths if not path.exists()]
+    if missing:
+        raise FileNotFoundError(f"Input file(s) not found: {missing}")
+    return paths
+
+
+def _safe_run_name(name: str, *, max_len: int = 60) -> str:
+    cleaned = re.sub(r"[^A-Za-z0-9._-]+", "_", name).strip("_")
+    cleaned = cleaned or "run"
+    if len(cleaned) <= max_len:
+        return cleaned
+    digest = hashlib.sha1(cleaned.encode("utf-8")).hexdigest()[:8]
+    truncated = cleaned[: max_len - 10].rstrip("_")
+    truncated = truncated or "run"
+    return f"{truncated}__{digest}"
+
+
+def _resolve_optional_path(value: Any, data_root: Path) -> Optional[Path]:
+    if value in (None, ""):
+        return None
+    return _resolve_path(value, data_root)
+
+
+def _publish_output_dir(
+    source_dir: Path,
+    *,
+    input_path: Path,
+    publish_dir: Path,
+    publish_mirror: bool,
+    input_base_dir: Optional[Path],
+    publish_batch_root: Optional[str],
+    publish_mode: str,
+) -> Path:
+    if publish_mirror:
+        if not input_base_dir:
+            raise ValueError("publish_mirror requires input_base_dir to be set")
+        try:
+            rel_parent = input_path.parent.resolve().relative_to(input_base_dir.resolve())
+        except ValueError as exc:
+            raise ValueError(
+                f"Input path {input_path} is not under input_base_dir {input_base_dir}"
+            ) from exc
+        target_root = publish_dir / rel_parent
+    else:
+        target_root = publish_dir
+    if publish_batch_root:
+        target_root = target_root / publish_batch_root
+    target_root.mkdir(parents=True, exist_ok=True)
+    dest_dir = target_root / source_dir.name
+    mode = str(publish_mode or "error").lower()
+    if mode not in {"error", "overwrite", "merge"}:
+        raise ValueError(f"publish_mode must be one of: error, overwrite, merge (got {publish_mode})")
+    if dest_dir.exists():
+        if mode == "error":
+            raise FileExistsError(f"Publish destination already exists: {dest_dir}")
+        if mode == "overwrite":
+            shutil.rmtree(dest_dir)
+    shutil.copytree(source_dir, dest_dir, dirs_exist_ok=(mode == "merge"))
+    return dest_dir
+
+
+def _is_run_complete(run_dir: Path) -> bool:
+    manifest_path = run_dir / "run_manifest.yaml"
+    spots_path = run_dir / "spots.parquet"
+    done_path = run_dir / "DONE"
+    return done_path.exists() or (manifest_path.exists() and spots_path.exists())
+
+
+def _assert_tiff_channel(path: Path, channel: int) -> None:
+    if channel <= 1:
+        return
+    with tifffile.TiffFile(str(path)) as tif:
+        series = tif.series[0]
+        axes = series.axes
+        shape = series.shape
+    if "C" not in axes:
+        raise ValueError(
+            f"Input TIFF has no channel axis but channel {channel} was requested: {path}"
+        )
+    c_index = axes.index("C")
+    c_count = shape[c_index]
+    if channel > c_count:
+        raise ValueError(
+            f"Input TIFF has {c_count} channel(s); requested channel {channel}: {path}"
+        )
+
+
+def _normalize_channels(value: Any, *, default: int) -> list[int]:
+    if value is None:
+        return [int(default)]
+    if isinstance(value, (list, tuple)):
+        channels = [int(v) for v in value]
+    else:
+        channels = [int(value)]
+    if not channels:
+        raise ValueError("channel_spots must be a non-empty int or list of ints")
+    return channels
+
+
+def _load_mask(path: Path) -> np.ndarray:
+    mask = np.asarray(tifffile.imread(str(path)))
+    mask = np.squeeze(mask)
+    if mask.ndim != 2:
+        raise ValueError(f"valid_mask_relpath must be 2D; got shape={mask.shape}")
+    return mask.astype(bool)
+
+
+def _run_integrated_single(
+    cfg: Dict[str, Any],
+    *,
+    data_root: Path,
+    input_path: Path,
+    out_dir: Path,
+) -> Path:
+    if out_dir.exists():
+        raise FileExistsError(f"Output directory already exists: {out_dir}")
+    out_dir.mkdir(parents=True, exist_ok=False)
+
+    channel_nuclei_raw = cfg.get("channel_nuclei", 1)
+    channel_spots = _normalize_channels(cfg.get("channel_spots", 2), default=2)
+    skip_segmentation = bool(cfg.get("skip_nuclei_segmentation", False))
+    have_nuclei_channel = channel_nuclei_raw not in (None, 0, "none", "None")
+    channel_nuclei = int(channel_nuclei_raw) if have_nuclei_channel else None
+
+    if input_path.suffix.lower() in {".tif", ".tiff"}:
+        if have_nuclei_channel:
+            _assert_tiff_channel(input_path, int(channel_nuclei))
+        for ch in channel_spots:
+            _assert_tiff_channel(input_path, int(ch))
+
+    common_sel = {
+        "ims_resolution_level": int(cfg.get("ims_resolution_level", 0)),
+        "ims_time_index": int(cfg.get("ims_time_index", 0)),
+        "ims_z_index": int(cfg.get("ims_z_index", 0)),
+    }
+
+    img_nuc: Optional[np.ndarray]
+    if have_nuclei_channel:
+        print(f"Loading nuclei channel ({channel_nuclei})...")
+        img_nuc = read_image_2d(input_path, PlaneSelection(channel=channel_nuclei, **common_sel))
+    else:
+        img_nuc = None
+
+    spot_images: list[tuple[int, np.ndarray]] = []
+    for ch in channel_spots:
+        print(f"Loading spots channel ({ch})...")
+        spot_images.append(
+            (ch, read_image_2d(input_path, PlaneSelection(channel=ch, **common_sel)))
+        )
+
+    ref_shape = spot_images[0][1].shape
+    for ch, img_spot in spot_images:
+        if img_spot.shape != ref_shape:
+            raise ValueError(
+                f"Spot channel {ch} shape {img_spot.shape} does not match {ref_shape}"
+            )
+    if img_nuc is not None and img_nuc.shape != ref_shape:
+        raise ValueError(f"Channel shape mismatch: {img_nuc.shape} vs {ref_shape}")
+
+    nuclei_labels_relpath = cfg.get("nuclei_labels_relpath")
+    valid_mask_relpath = cfg.get("valid_mask_relpath")
+    valid_mask: Optional[np.ndarray] = None
+    valid_mask_path: Optional[Path] = None
+    if valid_mask_relpath:
+        valid_mask_path = _resolve_path(valid_mask_relpath, data_root)
+        if not valid_mask_path.exists():
+            raise FileNotFoundError(f"valid_mask_relpath not found: {valid_mask_path}")
+        valid_mask = _load_mask(valid_mask_path)
+        if valid_mask.shape != ref_shape:
+            raise ValueError(
+                f"valid_mask_relpath shape {valid_mask.shape} does not match image shape {ref_shape}"
+            )
+
+    nuclei_labels: Optional[np.ndarray]
+    if nuclei_labels_relpath:
+        labels_source_path = _resolve_path(nuclei_labels_relpath, data_root)
+        if not labels_source_path.exists():
+            raise FileNotFoundError(f"nuclei_labels_relpath not found: {labels_source_path}")
+        nuclei_labels = np.asarray(tifffile.imread(str(labels_source_path)))
+        nuclei_labels = np.squeeze(nuclei_labels)
+        if nuclei_labels.ndim != 2:
+            raise ValueError(
+                f"nuclei_labels_relpath must be 2D; got shape={nuclei_labels.shape}"
+            )
+        if nuclei_labels.shape != ref_shape:
+            raise ValueError(
+                f"nuclei_labels_relpath shape {nuclei_labels.shape} does not match "
+                f"image shape {ref_shape}"
+            )
+        nuc_meta = {
+            "source": "precomputed",
+            "path": str(labels_source_path),
+        }
+    elif skip_segmentation or not have_nuclei_channel:
+        nuclei_labels = None
+        nuc_meta = {"source": "none"}
+    else:
+        print("Running nuclei segmentation...")
+        model_dir = _resolve_model_dir(cfg, data_root)
+        model = load_stardist2d(StardistModelRef(model_dir=model_dir))
+
+        nuc_params = Slice1NucleiParams(
+            normalize_pmin=float(cfg.get("nuc_normalize_pmin", 1.0)),
+            normalize_pmax=float(cfg.get("nuc_normalize_pmax", 99.8)),
+            prob_thresh=cfg.get("nuc_prob_thresh", None),
+            nms_thresh=cfg.get("nuc_nms_thresh", None),
+        )
+
+        nuclei_labels, nuc_meta = segment_nuclei_stardist(img_nuc, model, nuc_params)
+
+    print("Running spot detection (inside nuclei)...")
+    spot_params = Slice0Params(
+        zR=float(cfg.get("spot_zR", 344.5)),
+        lambda_nm=float(cfg.get("spot_lambda_nm", 667.0)),
+        pixel_size_nm=float(cfg.get("spot_pixel_size_nm", 65.0)),
+        q_min=float(cfg.get("spot_q_min", 1.0)),
+        se_size=int(cfg.get("spot_se_size", 15)),
+        u0_min=float(cfg.get("spot_u0_min", 30.0)),
+    )
+
+    spots_tables: list[pd.DataFrame] = []
+    for ch, img_spot in spot_images:
+        df = detect_spots(img_spot, spot_params, valid_mask=valid_mask, nuclei_labels=nuclei_labels)
+        if not df.empty:
+            df["spot_channel"] = int(ch)
+        else:
+            df = df.assign(spot_channel=pd.Series(dtype=int))
+        spots_tables.append(df)
+    spots_df = pd.concat(spots_tables, ignore_index=True) if spots_tables else pd.DataFrame()
+
+    spots_path = out_dir / "spots.parquet"
+    spots_df.to_parquet(spots_path, index=False)
+
+    labels_path = out_dir / "nuclei_labels.tif"
+    labels_out = (
+        nuclei_labels
+        if nuclei_labels is not None
+        else np.zeros(ref_shape, dtype=np.int32)
+    )
+    if labels_out.max() < np.iinfo(np.uint16).max:
+        tifffile.imwrite(labels_path, labels_out.astype(np.uint16))
+    else:
+        tifffile.imwrite(labels_path, labels_out.astype(np.uint32))
+
+    qc_overlay_paths: list[str] = []
+    qc_cutouts_paths: list[str] = []
+    total_cutouts = 0
+    qc_cutout_size = int(cfg.get("qc_cutout_size", 80))
+    qc_max_cutouts = int(cfg.get("qc_max_cutouts", 50))
+    qc_montage_cols = int(cfg.get("qc_montage_cols", 10))
+    qc_sample_seed = cfg.get("qc_sample_seed", 0)
+
+    for ch, img_spot in spot_images:
+        suffix = f"_ch{ch}" if len(spot_images) > 1 else ""
+        qc_overlay_path = out_dir / f"qc_overlay{suffix}.png"
+        write_qc_overlay(
+            img_spot,
+            labels_out,
+            spots_df[spots_df["spot_channel"] == ch],
+            qc_overlay_path,
+        )
+        qc_overlay_paths.append(qc_overlay_path.name)
+
+        qc_cutouts_path = out_dir / f"qc_cutouts{suffix}.tif"
+        nuclei_for_montage = img_nuc if img_nuc is not None else np.zeros_like(img_spot)
+        montage, montage_count = create_cutout_montage(
+            nuclei_for_montage,
+            img_spot,
+            spots_df[spots_df["spot_channel"] == ch],
+            crop_size=qc_cutout_size,
+            max_cutouts=qc_max_cutouts,
+            n_cols=qc_montage_cols,
+            sample_seed=qc_sample_seed,
+        )
+        if montage is not None:
+            tifffile.imwrite(qc_cutouts_path, montage, imagej=True, metadata={"axes": "CYX"})
+            qc_cutouts_paths.append(qc_cutouts_path.name)
+            total_cutouts += int(montage_count)
+
+    manifest = {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "input_path": str(input_path),
+        "output_dir": str(out_dir),
+        "git_commit": _try_git_commit(REPO_ROOT),
+        "config_snapshot": cfg,
+        "image_shape": list(ref_shape),
+        "num_nuclei": int(labels_out.max()),
+        "num_spots": int(len(spots_df)),
+        "nuclei_meta": nuc_meta,
+        "valid_mask_path": str(valid_mask_path) if valid_mask_path else None,
+        "outputs": {
+            "spots": spots_path.name,
+            "nuclei_labels": labels_path.name,
+            "qc_overlay": qc_overlay_paths if len(qc_overlay_paths) > 1 else qc_overlay_paths[0],
+            "qc_montage": qc_cutouts_paths if len(qc_cutouts_paths) > 1 else (qc_cutouts_paths[0] if qc_cutouts_paths else None),
+        },
+        "qc": {
+            "cutout_size": qc_cutout_size,
+            "max_cutouts": qc_max_cutouts,
+            "montage_cols": qc_montage_cols,
+            "sample_seed": qc_sample_seed,
+            "cutouts_written": int(total_cutouts),
+        },
+    }
+
+    with (out_dir / "run_manifest.yaml").open("w", encoding="utf-8") as f:
+        yaml.safe_dump(manifest, f, sort_keys=False)
+
+    with (out_dir / "DONE").open("w", encoding="utf-8") as f:
+        f.write(f"completed_at: {datetime.now(timezone.utc).isoformat()}\n")
+
+    print(f"Integrated run complete: {out_dir}")
+    return out_dir
+
+
+def run_integrated(config_path: Path) -> Path:
+    cfg = _load_config(config_path)
+    data_root = _data_root()
+
+    input_paths = _resolve_input_paths(cfg, data_root)
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+
+    runs_dir = _resolve_path(cfg.get("output_runs_dir", "runs"), data_root)
+    runs_dir.mkdir(parents=True, exist_ok=True)
+
+    publish_dir = _resolve_optional_path(cfg.get("publish_dir"), data_root)
+    publish_mirror = bool(cfg.get("publish_mirror", False))
+    input_base_dir = _resolve_optional_path(cfg.get("input_base_dir"), data_root)
+    publish_mode = cfg.get("publish_mode", "error")
+    republish_skipped = bool(cfg.get("republish_skipped", False))
+
+    if len(input_paths) == 1:
+        out_dir = runs_dir / f"{stamp}__integrated"
+        if out_dir.exists() and bool(cfg.get("skip_existing", False)):
+            if _is_run_complete(out_dir):
+                print(f"Skipping existing output: {out_dir}")
+                if publish_dir and republish_skipped:
+                    try:
+                        _publish_output_dir(
+                            out_dir,
+                            input_path=input_paths[0],
+                            publish_dir=publish_dir,
+                            publish_mirror=publish_mirror,
+                            input_base_dir=input_base_dir,
+                            publish_batch_root=None,
+                            publish_mode=publish_mode,
+                        )
+                    except Exception as exc:
+                        print(f"Republish failed for {input_paths[0]}: {exc}")
+                return out_dir
+            raise FileExistsError(
+                f"Output directory exists but is incomplete: {out_dir}"
+            )
+        run_dir = _run_integrated_single(
+            cfg,
+            data_root=data_root,
+            input_path=input_paths[0],
+            out_dir=out_dir,
+        )
+        if publish_dir:
+            publish_status = "completed"
+            publish_error = None
+            try:
+                _publish_output_dir(
+                    run_dir,
+                    input_path=input_paths[0],
+                    publish_dir=publish_dir,
+                    publish_mirror=publish_mirror,
+                    input_base_dir=input_base_dir,
+                    publish_batch_root=None,
+                    publish_mode=publish_mode,
+                )
+            except Exception as exc:
+                publish_status = "failed"
+                publish_error = str(exc)
+                print(f"Publishing failed for {input_paths[0]}: {exc}")
+            if publish_error:
+                print(f"Publish status: {publish_status}")
+        return run_dir
+
+    batch_dir_name = cfg.get("batch_dir_name")
+    if batch_dir_name:
+        batch_dir = runs_dir / _safe_run_name(str(batch_dir_name), max_len=80)
+    else:
+        batch_dir = runs_dir / f"{stamp}__integrated_batch"
+    if batch_dir.exists():
+        if bool(cfg.get("skip_existing", False)):
+            print(f"Reusing existing batch dir: {batch_dir}")
+        else:
+            raise FileExistsError(f"Batch output directory already exists: {batch_dir}")
+    else:
+        batch_dir.mkdir(parents=True, exist_ok=False)
+
+    continue_on_error = bool(cfg.get("continue_on_error", True))
+    skip_existing = bool(cfg.get("skip_existing", False))
+    batch_entries = []
+    for idx, input_path in enumerate(input_paths, start=1):
+        run_name = _safe_run_name(input_path.stem)
+        run_dir = batch_dir / f"{idx:03d}__{run_name}"
+        if run_dir.exists() and skip_existing:
+            if _is_run_complete(run_dir):
+                entry: Dict[str, Any] = {
+                    "input_path": str(input_path),
+                    "output_dir": str(run_dir),
+                    "status": "skipped",
+                }
+                print(f"[{idx}/{len(input_paths)}] Skipping existing: {input_path}")
+                if publish_dir and republish_skipped:
+                    publish_status = "completed"
+                    publish_error = None
+                    published = None
+                    try:
+                        published = _publish_output_dir(
+                            run_dir,
+                            input_path=input_path,
+                            publish_dir=publish_dir,
+                            publish_mirror=publish_mirror,
+                            input_base_dir=input_base_dir,
+                            publish_batch_root=batch_dir.name,
+                            publish_mode=publish_mode,
+                        )
+                    except Exception as exc:
+                        publish_status = "failed"
+                        publish_error = str(exc)
+                        print(f"Republish failed for {input_path}: {exc}")
+                    entry["publish_status"] = publish_status
+                    if publish_error:
+                        entry["publish_error"] = publish_error
+                    if published:
+                        entry["published_dir"] = str(published)
+                batch_entries.append(entry)
+                continue
+            entry = {
+                "input_path": str(input_path),
+                "output_dir": str(run_dir),
+                "status": "failed",
+                "error": "Existing output directory is incomplete; remove it to rerun.",
+            }
+            batch_entries.append(entry)
+            print(f"[{idx}/{len(input_paths)}] Incomplete output exists: {input_path}")
+            if not continue_on_error:
+                break
+            continue
+
+        print(f"[{idx}/{len(input_paths)}] Running integrated analysis on: {input_path}")
+        try:
+            output_dir = _run_integrated_single(
+                cfg,
+                data_root=data_root,
+                input_path=input_path,
+                out_dir=run_dir,
+            )
+            entry: Dict[str, Any] = {
+                "input_path": str(input_path),
+                "output_dir": str(output_dir),
+                "status": "completed",
+            }
+            if publish_dir:
+                publish_status = "completed"
+                publish_error = None
+                published = None
+                try:
+                    published = _publish_output_dir(
+                        output_dir,
+                        input_path=input_path,
+                        publish_dir=publish_dir,
+                        publish_mirror=publish_mirror,
+                        input_base_dir=input_base_dir,
+                        publish_batch_root=batch_dir.name,
+                        publish_mode=publish_mode,
+                    )
+                except Exception as exc:
+                    publish_status = "failed"
+                    publish_error = str(exc)
+                    print(f"Publishing failed for {input_path}: {exc}")
+                entry["publish_status"] = publish_status
+                if publish_error:
+                    entry["publish_error"] = publish_error
+                if published:
+                    entry["published_dir"] = str(published)
+            batch_entries.append(entry)
+        except Exception as exc:
+            entry = {
+                "input_path": str(input_path),
+                "output_dir": str(run_dir),
+                "status": "failed",
+                "error": str(exc),
+            }
+            batch_entries.append(entry)
+            print(f"Error processing {input_path}: {exc}")
+            if not continue_on_error:
+                break
+
+    batch_manifest: Dict[str, Any] = {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "runs": batch_entries,
+        "config_snapshot": cfg,
+    }
+
+    if cfg.get("batch_aggregate_spots", False):
+        aggregate_tables = []
+        for entry in batch_entries:
+            if entry.get("status") not in {"completed", "skipped"}:
+                continue
+            spots_path = Path(entry["output_dir"]) / "spots.parquet"
+            if not spots_path.exists():
+                continue
+            df = pd.read_parquet(spots_path)
+            df["input_path"] = entry["input_path"]
+            df["output_dir"] = entry["output_dir"]
+            df["run_status"] = entry.get("status", "unknown")
+            try:
+                df["condition"] = Path(entry["input_path"]).parent.name
+            except Exception:
+                df["condition"] = ""
+            aggregate_tables.append(df)
+        if aggregate_tables:
+            aggregate_df = pd.concat(aggregate_tables, ignore_index=True)
+            aggregate_path = batch_dir / "spots_aggregate.parquet"
+            aggregate_df.to_parquet(aggregate_path, index=False)
+            batch_manifest["spots_aggregate"] = str(aggregate_path)
+
+    with (batch_dir / "batch_manifest.yaml").open("w", encoding="utf-8") as f:
+        yaml.safe_dump(batch_manifest, f, sort_keys=False)
+
+    if publish_dir:
+        publish_dir.mkdir(parents=True, exist_ok=True)
+        manifest_dir = publish_dir / "batch_manifests"
+        manifest_dir.mkdir(parents=True, exist_ok=True)
+        manifest_path = manifest_dir / f"{batch_dir.name}.yaml"
+        shutil.copy2(batch_dir / "batch_manifest.yaml", manifest_path)
+        batch_manifest["published_manifest_path"] = str(manifest_path)
+        if "spots_aggregate" in batch_manifest:
+            aggregate_src = Path(batch_manifest["spots_aggregate"])
+            publish_root = publish_dir / batch_dir.name
+            publish_root.mkdir(parents=True, exist_ok=True)
+            aggregate_dest = publish_root / aggregate_src.name
+            shutil.copy2(aggregate_src, aggregate_dest)
+            batch_manifest["published_spots_aggregate"] = str(aggregate_dest)
+        with (batch_dir / "batch_manifest.yaml").open("w", encoding="utf-8") as f:
+            yaml.safe_dump(batch_manifest, f, sort_keys=False)
+        shutil.copy2(batch_dir / "batch_manifest.yaml", manifest_path)
+
+    print(f"Integrated batch complete: {batch_dir}")
+    return batch_dir
+
+
+def main() -> int:
+    p = argparse.ArgumentParser(description="Run integrated nuclei+spots workflow")
+    p.add_argument("--config", type=Path, default=Path("configs/integrated_sim.yaml"))
+    args = p.parse_args()
+
+    cfg_path = args.config
+    if not cfg_path.is_absolute():
+        cfg_path = (REPO_ROOT / cfg_path).resolve()
+
+    run_integrated(cfg_path)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
+
+</file>
+----- END FILE: drivers/run_integrated.py -----
+
+----- START FILE: environment.yml -----
+<file path="environment.yml">
+name: bioimg-pipeline
+channels:
+  - conda-forge
+
+dependencies:
+  # Core
+  # If TensorFlow/StarDist wheels get fussy on your machine, try python=3.10.
+  - python=3.11
+  - pip=24.*
+
+  # Scientific stack (pin to a TensorFlow-compatible NumPy range)
+  - numpy=1.24.3
+  - scipy=1.10.*
+  - pandas=2.0.*
+
+  # I/O + configs
+  - pyyaml=6.*
+  - tifffile=2023.7.*
+  - h5py=3.11.*
+  - pyarrow=14.*
+
+  # Image processing + plots
+  - scikit-image=0.21.*
+  - matplotlib=3.7.*
+
+  # Dev / notebooks
+  - ipykernel=6.*
+  - jupyterlab=4.*
+  - jupytext=1.*
+  - pytest=8.*
+  - ruff=0.7.*
+
+  # Slice1 (StarDist) lives on pip (TensorFlow wheels are most reliable via pip)
+  - pip:
+      - stardist==0.9.1
+      - csbdeep==0.8.1
+      - tensorflow==2.13.0
+      - keras==2.13.1
+
+</file>
+----- END FILE: environment.yml -----
+
+----- START FILE: notebooks/01_step_by_step_integrated_qc.py -----
+<file path="notebooks/01_step_by_step_integrated_qc.py">
+# ---
+# jupyter:
+#   jupytext:
+#     formats: py:percent
+#   kernelspec:
+#     display_name: Python 3
+#     language: python
+#     name: python3
+# ---
+
+# %% [markdown]
+# # Step-by-step integrated QC
+#
+# This notebook walks through a **single 2D plane**:
+# 1) load nuclei + spot channels
+# 2) segment nuclei (StarDist)
+# 3) detect spots (LoG)
+# 4) visualize overlays
+
+# %%
+from __future__ import annotations
+
+import os
+import sys
+from pathlib import Path
+from glob import glob
+
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import yaml
+
+def _find_repo_root() -> Path:
+    cwd = Path.cwd().resolve()
+    for parent in (cwd, *cwd.parents):
+        if (parent / "src").is_dir():
+            return parent
+    raise RuntimeError(
+        "Could not find repo root (expected a src/ directory). "
+        f"Start this notebook from the repo root or a subdirectory. cwd={cwd}"
+    )
+
+
+REPO_ROOT = _find_repo_root()
+sys.path.insert(0, str(REPO_ROOT / "src"))
+
+from image_io import PlaneSelection, read_image_2d
+from slice0_kernel import Slice0Params, detect_spots
+from slice1_nuclei_kernel import Slice1NucleiParams, segment_nuclei_stardist
+from stardist_utils import StardistModelRef, load_stardist2d
+
+# %% [markdown]
+# ## Inputs
+#
+# Update the paths below to match your environment. If a local config exists at
+# `configs/local/integrated_ims.local.yaml`, the notebook will load it and
+# reuse its parameters (model path, channels, plane selection, etc.).
+
+# %%
+# Data roots
+bioimg_data_root_raw = os.environ.get("BIOIMG_DATA_ROOT")
+if not bioimg_data_root_raw:
+    raise RuntimeError("BIOIMG_DATA_ROOT is not set. See docs/SETUP_WINDOWS.md.")
+bioimg_data_root = Path(bioimg_data_root_raw)
+
+# Optional: load parameters from a local config file
+config_path = REPO_ROOT / "configs" / "local" / "integrated_ims.local.yaml"
+config = {}
+if config_path.exists():
+    with config_path.open("r", encoding="utf-8") as handle:
+        config = yaml.safe_load(handle) or {}
+
+
+def _resolve_cfg_path(value: str | Path) -> Path:
+    path = Path(str(value))
+    if not path.is_absolute():
+        path = (bioimg_data_root / path).resolve()
+    return path
+
+
+def _resolve_input_path(cfg: dict) -> Path | None:
+    if cfg.get("input_relpath"):
+        return _resolve_cfg_path(cfg["input_relpath"])
+    if cfg.get("input_relpaths"):
+        paths = cfg["input_relpaths"]
+        if isinstance(paths, list) and paths:
+            return _resolve_cfg_path(paths[0])
+    if cfg.get("input_glob"):
+        pattern = str(cfg["input_glob"])
+        pattern_path = Path(pattern)
+        if not pattern_path.is_absolute():
+            pattern = str((bioimg_data_root / pattern_path).resolve())
+        matches = sorted(glob(pattern))
+        if matches:
+            return Path(matches[0]).resolve()
+    return None
+
+
+model_dir = _resolve_cfg_path(
+    config.get("stardist_model_dir", "models/y22m01d12_model_0")
+)
+
+# Input Imaris file
+input_path = _resolve_input_path(config) or Path(
+    "S:/BIC/<user>/equipment/<instrument>/<date>/<sample>.ims"
+)
+
+if not model_dir.exists():
+    raise FileNotFoundError(f"StarDist model_dir not found: {model_dir}")
+if not input_path.exists():
+    raise FileNotFoundError(f"Input file not found: {input_path}")
+
+# Output directory (optional)
+output_dir = bioimg_data_root / "runs" / "_notebook_qc"
+output_dir.mkdir(parents=True, exist_ok=True)
+
+# Channel selection (1-based)
+channel_nuclei = int(config.get("channel_nuclei", 1))
+channel_spots_raw = config.get("channel_spots", 2)
+if isinstance(channel_spots_raw, (list, tuple)) and channel_spots_raw:
+    channel_spots = int(channel_spots_raw[0])
+else:
+    channel_spots = int(channel_spots_raw)
+
+# Plane selection
+ims_resolution_level = int(config.get("ims_resolution_level", 0))
+ims_time_index = int(config.get("ims_time_index", 0))
+ims_z_index = int(config.get("ims_z_index", 0))
+
+# %% [markdown]
+# ## Load nuclei + spot planes
+
+# %%
+selection_nuclei = PlaneSelection(
+    channel=channel_nuclei,
+    ims_resolution_level=ims_resolution_level,
+    ims_time_index=ims_time_index,
+    ims_z_index=ims_z_index,
+)
+selection_spots = PlaneSelection(
+    channel=channel_spots,
+    ims_resolution_level=ims_resolution_level,
+    ims_time_index=ims_time_index,
+    ims_z_index=ims_z_index,
+)
+
+nuclei_img = read_image_2d(input_path, selection_nuclei)
+spots_img = read_image_2d(input_path, selection_spots)
+
+print("nuclei_img:", nuclei_img.shape, nuclei_img.dtype)
+print("spots_img:", spots_img.shape, spots_img.dtype)
+
+# %% [markdown]
+# ## Segment nuclei (StarDist)
+
+# %%
+model_ref = StardistModelRef(model_dir=model_dir)
+model = load_stardist2d(model_ref)
+
+nuclei_params = Slice1NucleiParams(
+    normalize_pmin=float(config.get("nuc_normalize_pmin", 1.0)),
+    normalize_pmax=float(config.get("nuc_normalize_pmax", 99.8)),
+    prob_thresh=config.get("nuc_prob_thresh", 0.3),
+    nms_thresh=config.get("nuc_nms_thresh", None),
+)
+
+nuclei_labels, nuclei_meta = segment_nuclei_stardist(nuclei_img, model, nuclei_params)
+print("nuclei_labels:", nuclei_labels.shape, nuclei_labels.dtype)
+print("nuclei_meta:", nuclei_meta)
+
+# %% [markdown]
+# ## Detect spots (LoG)
+
+# %%
+spot_params = Slice0Params(
+    zR=float(config.get("spot_zR", 344.5)),
+    lambda_nm=float(config.get("spot_lambda_nm", 667.0)),
+    pixel_size_nm=float(config.get("spot_pixel_size_nm", 65.0)),
+    u0_min=float(config.get("spot_u0_min", 30.0)),
+)
+
+spots_df = detect_spots(spots_img, spot_params, nuclei_labels=nuclei_labels)
+spots_df.head()
+
+# %% [markdown]
+# ## Visualize overlays
+
+# %%
+try:
+    from skimage.segmentation import find_boundaries
+except Exception as exc:
+    raise ImportError("scikit-image is required for boundary overlays") from exc
+
+boundaries = find_boundaries(nuclei_labels, mode="outer")
+
+fig, ax = plt.subplots(figsize=(8, 8))
+ax.imshow(spots_img, cmap="gray")
+ax.imshow(np.ma.masked_where(~boundaries, boundaries), cmap="autumn", alpha=0.6)
+ax.scatter(spots_df["x_px"], spots_df["y_px"], s=12, c="cyan", alpha=0.8)
+ax.set_title("Spots (cyan) + nuclei boundaries (red)")
+ax.axis("off")
+plt.show()
+
+# %% [markdown]
+# ## Save a QC snapshot (optional)
+
+# %%
+qc_path = output_dir / "qc_overlay_notebook.png"
+fig, ax = plt.subplots(figsize=(8, 8))
+ax.imshow(spots_img, cmap="gray")
+ax.imshow(np.ma.masked_where(~boundaries, boundaries), cmap="autumn", alpha=0.6)
+ax.scatter(spots_df["x_px"], spots_df["y_px"], s=12, c="cyan", alpha=0.8)
+ax.axis("off")
+fig.savefig(qc_path, dpi=200, bbox_inches="tight")
+print("wrote", qc_path)
+
+</file>
+----- END FILE: notebooks/01_step_by_step_integrated_qc.py -----
+
+----- START FILE: notebooks/02_review_run_folder.py -----
+<file path="notebooks/02_review_run_folder.py">
+# ---
+# jupyter:
+#   jupytext:
+#     formats: py:percent
+#   kernelspec:
+#     display_name: Python 3
+#     language: python
+#     name: python3
+# ---
+
+# %% [markdown]
+# # Review a run folder
+#
+# Load manifests, spot tables, and QC images from a completed run.
+
+# %%
+from __future__ import annotations
+
+import os
+import sys
+from pathlib import Path
+
+import matplotlib.pyplot as plt
+import pandas as pd
+import yaml
+
+def _find_repo_root() -> Path:
+    cwd = Path.cwd().resolve()
+    for parent in (cwd, *cwd.parents):
+        if (parent / "src").is_dir():
+            return parent
+    raise RuntimeError(
+        "Could not find repo root (expected a src/ directory). "
+        f"Start this notebook from the repo root or a subdirectory. cwd={cwd}"
+    )
+
+
+REPO_ROOT = _find_repo_root()
+sys.path.insert(0, str(REPO_ROOT / "src"))
+
+# %% [markdown]
+# ## Inputs
+
+# %%
+bioimg_data_root_raw = os.environ.get("BIOIMG_DATA_ROOT")
+if not bioimg_data_root_raw:
+    raise RuntimeError("BIOIMG_DATA_ROOT is not set. See docs/SETUP_WINDOWS.md.")
+bioimg_data_root = Path(bioimg_data_root_raw)
+run_dir = bioimg_data_root / "runs" / "<timestamp>__integrated"
+
+spots_path = run_dir / "spots.parquet"
+manifest_path = run_dir / "run_manifest.yaml"
+qc_glob = "qc_overlay*.png"
+
+if not run_dir.exists():
+    raise FileNotFoundError(f"Run directory not found: {run_dir}")
+
+# %% [markdown]
+# ## Load run manifest
+
+# %%
+if manifest_path.exists():
+    with manifest_path.open("r", encoding="utf-8") as handle:
+        manifest = yaml.safe_load(handle)
+    print("Run manifest keys:", sorted(manifest.keys()))
+else:
+    print("No run_manifest.yaml found")
+
+# %% [markdown]
+# ## Load spots table
+
+# %%
+if not spots_path.exists():
+    raise FileNotFoundError(f"Missing spots table: {spots_path}")
+spots_df = pd.read_parquet(spots_path)
+spots_df.head()
+
+# %% [markdown]
+# ## Summary metrics
+
+# %%
+summary = {
+    "num_spots": int(len(spots_df)),
+}
+if "nucleus_label" in spots_df.columns:
+    summary["num_nuclei"] = int(spots_df["nucleus_label"].nunique())
+if "snr" in spots_df.columns:
+    summary["median_snr"] = float(spots_df["snr"].median())
+summary
+
+# %% [markdown]
+# ## Display QC overlays
+
+# %%
+qc_paths = sorted(run_dir.glob(qc_glob))
+if not qc_paths:
+    print("No QC overlay images found")
+else:
+    for qc_path in qc_paths:
+        img = plt.imread(qc_path)
+        fig, ax = plt.subplots(figsize=(6, 6))
+        ax.imshow(img)
+        ax.set_title(qc_path.name)
+        ax.axis("off")
+        plt.show()
+
+</file>
+----- END FILE: notebooks/02_review_run_folder.py -----
+
+----- START FILE: notebooks/_TEMPLATE__jupytext_percent.py -----
+<file path="notebooks/_TEMPLATE__jupytext_percent.py">
+# ---
+# jupyter:
+#   jupytext:
+#     formats: py:percent
+#   kernelspec:
+#     display_name: Python 3
+#     language: python
+#     name: python3
+# ---
+
+# %% [markdown]
+# # Notebook template
+#
+# Copy this file, update the title, and start adding cells below.
+
+# %%
+# Imports
+from __future__ import annotations
+
+from pathlib import Path
+
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+
+# %% [markdown]
+# ## Configuration
+#
+# Define paths and any constants you need here.
+
+# %%
+# Example placeholders
+repo_root = Path(".").resolve()
+
+# %% [markdown]
+# ## Analysis
+#
+# Add your analysis cells here.
+
+# %%
+# Example cell
+x = np.linspace(0, 1, 100)
+y = np.sin(2 * np.pi * x)
+
+fig, ax = plt.subplots(figsize=(6, 3))
+ax.plot(x, y)
+ax.set_title("Template plot")
+ax.set_xlabel("x")
+ax.set_ylabel("sin(2πx)")
+plt.show()
+
+</file>
+----- END FILE: notebooks/_TEMPLATE__jupytext_percent.py -----
+
+----- START FILE: scripts/generate_phantom_tiff.py -----
+<file path="scripts/generate_phantom_tiff.py">
+from __future__ import annotations
+
+import argparse
+import os
+from pathlib import Path
+from typing import Any, Dict
+
+import numpy as np
+import tifffile
+import yaml
+from skimage.draw import disk as draw_disk
+
+# Allow running without packaging
+REPO_ROOT = Path(__file__).resolve().parents[1]
+import sys
+
+sys.path.insert(0, str(REPO_ROOT / "src"))
+
+
+def _load_config(path: Path) -> Dict[str, Any]:
+    with path.open("r", encoding="utf-8") as f:
+        return yaml.safe_load(f)
+
+
+def _data_root() -> Path:
+    root = os.environ.get("BIOIMG_DATA_ROOT")
+    if not root:
+        raise RuntimeError("BIOIMG_DATA_ROOT is not set (see docs/SETUP_WINDOWS.md)")
+    return Path(root).expanduser().resolve()
+
+
+def generate_integrated_phantom(cfg: Dict[str, Any]) -> np.ndarray:
+    """Generate a (2, H, W) phantom for the integrated pipeline.
+
+    Channel 0: nuclei-like blobs
+    Channel 1: small spots, mostly inside nuclei
+    """
+    height = int(cfg.get("sim_height", 512))
+    width = int(cfg.get("sim_width", 512))
+    n_nuclei = int(cfg.get("sim_num_nuclei", 15))
+    n_spots = int(cfg.get("sim_num_spots", 100))
+    seed = int(cfg.get("sim_seed", 42))
+
+    rng = np.random.default_rng(seed)
+
+    nuclei_img = np.full((height, width), 100.0, dtype=np.float32)
+    nuclei_img += rng.normal(0, 10, size=(height, width))
+
+    nuclei_centers: list[tuple[int, int]] = []
+    nuclei_radii: list[int] = []
+
+    for _ in range(n_nuclei):
+        radius = int(rng.integers(20, 40))
+        y = int(rng.integers(radius, height - radius))
+        x = int(rng.integers(radius, width - radius))
+
+        rr, cc = draw_disk((y, x), radius, shape=(height, width))
+        nuclei_img[rr, cc] += rng.uniform(1000, 2000)
+
+        nuclei_centers.append((y, x))
+        nuclei_radii.append(radius)
+
+    spots_img = np.full((height, width), 100.0, dtype=np.float32)
+    spots_img += rng.normal(0, 10, size=(height, width))
+
+    def add_spot(y: float, x: float) -> None:
+        sigma = 1.5
+        amp = float(rng.uniform(800, 2500))
+        size = int(np.ceil(3 * sigma))
+        yy, xx = np.mgrid[-size : size + 1, -size : size + 1]
+        g = np.exp(-(yy**2 + xx**2) / (2 * sigma**2))
+
+        y0 = int(y) - size
+        x0 = int(x) - size
+        if y0 < 0 or x0 < 0 or y0 + g.shape[0] >= height or x0 + g.shape[1] >= width:
+            return
+
+        spots_img[y0 : y0 + g.shape[0], x0 : x0 + g.shape[1]] += amp * g
+
+    num_inside = int(n_spots * 0.7)
+    for _ in range(num_inside):
+        idx = int(rng.integers(0, n_nuclei))
+        ny, nx = nuclei_centers[idx]
+        nr = nuclei_radii[idx]
+        angle = rng.uniform(0, 2 * np.pi)
+        dist = rng.uniform(0, nr * 0.8)
+        sy = ny + dist * np.sin(angle)
+        sx = nx + dist * np.cos(angle)
+        add_spot(sy, sx)
+
+    for _ in range(n_spots - num_inside):
+        sy = int(rng.integers(10, height - 10))
+        sx = int(rng.integers(10, width - 10))
+        add_spot(sy, sx)
+
+    stack = np.stack([nuclei_img, spots_img])
+    return np.clip(stack, 0, 65535).astype(np.uint16)
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description="Generate integrated phantom TIFF")
+    ap.add_argument("--config", default="configs/integrated_sim.yaml")
+    ap.add_argument("--overwrite", action="store_true")
+    args = ap.parse_args()
+
+    cfg_path = Path(args.config)
+    if not cfg_path.is_absolute():
+        cfg_path = (REPO_ROOT / cfg_path).resolve()
+
+    cfg = _load_config(cfg_path)
+    data_root = _data_root()
+
+    input_relpath = cfg.get("input_relpath")
+    if not input_relpath:
+        raise ValueError("config missing required key: input_relpath")
+    out_path = (data_root / input_relpath).resolve()
+
+    if out_path.exists() and not args.overwrite:
+        raise FileExistsError(f"File exists: {out_path}. Use --overwrite.")
+
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+
+    img = generate_integrated_phantom(cfg)
+    tifffile.imwrite(str(out_path), img, imagej=True, metadata={"axes": "CYX"})
+
+    print(f"Wrote integrated phantom: {out_path}")
+    print(f"Shape: {img.shape} (C, Y, X)")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
+
+</file>
+----- END FILE: scripts/generate_phantom_tiff.py -----
+
+----- START FILE: scripts/verify_setup.py -----
+<file path="scripts/verify_setup.py">
+from __future__ import annotations
+
+import os
+import sys
+import subprocess
+from pathlib import Path
+
+
+# Modules required for integrated workflow + file I/O
+REQUIRED_IMPORTS = [
+    "numpy",
+    "pandas",
+    "tifffile",
+    "yaml",
+    "pyarrow",
+    "skimage",
+    "matplotlib",
+    "h5py",  # needed for reading Imaris .ims
+    "stardist",
+    "csbdeep",
+    "tensorflow",
+]
+
+
+def try_git_commit(repo_root: Path) -> str | None:
+    try:
+        out = subprocess.check_output(
+            ["git", "rev-parse", "HEAD"],
+            cwd=str(repo_root),
+            stderr=subprocess.STDOUT,
+            text=True,
+        ).strip()
+        return out
+    except Exception:
+        return None
+
+
+def main() -> int:
+    repo_root = Path(__file__).resolve().parents[1]
+    print("=== bioimg-pipeline :: verify_setup ===")
+    print(f"repo_root: {repo_root}")
+    print(f"python: {sys.executable}")
+    print(f"python_version: {sys.version.split()[0]}")
+    print(f"conda_env: {os.environ.get('CONDA_DEFAULT_ENV', '(not set)')}")
+
+    # 1) Env var
+    data_root = os.environ.get("BIOIMG_DATA_ROOT")
+    if not data_root:
+        print("ERROR: BIOIMG_DATA_ROOT is not set.")
+        print(
+            r"Fix (PowerShell): [Environment]::SetEnvironmentVariable('BIOIMG_DATA_ROOT','D:\bioimg-data','User')"
+        )
+        return 2
+
+    data_root = Path(data_root)
+    print(f"BIOIMG_DATA_ROOT: {data_root}")
+    if not data_root.exists():
+        print(f"ERROR: BIOIMG_DATA_ROOT path does not exist: {data_root}")
+        return 2
+
+    # 2) Expected bench folders
+    expected = ["raw_staging", "runs", "cache", "models"]
+    for name in expected:
+        p = data_root / name
+        if not p.exists():
+            print(f"ERROR: missing bench folder: {p}")
+            return 2
+    print("bench folders: OK")
+
+    # 3) Required repo files
+    required_repo_files = [
+        "environment.yml",
+        "docs/CONTRACTS.md",
+        "configs/integrated_sim.yaml",
+        "configs/integrated_ims.example.yaml",
+    ]
+    for rel in required_repo_files:
+        p = repo_root / rel
+        if not p.exists():
+            print(f"ERROR: missing repo file: {p}")
+            return 2
+    print("repo files: OK")
+
+    # 4) Required imports
+    for mod in REQUIRED_IMPORTS:
+        try:
+            __import__(mod)
+            print(f"import {mod}: OK")
+        except Exception as e:
+            print(f"ERROR: import {mod} failed: {e}")
+            return 2
+
+    # 5) Write test to runs/
+    test_dir = data_root / "runs" / "_setup_write_test"
+    test_dir.mkdir(parents=True, exist_ok=True)
+    (test_dir / "touch.txt").write_text("ok\n", encoding="utf-8")
+    print(f"\nwrite test: OK ({test_dir})")
+
+    # 6) Git commit (optional)
+    commit = try_git_commit(repo_root)
+    if commit:
+        print(f"git_commit: {commit[:12]}")
+    else:
+        print("git_commit: (unavailable in this shell)")
+
+    print("SETUP OK ✅")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
+
+</file>
+----- END FILE: scripts/verify_setup.py -----
+
+----- START FILE: src/README.md -----
+<file path="src/README.md">
+Kernels live here
+</file>
+----- END FILE: src/README.md -----
+
+----- START FILE: src/__init__.py -----
+<file path="src/__init__.py">
+"""Core pipeline modules."""
+
+</file>
+----- END FILE: src/__init__.py -----
+
+----- START FILE: src/image_io.py -----
+<file path="src/image_io.py">
+"""Image I/O helpers.
+
+Goal: keep format quirks (TIFF vs Imaris .ims) out of kernels.
+
+Design choice (matches docs/ARCHITECTURE.md):
+- Drivers handle filesystem paths + choose which plane/channel to load.
+- Kernels operate on in-memory 2D arrays.
+
+The functions here intentionally return **only a single 2D plane**.
+Slice0 and Slice1 are defined as operating on a single frame.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from pathlib import Path
+import numpy as np
+
+
+@dataclass(frozen=True)
+class PlaneSelection:
+    """How to select a single 2D plane from a multi-dimensional file.
+
+    Notes
+    -----
+    * `channel` is **1-based** for user friendliness:
+        - channel=1 corresponds to "Channel 0" in Imaris
+        - channel=2 corresponds to "Channel 1" in Imaris
+    """
+
+    channel: int = 1
+
+    # Only used for .ims inputs
+    ims_resolution_level: int = 0
+    ims_time_index: int = 0
+    ims_z_index: int = 0
+
+
+def read_image_2d(input_path: Path, selection: PlaneSelection) -> np.ndarray:
+    """Read a single 2D plane from TIFF or Imaris .ims.
+
+    Parameters
+    ----------
+    input_path:
+        Path to input image (.tif/.tiff or .ims).
+    selection:
+        Plane/channel selection.
+
+    Returns
+    -------
+    np.ndarray
+        2D array (Y, X). The dtype is preserved from file.
+    """
+
+    suffix = input_path.suffix.lower()
+    if suffix in {".tif", ".tiff"}:
+        return _read_tiff_2d(input_path, channel=selection.channel)
+    if suffix == ".ims":
+        return _read_ims_2d(
+            input_path,
+            channel=selection.channel,
+            resolution_level=selection.ims_resolution_level,
+            time_index=selection.ims_time_index,
+            z_index=selection.ims_z_index,
+        )
+
+    raise ValueError(f"Unsupported input format: {input_path}")
+
+
+def _read_tiff_2d(path: Path, channel: int) -> np.ndarray:
+    """Read TIFF and select a 2D plane.
+
+    For Slice0/Slice1 we primarily expect either:
+    * (Y, X)
+    * (C, Y, X) where C is small (1-4)
+
+    If you later hit real data with T/Z/C, we can extend this function.
+    """
+
+    try:
+        import tifffile
+    except ImportError as e:
+        raise ImportError("tifffile is required to read TIFF inputs") from e
+
+    arr = np.asarray(tifffile.imread(str(path)))
+
+    # Selection rules:
+    # - If already 2D, return.
+    # - If 3D, treat axis0 as channel-like when possible.
+    if arr.ndim == 2:
+        return arr
+
+    if arr.ndim == 3:
+        ch = int(channel)
+        idx = ch - 1 if ch >= 1 else 0
+        if 0 <= idx < arr.shape[0]:
+            return arr[idx]
+        raise ValueError(
+            f"TIFF has {arr.shape[0]} channel(s); requested channel {ch}: {path}"
+        )
+
+    raise ValueError(
+        f"TIFF has {arr.ndim} dimensions {arr.shape}, which is ambiguous for 2D reading. "
+        "Please ensure input is (Y,X) or (C,Y,X)."
+    )
+
+
+def _read_ims_2d(
+    path: Path,
+    channel: int,
+    resolution_level: int,
+    time_index: int,
+    z_index: int,
+) -> np.ndarray:
+    """Read a single 2D plane from an Imaris .ims file.
+
+    Imaris .ims files are HDF5 containers.
+
+    We follow the common dataset layout:
+        /DataSet/ResolutionLevel {r}/TimePoint {t}/Channel {c}/Data
+
+    Where `c` is 0-based.
+    """
+
+    try:
+        import h5py
+    except ImportError as e:
+        raise ImportError("h5py is required to read .ims inputs") from e
+
+    # channel is treated as 1-based if >=1; allow channel=0 to mean first channel
+    ch = int(channel)
+    c = ch - 1 if ch >= 1 else 0
+
+    ds_path = (
+        f"DataSet/ResolutionLevel {int(resolution_level)}/"
+        f"TimePoint {int(time_index)}/"
+        f"Channel {c}/Data"
+    )
+
+    with h5py.File(str(path), "r") as f:
+        if ds_path not in f:
+            # Provide helpful debug info
+            found = []
+            def _visit(name, obj):
+                if isinstance(obj, h5py.Dataset) and name.endswith("/Data"):
+                    found.append(name)
+            f.visititems(_visit)
+            preview = "\n".join(found[:10])
+            raise KeyError(
+                f"Dataset path not found: {ds_path}\n"
+                f"Found these /Data datasets (showing up to 10):\n{preview}"
+            )
+
+        dset = f[ds_path]
+
+        # Typical: (Z, Y, X) or (Y, X)
+        if dset.ndim == 3:
+            z = int(z_index)
+            if z < 0 or z >= dset.shape[0]:
+                raise IndexError(
+                    f"z_index={z_index} out of range for IMS data shape={tuple(dset.shape)}"
+                )
+            arr = np.asarray(dset[z, :, :])
+        elif dset.ndim == 2:
+            arr = np.asarray(dset[:, :])
+        else:
+            # Fallback (may load more data than needed)
+            raw = np.asarray(dset)
+            raw = np.squeeze(raw)
+            if raw.ndim == 2:
+                arr = raw
+            else:
+                flat = raw.reshape(-1, raw.shape[-2], raw.shape[-1])
+                arr = flat[0]
+
+    arr = np.squeeze(arr)
+    if arr.ndim != 2:
+        raise ValueError(
+            f"Unsupported IMS data shape for Slice0/Slice1: shape={arr.shape}. "
+            "Expected (Y,X) or (Z,Y,X)."
+        )
+    return arr
+
+</file>
+----- END FILE: src/image_io.py -----
+
+----- START FILE: src/simulate_phantom.py -----
+<file path="src/simulate_phantom.py">
+from __future__ import annotations
+
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Tuple, Optional
+
+import numpy as np
+import tifffile
+
+
+@dataclass(frozen=True)
+class PhantomParams:
+    height: int = 512
+    width: int = 512
+    num_spots: int = 40
+    sigma_px: float = 1.5
+    min_separation_px: float = 8.0  # helps keep peaks visually distinct
+    background_level: float = 100.0
+    noise_sigma: float = 10.0
+    intensity_min: float = 800.0
+    intensity_max: float = 2500.0
+    seed: int = 42
+
+
+def _place_spots_separated(
+    rng: np.random.Generator,
+    height: int,
+    width: int,
+    num_spots: int,
+    margin: int,
+    min_sep: float,
+    max_attempts: int = 2000,
+) -> Tuple[np.ndarray, np.ndarray]:
+    """Rejection-sample spot centers with a minimum separation.
+
+    Returns fewer than num_spots if it can't satisfy constraints.
+    """
+    ys: list[float] = []
+    xs: list[float] = []
+    for _ in range(num_spots):
+        placed = False
+        for _attempt in range(max_attempts):
+            y = float(rng.uniform(margin, height - margin))
+            x = float(rng.uniform(margin, width - margin))
+            if not ys:
+                ys.append(y); xs.append(x); placed = True; break
+            d2 = (np.asarray(ys) - y) ** 2 + (np.asarray(xs) - x) ** 2
+            if float(np.min(d2)) >= (min_sep ** 2):
+                ys.append(y); xs.append(x); placed = True; break
+        if not placed:
+            break
+    return np.asarray(ys, dtype=float), np.asarray(xs, dtype=float)
+
+
+def generate_phantom_image(params: PhantomParams) -> np.ndarray:
+    """Generate a synthetic microscopy-like 2D image as uint16.
+
+    Spots are rendered as small 2D Gaussians + background + Gaussian noise.
+
+    This is intentionally simple; the purpose is to validate:
+      TIFF I/O -> kernel -> parquet + manifest + QC image
+    """
+    if params.height <= 0 or params.width <= 0:
+        raise ValueError("height/width must be positive")
+    if params.sigma_px <= 0:
+        raise ValueError("sigma_px must be positive")
+    if params.num_spots < 0:
+        raise ValueError("num_spots must be >= 0")
+
+    rng = np.random.default_rng(params.seed)
+
+    # Keep spots away from edges so the Gaussian support doesn't clip.
+    margin = int(max(1, np.ceil(3.0 * params.sigma_px)))
+
+    # Choose centers (float centers are fine; detector will report integer maxima)
+    ys, xs = _place_spots_separated(
+        rng=rng,
+        height=params.height,
+        width=params.width,
+        num_spots=params.num_spots,
+        margin=margin,
+        min_sep=float(params.min_separation_px),
+    )
+
+    # Background + noise in float
+    img = np.full((params.height, params.width), float(params.background_level), dtype=np.float32)
+    img += rng.normal(0.0, float(params.noise_sigma), size=img.shape).astype(np.float32)
+
+    # Render each Gaussian in a small local patch for efficiency
+    half = int(max(2, np.ceil(3.0 * params.sigma_px)))
+    yy = np.arange(-half, half + 1, dtype=np.float32)
+    xx = np.arange(-half, half + 1, dtype=np.float32)
+    XX, YY = np.meshgrid(xx, yy)
+    denom = 2.0 * (float(params.sigma_px) ** 2)
+
+    for y0, x0 in zip(ys, xs):
+        amp = float(rng.uniform(float(params.intensity_min), float(params.intensity_max)))
+        g = amp * np.exp(-((XX ** 2 + YY ** 2) / denom)).astype(np.float32)
+
+        y_c = int(round(y0))
+        x_c = int(round(x0))
+        y0i = max(0, y_c - half)
+        y1i = min(params.height, y_c + half + 1)
+        x0i = max(0, x_c - half)
+        x1i = min(params.width, x_c + half + 1)
+
+        gy0 = (y0i - (y_c - half))
+        gx0 = (x0i - (x_c - half))
+        gy1 = gy0 + (y1i - y0i)
+        gx1 = gx0 + (x1i - x0i)
+
+        img[y0i:y1i, x0i:x1i] += g[gy0:gy1, gx0:gx1]
+
+    # Clip to uint16 range to mimic camera output
+    img = np.clip(img, 0, 65535).astype(np.uint16)
+    return img
+
+
+def write_phantom_tiff(output_path: Path, params: PhantomParams, overwrite: bool = False) -> Path:
+    output_path = output_path.expanduser().resolve()
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    if output_path.exists() and not overwrite:
+        raise FileExistsError(
+            f"Refusing to overwrite existing file: {output_path}. " 
+            "Pass --overwrite if you intend to replace it."
+        )
+
+    img = generate_phantom_image(params)
+    tifffile.imwrite(str(output_path), img)
+    return output_path
+
+</file>
+----- END FILE: src/simulate_phantom.py -----
+
+----- START FILE: src/slice0_kernel.py -----
+<file path="src/slice0_kernel.py">
+"""Slice0 kernel: spot detection.
+
+This kernel is intentionally **pure computation** (no filesystem I/O).
+
+The implementation here mirrors the spot-detection math used in
+`2024-11-12_realtime_analysis_0.py`:
+
+1) Build a Laplacian-of-Gaussian (LoG) filter from optics-ish parameters
+2) Convolve the image with the LoG (mode='valid')
+3) Find local maxima in the *negative* LoG response via a max filter
+4) For each candidate maximum, compute:
+     - background = median in a thin ring mask (out0)
+     - mean_in5   = mean inside a small disk mask (in5)
+     - mean_in7   = mean inside a slightly larger disk mask (in7)
+     - u0 = mean_in5 - background
+     - u1 = mean_in7 - background
+   and keep spots with u0 > u0_min
+
+Optional masks can further restrict candidate maxima (e.g. AOI/illumination mask,
+or nuclei labels from Slice1).
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from functools import lru_cache
+from typing import Optional
+
+import numpy as np
+import pandas as pd
+
+
+REQUIRED_COLUMNS = [
+    "frame",
+    "y_px",
+    "x_px",
+    "intensity",
+    "background",
+    "snr",
+    "nucleus_label",
+]
+
+
+@dataclass(frozen=True)
+class Slice0Params:
+    """Parameters for LoG-based spot detection.
+
+    Defaults are chosen to closely match the realtime analysis script.
+    """
+
+    # --- Optics-ish LoG definition (mirrors realtime script) ---
+    zR: float = 344.5
+    lambda_nm: float = 667.0
+    pixel_size_nm: float = 65.0
+
+    # --- Candidate maxima + quality threshold ---
+    q_min: float = 1.0
+    se_size: int = 15
+
+    # --- Per-spot measurements (mirrors realtime script) ---
+    window_radius_px: int = 15  # -> 31x31 window
+    in5_radius_px: int = 2
+    in7_radius_px: int = 3
+    ring_outer_radius_px: int = 10
+    ring_inner_radius_px: int = 9
+
+    # Keep spot if (mean(in5) - background) > u0_min
+    u0_min: float = 30.0
+
+
+def _robust_std(x: np.ndarray) -> float:
+    """Robust std via MAD; returns 0.0 if too few samples."""
+    x = np.asarray(x, dtype=float)
+    if x.size < 5:
+        return 0.0
+    med = np.median(x)
+    mad = np.median(np.abs(x - med))
+    return float(1.4826 * mad)
+
+
+def _laplacian_of_gaussian(size: int, sigma: float) -> np.ndarray:
+    """LoG filter matching the realtime analysis implementation."""
+    size = int(size)
+    if size % 2 == 0:
+        size += 1
+    half = size // 2
+
+    n1_grid, n2_grid = np.meshgrid(
+        range(-half, half + 1),
+        range(-half, half + 1),
+        indexing="ij",
+    )
+    n1_grid = n1_grid.astype(np.float32)
+    n2_grid = n2_grid.astype(np.float32)
+
+    sigma = float(sigma)
+    hg = np.exp(-(n1_grid**2 + n2_grid**2) / (2.0 * sigma**2))
+    h_unnormalized = (n1_grid**2 + n2_grid**2 - 2.0 * sigma**2) * hg
+    normalizing_factor = (sigma**4) * np.sum(hg)
+    h_normalized = h_unnormalized / normalizing_factor
+    return h_normalized.astype(np.float32, copy=False)
+
+
+@lru_cache(maxsize=64)
+def _cached_log_filter(size: int, sigma: float) -> np.ndarray:
+    """Cached LoG filter.
+
+    We keep the math identical to `_laplacian_of_gaussian`; this is purely a
+    performance optimization when the kernel is called repeatedly with the same
+    parameters.
+    """
+    h = _laplacian_of_gaussian(size, sigma)
+    # Make accidental mutation obvious.
+    h.setflags(write=False)
+    return h
+
+
+@lru_cache(maxsize=64)
+def _disk_mask(radius_px: int, window_size: int) -> np.ndarray:
+    """Return a (window_size x window_size) boolean disk mask."""
+    try:
+        from skimage.morphology import disk  # type: ignore
+    except Exception as e:
+        raise ImportError(
+            "scikit-image is required for Slice0 masks (skimage.morphology.disk)."
+        ) from e
+
+    base = disk(int(radius_px)).astype(bool)
+    pad = (int(window_size) - int(base.shape[0])) // 2
+    if pad < 0:
+        raise ValueError(
+            f"disk(radius={radius_px}) is larger than window_size={window_size}."
+        )
+    m = np.pad(base, ((pad, pad), (pad, pad)), mode="constant").astype(bool)
+    m.setflags(write=False)
+    return m
+
+
+@lru_cache(maxsize=64)
+def _ring_mask(inner_radius_px: int, outer_radius_px: int, window_size: int) -> np.ndarray:
+    """Return a thin ring mask (outer disk minus inner disk), padded to window_size."""
+    outer = _disk_mask(int(outer_radius_px), int(window_size))
+    inner = _disk_mask(int(inner_radius_px), int(window_size))
+    m = outer & (~inner)
+    m.setflags(write=False)
+    return m
+
+
+def detect_spots(
+    image_2d: np.ndarray,
+    params: Slice0Params,
+    *,
+    valid_mask: Optional[np.ndarray] = None,
+    nuclei_labels: Optional[np.ndarray] = None,
+) -> pd.DataFrame:
+    """Detect spots in a single 2D image using the realtime LoG method.
+
+    Parameters
+    ----------
+    image_2d:
+        2D image array (Y, X).
+    params:
+        Detection parameters.
+    valid_mask:
+        Optional boolean mask (Y, X). If provided, candidates are restricted
+        to mask==True (e.g. illumination/AOI mask).
+    nuclei_labels:
+        Optional label image (Y, X). If provided, candidates are restricted
+        to pixels where labels>0 (spots inside nuclei).
+
+    Returns
+    -------
+    pd.DataFrame
+        Spots table containing the required Slice0 contract columns.
+        Additional columns are included for debugging/analysis.
+    """
+
+    if image_2d.ndim != 2:
+        raise ValueError(f"detect_spots expects a 2D array; got shape={image_2d.shape}")
+
+    img = np.asarray(image_2d)
+    img_f = img.astype(np.float32, copy=False)
+    H, W = img_f.shape
+
+    if valid_mask is not None:
+        vm = np.asarray(valid_mask).astype(bool, copy=False)
+        if vm.shape != (H, W):
+            raise ValueError(f"valid_mask shape {vm.shape} does not match image shape {(H, W)}")
+    else:
+        vm = None
+
+    nl: Optional[np.ndarray]
+    if nuclei_labels is not None:
+        nl = np.asarray(nuclei_labels)
+        if nl.shape != (H, W):
+            raise ValueError(
+                f"nuclei_labels shape {nl.shape} does not match image shape {(H, W)}"
+            )
+        nm = (nl > 0)
+    else:
+        nl = None
+        nm = None
+
+    # --- Build LoG filter (matching realtime script) ---
+    zR = float(params.zR)
+    lambda_nm = float(params.lambda_nm)
+    pixel_size_nm = float(params.pixel_size_nm)
+    if pixel_size_nm <= 0:
+        raise ValueError("pixel_size_nm must be > 0")
+
+    w0 = float(np.sqrt(lambda_nm * zR / np.pi))
+    sigma0 = float(w0 / np.sqrt(2.0) / pixel_size_nm)
+    n1 = int(np.ceil(sigma0 * 3.0) * 2.0 + 1.0)
+
+    log_filter = _cached_log_filter(n1, sigma0)
+
+    # --- Convolution + local maxima on -LoG (matching realtime script) ---
+    try:
+        from scipy.signal import convolve  # type: ignore
+        from scipy.ndimage import maximum_filter  # type: ignore
+    except Exception as e:
+        raise ImportError("SciPy is required for LoG convolution and maximum_filter.") from e
+
+    image_conv = convolve(img_f, log_filter, mode="valid")
+
+    se_size = int(params.se_size)
+    maxima = (-1.0 * image_conv) == maximum_filter(-1.0 * image_conv, size=se_size)
+
+    pad_size = int(log_filter.shape[0] // 2)
+    maxima_padded = np.pad(
+        maxima,
+        pad_width=((pad_size, pad_size), (pad_size, pad_size)),
+        mode="constant",
+        constant_values=0,
+    )
+    image_conv_padded = np.pad(
+        image_conv,
+        pad_width=((pad_size, pad_size), (pad_size, pad_size)),
+        mode="constant",
+        constant_values=0,
+    )
+
+    # Apply optional masks (mirrors `maxima_padded = maxima_padded * mask_crop` and
+    # `maxima_padded = maxima_padded * nuclei_mask` in the realtime script).
+    if vm is not None:
+        maxima_padded = maxima_padded * vm
+    if nm is not None:
+        maxima_padded = maxima_padded * nm.astype(np.int32)
+
+    ys_all, xs_all = np.where(maxima_padded)
+    if ys_all.size == 0:
+        return pd.DataFrame(columns=REQUIRED_COLUMNS)
+
+    quality = -1.0 * image_conv_padded[ys_all, xs_all]
+    keep_q = quality > float(params.q_min)
+    ys = ys_all[keep_q]
+    xs = xs_all[keep_q]
+    quality = quality[keep_q]
+
+    if ys.size == 0:
+        return pd.DataFrame(columns=REQUIRED_COLUMNS)
+
+    # --- Per-spot measurement masks (31x31 by default) ---
+    wr = int(params.window_radius_px)
+    win = 2 * wr + 1
+    in5 = _disk_mask(int(params.in5_radius_px), win)
+    in7 = _disk_mask(int(params.in7_radius_px), win)
+    out0 = _ring_mask(int(params.ring_inner_radius_px), int(params.ring_outer_radius_px), win)
+
+    rows = []
+    window_range = np.arange(-wr, wr + 1)
+
+    for y0, x0, q in zip(ys.tolist(), xs.tolist(), quality.tolist()):
+        y0 = int(y0)
+        x0 = int(x0)
+
+        ys0 = y0 + window_range
+        xs0 = x0 + window_range
+
+        # Boundary check (exactly like realtime script): require full window inside image.
+        if (
+            ys0.min() < 0
+            or xs0.min() < 0
+            or ys0.max() >= H
+            or xs0.max() >= W
+        ):
+            continue
+
+        box = img_f[np.ix_(ys0, xs0)]
+        bkg = float(np.median(box[out0]))
+        mean_in5 = float(box[in5].mean())
+        mean_in7 = float(box[in7].mean())
+
+        u0 = mean_in5 - bkg
+        u1 = mean_in7 - bkg
+
+        if u0 <= float(params.u0_min):
+            continue
+
+        # SNR (not in realtime script, but required by Slice0 contract).
+        bg_vals = box[out0].astype(float, copy=False)
+        noise = _robust_std(bg_vals)
+        if noise <= 1e-6:
+            noise = float(np.std(bg_vals))
+        if noise <= 1e-6:
+            noise = 1e-6
+        snr = float(u0 / noise)
+
+        nucleus_label = int(nl[y0, x0]) if nl is not None else 0
+
+        rows.append(
+            dict(
+                frame=0,
+                y_px=float(y0),
+                x_px=float(x0),
+                intensity=float(u0),
+                background=float(bkg),
+                snr=float(snr),
+                # extras (safe additions)
+                u0=float(u0),
+                u1=float(u1),
+                quality=float(q),
+                mean_in5=float(mean_in5),
+                mean_in7=float(mean_in7),
+                peak_intensity=float(img_f[y0, x0]),
+                nucleus_label=int(nucleus_label),
+                sigma_px=float(sigma0),
+                log_size=int(log_filter.shape[0]),
+            )
+        )
+
+    if not rows:
+        return pd.DataFrame(columns=REQUIRED_COLUMNS)
+
+    # Keep required columns first (contract), then extras.
+    df = pd.DataFrame(rows)
+    ordered = REQUIRED_COLUMNS + [c for c in df.columns if c not in REQUIRED_COLUMNS]
+    return df.loc[:, ordered]
+
+</file>
+----- END FILE: src/slice0_kernel.py -----
+
+----- START FILE: src/slice1_nuclei_kernel.py -----
+<file path="src/slice1_nuclei_kernel.py">
+"""Slice1 kernel: nucleus segmentation.
+
+Slice1 goal
+-----------
+Given a single 2D fluorescence image (nuclear marker), segment nuclei and return
+an integer label image.
+
+This is intentionally minimal:
+- input: 2D array
+- output: 2D label image (0=background, 1..N=nuclei)
+
+No filesystem I/O here (that's handled by drivers).
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Any, Dict, Optional, Tuple
+
+import numpy as np
+
+
+@dataclass(frozen=True)
+class Slice1NucleiParams:
+    """Parameters for StarDist nucleus segmentation."""
+
+    normalize_pmin: float = 1.0
+    normalize_pmax: float = 99.8
+
+    # If None, use model defaults (from thresholds.json)
+    prob_thresh: Optional[float] = None
+    nms_thresh: Optional[float] = None
+
+
+def segment_nuclei_stardist(
+    image_2d: np.ndarray,
+    model: Any,
+    params: Slice1NucleiParams,
+) -> Tuple[np.ndarray, Dict[str, float]]:
+    """Segment nuclei using a loaded StarDist2D model.
+
+    Parameters
+    ----------
+    image_2d:
+        2D input image (Y, X). Any numeric dtype.
+    model:
+        Loaded StarDist2D model (I/O handled by driver).
+    params:
+        Segmentation parameters.
+
+    Returns
+    -------
+    labels:
+        2D integer label image.
+    meta:
+        Small dict of metadata used for the run (thresholds actually used).
+    """
+
+    try:
+        from csbdeep.utils import normalize  # type: ignore
+    except Exception as e:
+        raise ImportError(
+            "csbdeep is not installed. Install Slice1 dependencies, e.g.:\n\n"
+            "  pip install csbdeep\n"
+        ) from e
+
+    img = image_2d.astype(np.float32, copy=False)
+    img_n = normalize(img, params.normalize_pmin, params.normalize_pmax, axis=None, clip=True)
+
+    kwargs: Dict[str, float] = {}
+    if params.prob_thresh is not None:
+        kwargs["prob_thresh"] = float(params.prob_thresh)
+    if params.nms_thresh is not None:
+        kwargs["nms_thresh"] = float(params.nms_thresh)
+
+    labels, _details = model.predict_instances(img_n, **kwargs)
+
+    # Ensure predictable dtype for downstream steps
+    labels = labels.astype(np.int32, copy=False)
+
+    # What thresholds were *actually* used?
+    used: Dict[str, float] = {}
+    if "prob_thresh" in kwargs:
+        used["prob_thresh"] = float(kwargs["prob_thresh"])
+    if "nms_thresh" in kwargs:
+        used["nms_thresh"] = float(kwargs["nms_thresh"])
+
+    return labels, used
+
+</file>
+----- END FILE: src/slice1_nuclei_kernel.py -----
+
+----- START FILE: src/stardist_utils.py -----
+<file path="src/stardist_utils.py">
+"""StarDist utilities.
+
+We keep StarDist-specific concerns here so Slice1 drivers/kernels stay clean.
+
+Model storage
+-------------
+The model files (config.json, thresholds.json, weights_*.h5) are expected to live
+**outside the git repo** in your data bench, e.g.
+
+    $BIOIMG_DATA_ROOT/models/y22m01d12_model_0/
+
+This avoids bloating the repo while keeping runs reproducible via the manifest.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any, Dict, Optional, Tuple
+
+
+@dataclass(frozen=True)
+class StardistModelRef:
+    """Reference to a StarDist model on disk."""
+
+    model_dir: Path
+
+    @property
+    def name(self) -> str:
+        return self.model_dir.name
+
+    @property
+    def basedir(self) -> Path:
+        return self.model_dir.parent
+
+
+def assert_stardist_model_dir(model_dir: Path) -> None:
+    """Lightweight sanity checks for a StarDist model folder."""
+
+    required = ["config.json", "thresholds.json", "weights_best.h5"]
+    missing = [f for f in required if not (model_dir / f).exists()]
+    if missing:
+        raise FileNotFoundError(
+            f"StarDist model folder is missing required files: {missing}\n"
+            f"model_dir={model_dir}"
+        )
+
+
+def load_stardist2d(model_ref: StardistModelRef) -> Any:
+    """Load a StarDist2D model.
+
+    Notes
+    -----
+    This function performs disk I/O (loads weights). Keep it in the *driver*,
+    not in kernels, to preserve the Kernel/Driver separation.
+    """
+
+    try:
+        from stardist.models import StarDist2D  # type: ignore
+    except Exception as e:
+        raise ImportError(
+            "StarDist is not installed. Install Slice1 dependencies, e.g.:\n\n"
+            "  pip install stardist csbdeep tensorflow\n"
+            "\nOr with conda-forge where applicable."
+        ) from e
+
+    assert_stardist_model_dir(model_ref.model_dir)
+
+    # StarDist expects a (basedir, name) pair.
+    return StarDist2D(None, name=model_ref.name, basedir=str(model_ref.basedir))
+
+
+def get_model_thresholds(model: Any) -> Dict[str, float]:
+    """Return model thresholds if available."""
+
+    out: Dict[str, float] = {}
+    thr = getattr(model, "thresholds", None)
+    if isinstance(thr, dict):
+        # stardist typically uses {'prob': ..., 'nms': ...}
+        for k, v in thr.items():
+            try:
+                out[str(k)] = float(v)
+            except Exception:
+                continue
+    return out
+
+</file>
+----- END FILE: src/stardist_utils.py -----
+
+----- START FILE: src/vis_utils.py -----
+<file path="src/vis_utils.py">
+"""Visualization utilities for QC artifacts.
+
+These functions generate visual overlays and montages.
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+from typing import Optional, Tuple
+
+import numpy as np
+import pandas as pd
+from skimage.morphology import dilation, disk
+from skimage.segmentation import find_boundaries
+
+
+def create_cutout_montage(
+    nuclei_img: np.ndarray,
+    spots_img: np.ndarray,
+    spots_df: pd.DataFrame,
+    *,
+    crop_size: int = 80,
+    max_cutouts: int = 50,
+    n_cols: int = 10,
+    sample_seed: Optional[int] = None,
+) -> Tuple[Optional[np.ndarray], int]:
+    """Create a 2-channel montage of spot cutouts (Nuclei ch, Spot ch)."""
+    if spots_df.empty:
+        return None, 0
+
+    n_spots = min(len(spots_df), max_cutouts)
+    if "snr" in spots_df.columns:
+        subset = spots_df.sort_values("snr", ascending=False).head(n_spots)
+    else:
+        seed = 0 if sample_seed is None else int(sample_seed)
+        order = np.random.default_rng(seed).permutation(len(spots_df))[:n_spots]
+        subset = spots_df.iloc[order]
+
+    n_cols = max(1, min(int(n_cols), n_spots))
+    n_rows = int(np.ceil(n_spots / n_cols))
+
+    montage_h = n_rows * crop_size
+    montage_w = n_cols * crop_size
+
+    dtype = np.result_type(nuclei_img.dtype, spots_img.dtype)
+    montage = np.zeros((2, montage_h, montage_w), dtype=dtype)
+
+    height, width = nuclei_img.shape
+    half = crop_size // 2
+
+    for idx, (_, row) in enumerate(subset.iterrows()):
+        r = idx // n_cols
+        c = idx % n_cols
+
+        y_c, x_c = int(row["y_px"]), int(row["x_px"])
+
+        y0_src = max(0, y_c - half)
+        y1_src = min(height, y_c + half)
+        x0_src = max(0, x_c - half)
+        x1_src = min(width, x_c + half)
+
+        crop_h = y1_src - y0_src
+        crop_w = x1_src - x0_src
+
+        y0_dst = (crop_size - crop_h) // 2
+        x0_dst = (crop_size - crop_w) // 2
+
+        n_crop = nuclei_img[y0_src:y1_src, x0_src:x1_src]
+        s_crop = spots_img[y0_src:y1_src, x0_src:x1_src]
+
+        grid_y = r * crop_size
+        grid_x = c * crop_size
+
+        montage[0, grid_y + y0_dst : grid_y + y0_dst + crop_h, grid_x + x0_dst : grid_x + x0_dst + crop_w] = n_crop
+        montage[1, grid_y + y0_dst : grid_y + y0_dst + crop_h, grid_x + x0_dst : grid_x + x0_dst + crop_w] = s_crop
+
+    return montage, n_spots
+
+
+def write_qc_overlay(
+    spot_img: np.ndarray,
+    nuclei_labels: np.ndarray,
+    spots_df: pd.DataFrame,
+    out_path: Path,
+) -> None:
+    """Write a PNG overlay of spots and nuclei contours."""
+    import matplotlib.pyplot as plt
+
+    img = spot_img.astype(float)
+    if img.size:
+        vmin, vmax = np.percentile(img, [1, 99])
+    else:
+        vmin, vmax = 0.0, 1.0
+
+    boundaries = find_boundaries(nuclei_labels > 0, mode="outer")
+    boundaries = dilation(boundaries, disk(1))
+
+    fig = plt.figure(figsize=(10, 10), dpi=150)
+    ax = fig.add_subplot(111)
+
+    ax.imshow(img, cmap="gray", vmin=vmin, vmax=vmax, interpolation="nearest")
+
+    rgba = np.zeros((img.shape[0], img.shape[1], 4), dtype=float)
+    rgba[boundaries, 0] = 1.0
+    rgba[boundaries, 3] = 0.6
+    ax.imshow(rgba, interpolation="nearest")
+
+    if not spots_df.empty:
+        ax.scatter(
+            spots_df["x_px"],
+            spots_df["y_px"],
+            s=40,
+            facecolors="none",
+            edgecolors="cyan",
+            linewidths=1.2,
+            alpha=0.8,
+        )
+        ax.set_title(
+            f"Integrated QC: {len(spots_df)} spots in {int(nuclei_labels.max())} nuclei"
+        )
+    else:
+        ax.set_title("Integrated QC: 0 spots")
+
+    ax.set_axis_off()
+    fig.tight_layout(pad=0)
+    fig.savefig(out_path, bbox_inches="tight")
+    plt.close(fig)
+
+</file>
+----- END FILE: src/vis_utils.py -----
+
