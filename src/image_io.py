@@ -84,10 +84,9 @@ def _read_tiff_2d(path: Path, channel: int) -> np.ndarray:
 
     arr = np.asarray(tifffile.imread(str(path)))
 
-    # Best-effort selection (mirrors Slice0's behavior):
+    # Selection rules:
     # - If already 2D, return.
     # - If 3D, treat axis0 as channel-like when possible.
-    # - For higher dims, flatten leading dims and take the first plane.
     if arr.ndim == 2:
         return arr
 
@@ -96,10 +95,14 @@ def _read_tiff_2d(path: Path, channel: int) -> np.ndarray:
         idx = ch - 1 if ch >= 1 else 0
         if 0 <= idx < arr.shape[0]:
             return arr[idx]
-        return arr[0]
+        raise ValueError(
+            f"TIFF has {arr.shape[0]} channel(s); requested channel {ch}: {path}"
+        )
 
-    flat = arr.reshape(-1, arr.shape[-2], arr.shape[-1])
-    return flat[0]
+    raise ValueError(
+        f"TIFF has {arr.ndim} dimensions {arr.shape}, which is ambiguous for 2D reading. "
+        "Please ensure input is (Y,X) or (C,Y,X)."
+    )
 
 
 def _read_ims_2d(

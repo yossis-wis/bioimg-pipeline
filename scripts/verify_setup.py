@@ -72,7 +72,7 @@ def main() -> int:
         "environment.yml",
         "docs/CONTRACTS.md",
         "configs/integrated_sim.yaml",
-        "configs/integrated_ims.yaml",
+        "configs/integrated_ims.example.yaml",
     ]
     for rel in required_repo_files:
         p = repo_root / rel

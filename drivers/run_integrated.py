@@ -1,11 +1,15 @@
 from __future__ import annotations
 
 import argparse
+import glob
+import hashlib
 import os
+import re
+import shutil
 import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Optional
 
 import numpy as np
 import pandas as pd
@@ -17,10 +21,6 @@ import yaml
 import matplotlib
 
 matplotlib.use("Agg")
-import matplotlib.pyplot as plt  # noqa: E402
-
-from skimage.morphology import dilation, disk
-from skimage.segmentation import find_boundaries
 
 # Allow running without packaging
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -32,6 +32,7 @@ from image_io import PlaneSelection, read_image_2d  # noqa: E402
 from slice0_kernel import Slice0Params, detect_spots  # noqa: E402
 from slice1_nuclei_kernel import Slice1NucleiParams, segment_nuclei_stardist  # noqa: E402
 from stardist_utils import StardistModelRef, load_stardist2d  # noqa: E402
+from vis_utils import create_cutout_montage, write_qc_overlay  # noqa: E402
 
 
 def _load_config(path: Path) -> Dict[str, Any]:
@@ -63,10 +64,109 @@ def _resolve_model_dir(cfg: Dict[str, Any], data_root: Path) -> Path:
     model_dir_raw = cfg.get("stardist_model_dir")
     if not model_dir_raw:
         raise ValueError("Config must set stardist_model_dir")
-    model_dir = Path(str(model_dir_raw))
-    if not model_dir.is_absolute():
-        model_dir = (data_root / model_dir).resolve()
-    return model_dir
+    return _resolve_path(model_dir_raw, data_root)
+
+
+def _resolve_path(value: Any, data_root: Path) -> Path:
+    path = Path(str(value))
+    if not path.is_absolute():
+        path = (data_root / path).resolve()
+    return path
+
+
+def _resolve_input_paths(cfg: Dict[str, Any], data_root: Path) -> list[Path]:
+    input_relpath = cfg.get("input_relpath")
+    input_relpaths = cfg.get("input_relpaths")
+    input_glob = cfg.get("input_glob")
+
+    provided = [v for v in (input_relpath, input_relpaths, input_glob) if v]
+    if len(provided) > 1:
+        raise ValueError("Set only one of input_relpath, input_relpaths, or input_glob")
+
+    if input_relpath:
+        paths = [_resolve_path(input_relpath, data_root)]
+    elif input_relpaths:
+        if not isinstance(input_relpaths, (list, tuple)):
+            raise ValueError("input_relpaths must be a list of paths")
+        paths = [_resolve_path(path, data_root) for path in input_relpaths]
+    elif input_glob:
+        pattern = str(input_glob)
+        pattern_path = Path(pattern)
+        if not pattern_path.is_absolute():
+            pattern = str((data_root / pattern_path).resolve())
+        matches = sorted(glob.glob(pattern, recursive=True))
+        if not matches:
+            raise FileNotFoundError(f"input_glob matched no files: {pattern}")
+        paths = [Path(match).resolve() for match in matches]
+    else:
+        raise ValueError("Config must set input_relpath, input_relpaths, or input_glob")
+
+    missing = [path for path in paths if not path.exists()]
+    if missing:
+        raise FileNotFoundError(f"Input file(s) not found: {missing}")
+    return paths
+
+
+def _safe_run_name(name: str, *, max_len: int = 60) -> str:
+    cleaned = re.sub(r"[^A-Za-z0-9._-]+", "_", name).strip("_")
+    cleaned = cleaned or "run"
+    if len(cleaned) <= max_len:
+        return cleaned
+    digest = hashlib.sha1(cleaned.encode("utf-8")).hexdigest()[:8]
+    truncated = cleaned[: max_len - 10].rstrip("_")
+    truncated = truncated or "run"
+    return f"{truncated}__{digest}"
+
+
+def _resolve_optional_path(value: Any, data_root: Path) -> Optional[Path]:
+    if value in (None, ""):
+        return None
+    return _resolve_path(value, data_root)
+
+
+def _publish_output_dir(
+    source_dir: Path,
+    *,
+    input_path: Path,
+    publish_dir: Path,
+    publish_mirror: bool,
+    input_base_dir: Optional[Path],
+    publish_batch_root: Optional[str],
+    publish_mode: str,
+) -> Path:
+    if publish_mirror:
+        if not input_base_dir:
+            raise ValueError("publish_mirror requires input_base_dir to be set")
+        try:
+            rel_parent = input_path.parent.resolve().relative_to(input_base_dir.resolve())
+        except ValueError as exc:
+            raise ValueError(
+                f"Input path {input_path} is not under input_base_dir {input_base_dir}"
+            ) from exc
+        target_root = publish_dir / rel_parent
+    else:
+        target_root = publish_dir
+    if publish_batch_root:
+        target_root = target_root / publish_batch_root
+    target_root.mkdir(parents=True, exist_ok=True)
+    dest_dir = target_root / source_dir.name
+    mode = str(publish_mode or "error").lower()
+    if mode not in {"error", "overwrite", "merge"}:
+        raise ValueError(f"publish_mode must be one of: error, overwrite, merge (got {publish_mode})")
+    if dest_dir.exists():
+        if mode == "error":
+            raise FileExistsError(f"Publish destination already exists: {dest_dir}")
+        if mode == "overwrite":
+            shutil.rmtree(dest_dir)
+    shutil.copytree(source_dir, dest_dir, dirs_exist_ok=(mode == "merge"))
+    return dest_dir
+
+
+def _is_run_complete(run_dir: Path) -> bool:
+    manifest_path = run_dir / "run_manifest.yaml"
+    spots_path = run_dir / "spots.parquet"
+    done_path = run_dir / "DONE"
+    return done_path.exists() or (manifest_path.exists() and spots_path.exists())
 
 
 def _assert_tiff_channel(path: Path, channel: int) -> None:
@@ -108,123 +208,16 @@ def _load_mask(path: Path) -> np.ndarray:
     return mask.astype(bool)
 
 
-def _create_cutout_montage(
-    nuclei_img: np.ndarray,
-    spots_img: np.ndarray,
-    spots_df: pd.DataFrame,
+def _run_integrated_single(
+    cfg: Dict[str, Any],
     *,
-    crop_size: int = 80,
-    max_cutouts: int = 50,
-    n_cols: int = 10,
-    sample_seed: Optional[int] = None,
-) -> Tuple[Optional[np.ndarray], int]:
-    if spots_df.empty:
-        return None, 0
-
-    n_spots = min(len(spots_df), max_cutouts)
-    if "snr" in spots_df.columns:
-        subset = spots_df.sort_values("snr", ascending=False).head(n_spots)
-    else:
-        seed = 0 if sample_seed is None else int(sample_seed)
-        order = np.random.default_rng(seed).permutation(len(spots_df))[:n_spots]
-        subset = spots_df.iloc[order]
-
-    n_cols = max(1, min(int(n_cols), n_spots))
-    n_rows = int(np.ceil(n_spots / n_cols))
-
-    montage_h = n_rows * crop_size
-    montage_w = n_cols * crop_size
-
-    dtype = np.result_type(nuclei_img.dtype, spots_img.dtype)
-    montage = np.zeros((2, montage_h, montage_w), dtype=dtype)
-
-    height, width = nuclei_img.shape
-    half = crop_size // 2
-
-    for idx, (_, row) in enumerate(subset.iterrows()):
-        r = idx // n_cols
-        c = idx % n_cols
-
-        y_c, x_c = int(row["y_px"]), int(row["x_px"])
-
-        y0_src = max(0, y_c - half)
-        y1_src = min(height, y_c + half)
-        x0_src = max(0, x_c - half)
-        x1_src = min(width, x_c + half)
-
-        crop_h = y1_src - y0_src
-        crop_w = x1_src - x0_src
-
-        y0_dst = (crop_size - crop_h) // 2
-        x0_dst = (crop_size - crop_w) // 2
-
-        n_crop = nuclei_img[y0_src:y1_src, x0_src:x1_src]
-        s_crop = spots_img[y0_src:y1_src, x0_src:x1_src]
-
-        grid_y = r * crop_size
-        grid_x = c * crop_size
-
-        montage[0, grid_y + y0_dst : grid_y + y0_dst + crop_h, grid_x + x0_dst : grid_x + x0_dst + crop_w] = n_crop
-        montage[1, grid_y + y0_dst : grid_y + y0_dst + crop_h, grid_x + x0_dst : grid_x + x0_dst + crop_w] = s_crop
-
-    return montage, n_spots
-
-
-def _write_qc_overlay(
-    spot_img: np.ndarray,
-    nuclei_labels: np.ndarray,
-    spots_df: pd.DataFrame,
-    out_path: Path,
-) -> None:
-    img = spot_img.astype(float)
-    if img.size:
-        vmin, vmax = np.percentile(img, [1, 99])
-    else:
-        vmin, vmax = 0.0, 1.0
-
-    boundaries = find_boundaries(nuclei_labels > 0, mode="outer")
-    boundaries = dilation(boundaries, disk(1))
-
-    fig = plt.figure(figsize=(10, 10), dpi=150)
-    ax = fig.add_subplot(111)
-
-    ax.imshow(img, cmap="gray", vmin=vmin, vmax=vmax, interpolation="nearest")
-
-    rgba = np.zeros((img.shape[0], img.shape[1], 4), dtype=float)
-    rgba[boundaries, 0] = 1.0
-    rgba[boundaries, 3] = 0.6
-    ax.imshow(rgba, interpolation="nearest")
-
-    if not spots_df.empty:
-        ax.scatter(
-            spots_df["x_px"],
-            spots_df["y_px"],
-            s=40,
-            facecolors="none",
-            edgecolors="cyan",
-            linewidths=1.2,
-            alpha=0.8,
-        )
-        ax.set_title(f"Integrated QC: {len(spots_df)} spots in {int(nuclei_labels.max())} nuclei")
-    else:
-        ax.set_title("Integrated QC: 0 spots")
-
-    ax.set_axis_off()
-    fig.tight_layout(pad=0)
-    fig.savefig(out_path, bbox_inches="tight")
-    plt.close(fig)
-
-
-def run_integrated(config_path: Path) -> Path:
-    cfg = _load_config(config_path)
-    data_root = _data_root()
-
-    input_relpath = cfg.get("input_relpath")
-    if not input_relpath:
-        raise ValueError("Config must set input_relpath")
-    input_path = (data_root / str(input_relpath)).resolve()
-    if not input_path.exists():
-        raise FileNotFoundError(f"Input file not found: {input_path}")
+    data_root: Path,
+    input_path: Path,
+    out_dir: Path,
+) -> Path:
+    if out_dir.exists():
+        raise FileExistsError(f"Output directory already exists: {out_dir}")
+    out_dir.mkdir(parents=True, exist_ok=False)
 
     channel_nuclei_raw = cfg.get("channel_nuclei", 1)
     channel_spots = _normalize_channels(cfg.get("channel_spots", 2), default=2)
@@ -237,11 +230,6 @@ def run_integrated(config_path: Path) -> Path:
             _assert_tiff_channel(input_path, int(channel_nuclei))
         for ch in channel_spots:
             _assert_tiff_channel(input_path, int(ch))
-
-    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    runs_dir = (data_root / str(cfg.get("output_runs_dir", "runs"))).resolve()
-    out_dir = runs_dir / f"{stamp}__integrated"
-    out_dir.mkdir(parents=True, exist_ok=False)
 
     common_sel = {
         "ims_resolution_level": int(cfg.get("ims_resolution_level", 0)),
@@ -277,7 +265,7 @@ def run_integrated(config_path: Path) -> Path:
     valid_mask: Optional[np.ndarray] = None
     valid_mask_path: Optional[Path] = None
     if valid_mask_relpath:
-        valid_mask_path = (data_root / str(valid_mask_relpath)).resolve()
+        valid_mask_path = _resolve_path(valid_mask_relpath, data_root)
         if not valid_mask_path.exists():
             raise FileNotFoundError(f"valid_mask_relpath not found: {valid_mask_path}")
         valid_mask = _load_mask(valid_mask_path)
@@ -288,7 +276,7 @@ def run_integrated(config_path: Path) -> Path:
 
     nuclei_labels: Optional[np.ndarray]
     if nuclei_labels_relpath:
-        labels_source_path = (data_root / str(nuclei_labels_relpath)).resolve()
+        labels_source_path = _resolve_path(nuclei_labels_relpath, data_root)
         if not labels_source_path.exists():
             raise FileNotFoundError(f"nuclei_labels_relpath not found: {labels_source_path}")
         nuclei_labels = np.asarray(tifffile.imread(str(labels_source_path)))
@@ -368,12 +356,17 @@ def run_integrated(config_path: Path) -> Path:
     for ch, img_spot in spot_images:
         suffix = f"_ch{ch}" if len(spot_images) > 1 else ""
         qc_overlay_path = out_dir / f"qc_overlay{suffix}.png"
-        _write_qc_overlay(img_spot, labels_out, spots_df[spots_df["spot_channel"] == ch], qc_overlay_path)
+        write_qc_overlay(
+            img_spot,
+            labels_out,
+            spots_df[spots_df["spot_channel"] == ch],
+            qc_overlay_path,
+        )
         qc_overlay_paths.append(qc_overlay_path.name)
 
         qc_cutouts_path = out_dir / f"qc_cutouts{suffix}.tif"
         nuclei_for_montage = img_nuc if img_nuc is not None else np.zeros_like(img_spot)
-        montage, montage_count = _create_cutout_montage(
+        montage, montage_count = create_cutout_montage(
             nuclei_for_montage,
             img_spot,
             spots_df[spots_df["spot_channel"] == ch],
@@ -416,8 +409,243 @@ def run_integrated(config_path: Path) -> Path:
     with (out_dir / "run_manifest.yaml").open("w", encoding="utf-8") as f:
         yaml.safe_dump(manifest, f, sort_keys=False)
 
+    with (out_dir / "DONE").open("w", encoding="utf-8") as f:
+        f.write(f"completed_at: {datetime.now(timezone.utc).isoformat()}\n")
+
     print(f"Integrated run complete: {out_dir}")
     return out_dir
+
+
+def run_integrated(config_path: Path) -> Path:
+    cfg = _load_config(config_path)
+    data_root = _data_root()
+
+    input_paths = _resolve_input_paths(cfg, data_root)
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+
+    runs_dir = _resolve_path(cfg.get("output_runs_dir", "runs"), data_root)
+    runs_dir.mkdir(parents=True, exist_ok=True)
+
+    publish_dir = _resolve_optional_path(cfg.get("publish_dir"), data_root)
+    publish_mirror = bool(cfg.get("publish_mirror", False))
+    input_base_dir = _resolve_optional_path(cfg.get("input_base_dir"), data_root)
+    publish_mode = cfg.get("publish_mode", "error")
+    republish_skipped = bool(cfg.get("republish_skipped", False))
+
+    if len(input_paths) == 1:
+        out_dir = runs_dir / f"{stamp}__integrated"
+        if out_dir.exists() and bool(cfg.get("skip_existing", False)):
+            if _is_run_complete(out_dir):
+                print(f"Skipping existing output: {out_dir}")
+                if publish_dir and republish_skipped:
+                    try:
+                        _publish_output_dir(
+                            out_dir,
+                            input_path=input_paths[0],
+                            publish_dir=publish_dir,
+                            publish_mirror=publish_mirror,
+                            input_base_dir=input_base_dir,
+                            publish_batch_root=None,
+                            publish_mode=publish_mode,
+                        )
+                    except Exception as exc:
+                        print(f"Republish failed for {input_paths[0]}: {exc}")
+                return out_dir
+            raise FileExistsError(
+                f"Output directory exists but is incomplete: {out_dir}"
+            )
+        run_dir = _run_integrated_single(
+            cfg,
+            data_root=data_root,
+            input_path=input_paths[0],
+            out_dir=out_dir,
+        )
+        if publish_dir:
+            publish_status = "completed"
+            publish_error = None
+            try:
+                _publish_output_dir(
+                    run_dir,
+                    input_path=input_paths[0],
+                    publish_dir=publish_dir,
+                    publish_mirror=publish_mirror,
+                    input_base_dir=input_base_dir,
+                    publish_batch_root=None,
+                    publish_mode=publish_mode,
+                )
+            except Exception as exc:
+                publish_status = "failed"
+                publish_error = str(exc)
+                print(f"Publishing failed for {input_paths[0]}: {exc}")
+            if publish_error:
+                print(f"Publish status: {publish_status}")
+        return run_dir
+
+    batch_dir_name = cfg.get("batch_dir_name")
+    if batch_dir_name:
+        batch_dir = runs_dir / _safe_run_name(str(batch_dir_name), max_len=80)
+    else:
+        batch_dir = runs_dir / f"{stamp}__integrated_batch"
+    if batch_dir.exists():
+        if bool(cfg.get("skip_existing", False)):
+            print(f"Reusing existing batch dir: {batch_dir}")
+        else:
+            raise FileExistsError(f"Batch output directory already exists: {batch_dir}")
+    else:
+        batch_dir.mkdir(parents=True, exist_ok=False)
+
+    continue_on_error = bool(cfg.get("continue_on_error", True))
+    skip_existing = bool(cfg.get("skip_existing", False))
+    batch_entries = []
+    for idx, input_path in enumerate(input_paths, start=1):
+        run_name = _safe_run_name(input_path.stem)
+        run_dir = batch_dir / f"{idx:03d}__{run_name}"
+        if run_dir.exists() and skip_existing:
+            if _is_run_complete(run_dir):
+                entry: Dict[str, Any] = {
+                    "input_path": str(input_path),
+                    "output_dir": str(run_dir),
+                    "status": "skipped",
+                }
+                print(f"[{idx}/{len(input_paths)}] Skipping existing: {input_path}")
+                if publish_dir and republish_skipped:
+                    publish_status = "completed"
+                    publish_error = None
+                    published = None
+                    try:
+                        published = _publish_output_dir(
+                            run_dir,
+                            input_path=input_path,
+                            publish_dir=publish_dir,
+                            publish_mirror=publish_mirror,
+                            input_base_dir=input_base_dir,
+                            publish_batch_root=batch_dir.name,
+                            publish_mode=publish_mode,
+                        )
+                    except Exception as exc:
+                        publish_status = "failed"
+                        publish_error = str(exc)
+                        print(f"Republish failed for {input_path}: {exc}")
+                    entry["publish_status"] = publish_status
+                    if publish_error:
+                        entry["publish_error"] = publish_error
+                    if published:
+                        entry["published_dir"] = str(published)
+                batch_entries.append(entry)
+                continue
+            entry = {
+                "input_path": str(input_path),
+                "output_dir": str(run_dir),
+                "status": "failed",
+                "error": "Existing output directory is incomplete; remove it to rerun.",
+            }
+            batch_entries.append(entry)
+            print(f"[{idx}/{len(input_paths)}] Incomplete output exists: {input_path}")
+            if not continue_on_error:
+                break
+            continue
+
+        print(f"[{idx}/{len(input_paths)}] Running integrated analysis on: {input_path}")
+        try:
+            output_dir = _run_integrated_single(
+                cfg,
+                data_root=data_root,
+                input_path=input_path,
+                out_dir=run_dir,
+            )
+            entry: Dict[str, Any] = {
+                "input_path": str(input_path),
+                "output_dir": str(output_dir),
+                "status": "completed",
+            }
+            if publish_dir:
+                publish_status = "completed"
+                publish_error = None
+                published = None
+                try:
+                    published = _publish_output_dir(
+                        output_dir,
+                        input_path=input_path,
+                        publish_dir=publish_dir,
+                        publish_mirror=publish_mirror,
+                        input_base_dir=input_base_dir,
+                        publish_batch_root=batch_dir.name,
+                        publish_mode=publish_mode,
+                    )
+                except Exception as exc:
+                    publish_status = "failed"
+                    publish_error = str(exc)
+                    print(f"Publishing failed for {input_path}: {exc}")
+                entry["publish_status"] = publish_status
+                if publish_error:
+                    entry["publish_error"] = publish_error
+                if published:
+                    entry["published_dir"] = str(published)
+            batch_entries.append(entry)
+        except Exception as exc:
+            entry = {
+                "input_path": str(input_path),
+                "output_dir": str(run_dir),
+                "status": "failed",
+                "error": str(exc),
+            }
+            batch_entries.append(entry)
+            print(f"Error processing {input_path}: {exc}")
+            if not continue_on_error:
+                break
+
+    batch_manifest: Dict[str, Any] = {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "runs": batch_entries,
+        "config_snapshot": cfg,
+    }
+
+    if cfg.get("batch_aggregate_spots", False):
+        aggregate_tables = []
+        for entry in batch_entries:
+            if entry.get("status") not in {"completed", "skipped"}:
+                continue
+            spots_path = Path(entry["output_dir"]) / "spots.parquet"
+            if not spots_path.exists():
+                continue
+            df = pd.read_parquet(spots_path)
+            df["input_path"] = entry["input_path"]
+            df["output_dir"] = entry["output_dir"]
+            df["run_status"] = entry.get("status", "unknown")
+            try:
+                df["condition"] = Path(entry["input_path"]).parent.name
+            except Exception:
+                df["condition"] = ""
+            aggregate_tables.append(df)
+        if aggregate_tables:
+            aggregate_df = pd.concat(aggregate_tables, ignore_index=True)
+            aggregate_path = batch_dir / "spots_aggregate.parquet"
+            aggregate_df.to_parquet(aggregate_path, index=False)
+            batch_manifest["spots_aggregate"] = str(aggregate_path)
+
+    with (batch_dir / "batch_manifest.yaml").open("w", encoding="utf-8") as f:
+        yaml.safe_dump(batch_manifest, f, sort_keys=False)
+
+    if publish_dir:
+        publish_dir.mkdir(parents=True, exist_ok=True)
+        manifest_dir = publish_dir / "batch_manifests"
+        manifest_dir.mkdir(parents=True, exist_ok=True)
+        manifest_path = manifest_dir / f"{batch_dir.name}.yaml"
+        shutil.copy2(batch_dir / "batch_manifest.yaml", manifest_path)
+        batch_manifest["published_manifest_path"] = str(manifest_path)
+        if "spots_aggregate" in batch_manifest:
+            aggregate_src = Path(batch_manifest["spots_aggregate"])
+            publish_root = publish_dir / batch_dir.name
+            publish_root.mkdir(parents=True, exist_ok=True)
+            aggregate_dest = publish_root / aggregate_src.name
+            shutil.copy2(aggregate_src, aggregate_dest)
+            batch_manifest["published_spots_aggregate"] = str(aggregate_dest)
+        with (batch_dir / "batch_manifest.yaml").open("w", encoding="utf-8") as f:
+            yaml.safe_dump(batch_manifest, f, sort_keys=False)
+        shutil.copy2(batch_dir / "batch_manifest.yaml", manifest_path)
+
+    print(f"Integrated batch complete: {batch_dir}")
+    return batch_dir
 
 
 def main() -> int:
