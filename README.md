@@ -17,6 +17,7 @@ Follow the platform guide first:
 - [Architecture](docs/ARCHITECTURE.md)
 - [Data contracts](docs/CONTRACTS.md)
 - [Notebooks (QC workflows)](docs/NOTEBOOKS.md)
+- [LLM workflow (human-in-the-loop zip overlays)](docs/LLM_WORKFLOW.md)
 
 ### 1) Setup & Verification
 
@@ -141,3 +142,7 @@ with a `batch_manifest.yaml` and optional `spots_aggregate.parquet` (includes a 
 column derived from the input folder name).
 QC notebooks in [docs/NOTEBOOKS.md](docs/NOTEBOOKS.md) are the recommended way to visually
 validate these outputs.
+
+### LLM-assisted development
+
+We sometimes use an LLM (ChatGPT / GPT‑5.2 Pro) to plan and implement changes (often delivered as a zip overlay), then review diffs in GitHub Desktop and run verification + QC before committing. Full workflow and rules: [docs/LLM_WORKFLOW.md](docs/LLM_WORKFLOW.md).

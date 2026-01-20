@@ -1,0 +1,5 @@
+# Flattened repo context snapshots (generated artifacts)
+*.txt
+
+# Optional: if you ever export zips or other artifacts here
+*.zip
