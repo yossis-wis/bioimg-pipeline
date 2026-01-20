@@ -7,6 +7,7 @@ dependencies:
   # If TensorFlow/StarDist wheels get fussy on your machine, try python=3.10.
   - python=3.11
   - pip=24.*
+  - typing-extensions>=4.7
 
   # Scientific stack (pin to a TensorFlow-compatible NumPy range)
   - numpy=1.24.3
