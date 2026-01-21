@@ -351,7 +351,11 @@ def _run_integrated_single(
     qc_cutout_size = int(cfg.get("qc_cutout_size", 80))
     qc_max_cutouts = int(cfg.get("qc_max_cutouts", 50))
     qc_montage_cols = int(cfg.get("qc_montage_cols", 10))
-    qc_sample_seed = cfg.get("qc_sample_seed", 0)
+    qc_sample_seed_raw = cfg.get("qc_sample_seed", None)
+    if qc_sample_seed_raw in (None, "", "none", "None"):
+        qc_sample_seed: Optional[int] = None
+    else:
+        qc_sample_seed = int(qc_sample_seed_raw)
 
     for ch, img_spot in spot_images:
         suffix = f"_ch{ch}" if len(spot_images) > 1 else ""
@@ -663,3 +667,4 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
