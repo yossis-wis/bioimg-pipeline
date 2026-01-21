@@ -1,5 +1,9 @@
 # Flattened repo context snapshots (generated artifacts)
 *.txt
 
+# Local change patches (optional artifacts from flatten_repo.py --patch-out / --patch-only)
+*.diff
+*.patch
+
 # Optional: if you ever export zips or other artifacts here
 *.zip

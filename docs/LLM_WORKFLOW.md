@@ -207,6 +207,19 @@ Generate a snapshot with:
 python scripts/flatten_repo.py
 ```
 
+If you have **local uncommitted changes**, the snapshot will also include a
+`LOCAL CHANGES (PATCH)` section at the end (git-diff style). This means you can
+attach **one file** that contains both:
+
+- the committed repo context (from `HEAD`)
+- the exact local patch you want reviewed/applied
+
+If you want only the committed snapshot (no patch), run:
+
+```bash
+python scripts/flatten_repo.py --no-patch
+```
+
 By default, this writes a timestamped snapshot under `repo_snapshots/` (which is ignored by git).
 
 ### If using a GitHub connector

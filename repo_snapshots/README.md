@@ -5,6 +5,8 @@ Each snapshot is a single text file containing:
 
 - a directory tree of tracked files
 - the contents of each tracked text file (wrapped with clear START/END markers)
+- (optional, default) a **LOCAL CHANGES (PATCH)** section at the end that captures
+  your uncommitted work as a unified diff (similar to "Copy patch" in GitHub/Codex)
 
 ## Why this exists
 
@@ -30,6 +32,16 @@ From the repo root:
 
 ```bash
 python scripts/flatten_repo.py
+```
+
+By default the snapshot is generated from the committed `HEAD` state, even if you
+have local modifications, and it appends a patch section capturing your local
+changes.
+
+If you want *only* the committed snapshot (no patch), run:
+
+```bash
+python scripts/flatten_repo.py --no-patch
 ```
 
 By default this writes a new timestamped file under `repo_snapshots/`, for example:
