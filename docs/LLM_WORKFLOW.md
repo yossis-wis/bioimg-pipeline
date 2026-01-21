@@ -21,6 +21,45 @@ This document is written for **humans** and for the **LLM** (as repo-native inst
 python scripts/flatten_repo.py
 ```
 
+This produces a single **flat text** file under `repo_snapshots/`.
+
+Important behavior:
+
+- The snapshot section is built from the **committed tree** at `HEAD` (or `--base <ref>`), so it is stable even if you have uncommitted local edits.
+- By default it also appends a **LOCAL CHANGES (PATCH)** section showing your current working-tree diff vs the base ref.
+  - This is meant for *LLM context* (human-readable + annotated), not for `git apply`.
+
+Useful modes:
+
+```bash
+# Snapshot only (no local patch section appended)
+python scripts/flatten_repo.py --no-patch
+
+# Patch only (raw unified diff; safe to use with `git apply`)
+python scripts/flatten_repo.py --patch-only
+
+# Snapshot + ALSO write a raw patch file alongside it
+python scripts/flatten_repo.py --patch-out repo_snapshots/local_changes.diff
+
+# Exclude untracked files from the patch (default: include untracked *text* files)
+python scripts/flatten_repo.py --no-include-untracked
+
+# Change the base ref (snapshot + diff are relative to this)
+python scripts/flatten_repo.py --base HEAD
+python scripts/flatten_repo.py --base main
+```
+
+Patch sanity checks:
+
+```bash
+# If you already have the local changes in your working tree,
+# this should succeed (verifies the patch matches what you have now).
+git apply --check --reverse repo_snapshots/local_changes.diff
+
+# On a clean checkout of the base ref, this should succeed.
+git apply --check repo_snapshots/local_changes.diff
+```
+
 2) Ask the LLM for a **plan** (no code), including:
 - files to modify/add/delete
 - verification commands you will run
@@ -199,7 +238,7 @@ A change is acceptable only if the human can:
 
 ## Getting repo context into the LLM
 
-### Preferred: flattened snapshot
+### Preferred: flattened snapshot (optionally with local patch appended)
 
 Generate a snapshot with:
 
@@ -207,20 +246,19 @@ Generate a snapshot with:
 python scripts/flatten_repo.py
 ```
 
-If you have **local uncommitted changes**, the snapshot will also include a
-`LOCAL CHANGES (PATCH)` section at the end (git-diff style). This means you can
-attach **one file** that contains both:
+By default, this writes a timestamped snapshot under `repo_snapshots/` (which is ignored by git).
+If you have local changes, the snapshot will also include an appended **LOCAL CHANGES (PATCH)** section.
 
-- the committed repo context (from `HEAD`)
-- the exact local patch you want reviewed/applied
+### Patch-only updates (iterative)
 
-If you want only the committed snapshot (no patch), run:
+If the LLM already has a recent snapshot and you’re iterating quickly, you can send only your latest diff:
 
 ```bash
-python scripts/flatten_repo.py --no-patch
+python scripts/flatten_repo.py --patch-only --out repo_snapshots/local_changes.diff
 ```
 
-By default, this writes a timestamped snapshot under `repo_snapshots/` (which is ignored by git).
+This output is **raw unified diff text** (apply-able with `git apply`).
+It is also usually the best thing to paste into an LLM when you want it to reason about your latest local changes.
 
 ### If using a GitHub connector
 
