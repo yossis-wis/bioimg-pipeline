@@ -129,6 +129,9 @@ conda env update -f environment.yml --prune
 python scripts/verify_setup.py
 ```
 
+If `verify_setup.py` reports a `typing_extensions` problem (or VS Code Jupyter fails to start),
+see **Troubleshooting** below.
+
 ---
 
 ## 6) VS Code: select interpreter + run code
@@ -173,7 +176,7 @@ You should see the `...miniconda3\envs\bioimg-pipeline\python.exe` path and your
 
 ## 8) Spyder (optional)
 
-If Spyder is included in your environment, you can launch it from an activated terminal:
+Spyder is included in `environment.yml`. Launch it from an activated terminal:
 
 ```bat
 conda activate bioimg-pipeline
@@ -186,4 +189,45 @@ Recommendation:
 - Keep the “authoritative” execution path as command-line drivers (later slices).
 
 ---
+
+## Troubleshooting
+
+### VS Code Jupyter kernel fails with: "TypeAliasType could not be imported from typing_extensions"
+
+**Symptom**
+
+VS Code shows a kernel error similar to:
+
+- `TypeAliasType could not be imported from typing_extensions`
+
+**Cause**
+
+The pip install step for TensorFlow 2.13 can **downgrade** `typing_extensions` to 4.5.0
+(TensorFlow pins `<4.6` in its metadata). Recent **Jupyter / Spyder / Pylance** expects a newer
+`typing_extensions` that provides `TypeAliasType`.
+
+**Fix (recommended)**
+
+```bat
+conda activate bioimg-pipeline
+python scripts/fix_typing_extensions.py
+python scripts/verify_setup.py
+```
+
+**Alternative (direct pip)**
+
+```bat
+conda activate bioimg-pipeline
+python -m pip install -U "typing-extensions>=4.7"
+```
+
+You may see a pip warning like:
+
+- `tensorflow-intel 2.13.0 requires typing-extensions<4.6.0`
+
+In practice, this repo has been validated with newer `typing_extensions`; treat the warning as informational.
+
+After the fix, reload VS Code:
+
+- `Ctrl+Shift+P` → **Developer: Reload Window**
 

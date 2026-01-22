@@ -57,7 +57,7 @@ If you have a standalone Spyder installation, **uninstall it** before proceeding
    rm -rf ~/Library/Application\ Support/spyder-py3
    ```
 
-**Why?** The standalone Spyder uses its own bundled Python and won't see your `bioimg-pipeline` packages.  Your `environment.yml` already includes Spyder—use that version instead.
+**Why?** The standalone Spyder uses its own bundled Python and won't see your `bioimg-pipeline` packages.  Your `environment.yml` includes Spyder—use that version instead.
 
 ---
 
@@ -153,6 +153,9 @@ conda env update -f environment.yml --prune
 python scripts/verify_setup.py
 ```
 
+If `verify_setup.py` reports a `typing_extensions` problem (or Jupyter/Spyder stops launching),
+see **Troubleshooting** below.
+
 ---
 
 ## 6) VS Code: select interpreter + run code
@@ -222,34 +225,47 @@ Recommendation:
 
 ## Troubleshooting
 
-### "conda:  command not found"
+### Jupyter / VS Code kernel fails with: "TypeAliasType could not be imported from typing_extensions"
+
+**Symptom**
+
+- VS Code shows a kernel error similar to: `TypeAliasType could not be imported from typing_extensions`
+- Spyder may also refuse to start.
+
+**Cause**
+
+The pip install step for TensorFlow 2.13 can **downgrade** `typing_extensions` to 4.5.0
+(TensorFlow pins `<4.6` in its metadata). Recent **Jupyter / Spyder / Pylance** expects a newer
+`typing_extensions` that provides `TypeAliasType`.
+
+**Fix (recommended)**
 
 ```zsh
-# Re-initialize conda
-~/miniforge3/bin/conda init zsh
-# Restart terminal
+conda activate bioimg-pipeline
+python scripts/fix_typing_extensions.py
+python scripts/verify_setup.py
 ```
 
-### Environment creation fails
+**Alternative (direct pip)**
 
 ```zsh
-# Update conda first
-conda update conda
-
-# Force recreate
-conda env create -f environment.yml --force
+conda activate bioimg-pipeline
+python -m pip install -U "typing-extensions>=4.7"
 ```
 
-### VS Code doesn't see the environment
+You may see a pip warning like:
 
-1. Restart VS Code completely
-2. Press `Cmd+Shift+P` → "Python: Clear Cache and Reload Window"
-3. Try selecting interpreter again
+- `tensorflow-intel 2.13.0 requires typing-extensions<4.6.0`
 
-### verify_setup.py not found
+In practice, this repo has been validated with newer `typing_extensions`; treat the warning as informational.
 
-The script may not exist yet. Run this sanity check instead:
+After the fix, reload VS Code:
 
-```zsh
-python -c "import numpy, pandas, skimage, tifffile; print('SETUP OK ✅')"
-```
+- `Cmd+Shift+P` → **Developer: Reload Window**
+
+---
+
+## Next steps
+
+After completing setup, proceed to the top-level README instructions to generate a phantom TIFF and run the integrated driver.
+

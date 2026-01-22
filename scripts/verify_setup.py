@@ -35,6 +35,24 @@ def try_git_commit(repo_root: Path) -> str | None:
         return None
 
 
+def _check_typing_extensions() -> tuple[bool, str]:
+    """Return (ok, info) where ok means TypeAliasType is available."""
+    try:
+        import typing_extensions as te  # noqa: F401
+        from typing_extensions import TypeAliasType  # noqa: F401
+
+        ver = getattr(te, "__version__", "unknown")
+        return True, f"TypeAliasType available; version={ver}"
+    except Exception as exc:
+        try:
+            import typing_extensions as te  # type: ignore
+
+            ver = getattr(te, "__version__", "unknown")
+        except Exception:
+            ver = "not installed"
+        return False, f"version={ver}; error={exc}"
+
+
 def main() -> int:
     repo_root = Path(__file__).resolve().parents[1]
     print("=== bioimg-pipeline :: verify_setup ===")
@@ -89,6 +107,28 @@ def main() -> int:
         except Exception as e:
             print(f"ERROR: import {mod} failed: {e}")
             return 2
+
+    # 4b) typing_extensions sanity check (VS Code Jupyter / Spyder)
+    ok, info = _check_typing_extensions()
+    if ok:
+        print(f"typing_extensions: OK ({info})")
+    else:
+        print(f"ERROR: typing_extensions check failed ({info})")
+        print()
+        print("This usually happens after `conda env create/update` because the TensorFlow pip install")
+        print("downgrades typing_extensions to <4.6. Recent VS Code Jupyter / Spyder expects")
+        print("typing_extensions to provide TypeAliasType.")
+        print()
+        print("Fix (recommended):")
+        print("  python scripts/fix_typing_extensions.py")
+        print()
+        print("Alternative (direct pip):")
+        print('  python -m pip install -U "typing-extensions>=4.7"')
+        print()
+        print("After fixing:")
+        print("  - Re-run: python scripts/verify_setup.py")
+        print("  - Reload VS Code: Ctrl+Shift+P -> Developer: Reload Window")
+        return 2
 
     # 5) Write test to runs/
     test_dir = data_root / "runs" / "_setup_write_test"
