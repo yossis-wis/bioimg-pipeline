@@ -11,7 +11,8 @@
 3. **Kernel 2 (Detection):** LoG detector runs on each spot channel, masked by `nuclei_labels` if provided -> `spots.parquet`.
 4. **QC Generation:**
    - **Overlay:** Full frame image showing nuclei contours and spot locations.
-   - **Montage:** 80x80 pixel cutouts of spots from both channels, stitched into a multi-channel TIFF.
+   - **Montage:** 80×80 pixel cutouts of spots from both channels, stitched into a multi-channel TIFF.
+   - **Spot atlas (optional):** a MATLAB-style PowerPoint deck with multi-zoom spot cutouts for batch-scale review.
 
 ## Contracts
 

@@ -16,6 +16,7 @@ REQUIRED_IMPORTS = [
     "skimage",
     "matplotlib",
     "h5py",  # needed for reading Imaris .ims
+    "pptx",  # python-pptx (spot atlas QC)
     "stardist",
     "csbdeep",
     "tensorflow",

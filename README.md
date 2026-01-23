@@ -106,6 +106,7 @@ stardist_model_dir: "models/y22m01d12_model_0"
 output_runs_dir: runs
 publish_dir: "S:/bioimg-results/<user>/<date>"
 publish_mode: "error"
+# batch_aggregate_spots: true
 ```
 
 **2) Subfolders (e.g. `5ms/`, `45ms/`) + mirror publish**
@@ -118,6 +119,7 @@ publish_dir: "S:/bioimg-results/<user>/<date>"
 publish_mirror: true
 input_base_dir: "S:/BIC/<user>/equipment/<instrument>/<date>"
 publish_mode: "error"
+# batch_aggregate_spots: true
 ```
 
 Run:
@@ -135,13 +137,25 @@ Located in `$BIOIMG_DATA_ROOT/runs/<timestamp>__integrated/`:
 - `qc_overlay.png`: Spot channel image with nuclei outlines (red) and spots (cyan).
 - `qc_cutouts.tif`: Multi-channel TIFF montage of spot crops (open in Fiji).
   For multiple spot channels, QC outputs are written per channel (e.g. `qc_overlay_ch2.png`).
-- By default the montage samples the highest-SNR spots; set `qc_sample_seed` to shuffle instead.
 - `run_manifest.yaml`: Run metadata.
+
 For batch runs, outputs live under `$BIOIMG_DATA_ROOT/runs/<timestamp>__integrated_batch/`
-with a `batch_manifest.yaml` and optional `spots_aggregate.parquet` (includes a `condition`
-column derived from the input folder name).
-QC notebooks in [docs/NOTEBOOKS.md](docs/NOTEBOOKS.md) are the recommended way to visually
-validate these outputs.
+with a `batch_manifest.yaml` and optional `spots_aggregate.parquet`.
+
+### Batch spot-atlas PowerPoint QC (MATLAB-style)
+
+To generate a single aggregate PPTX that shows **all detected spots** (multi-zoom, pixel-level),
+run:
+
+```bash
+python drivers/generate_spot_atlas_pptx.py --batch-dir <timestamp>__integrated_batch
+```
+
+This writes:
+
+- `<batch_dir>/qc_spot_atlas_batch.pptx`
+
+The recommended notebook workflow is in `notebooks/03_generate_batch_spot_atlas_qc.py`.
 
 ### LLM-assisted development
 
