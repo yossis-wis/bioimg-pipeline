@@ -30,6 +30,15 @@ import os
 import sys
 from pathlib import Path
 
+import matplotlib
+
+if "ipykernel" in sys.modules:
+    try:
+        if matplotlib.get_backend().lower() == "agg":
+            matplotlib.use("module://matplotlib_inline.backend_inline", force=True)
+    except Exception:
+        pass
+
 import matplotlib.pyplot as plt
 import pandas as pd
 
@@ -177,3 +186,4 @@ build_spot_atlas_pptx(
 )
 
 print("wrote:", out_pptx)
+

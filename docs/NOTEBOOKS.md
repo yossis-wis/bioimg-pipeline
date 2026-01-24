@@ -12,6 +12,7 @@ The canonical notebooks live in `notebooks/`:
 - `01_step_by_step_integrated_qc.py` — load a single plane, segment nuclei, detect spots, and visualize
 - `02_review_run_folder.py` — review a run folder (manifests, spots table, QC images)
 - `03_generate_batch_spot_atlas_qc.py` — generate a MATLAB-style **spot atlas** PowerPoint for batch QC
+- `04_babysit_spot_detection.py` — "babysit" Slice0 spot detection step-by-step (LoG, nonmax, u0 mask/threshold, nucleus assignment)
 
 ## Running notebooks
 
@@ -47,3 +48,4 @@ One recommended workflow (with execution):
    ```
 
 The generated `.ipynb` files are intentionally ignored by git.
+

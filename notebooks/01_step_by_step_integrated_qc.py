@@ -27,6 +27,15 @@ import sys
 from pathlib import Path
 from glob import glob
 
+import matplotlib
+
+if "ipykernel" in sys.modules:
+    try:
+        if matplotlib.get_backend().lower() == "agg":
+            matplotlib.use("module://matplotlib_inline.backend_inline", force=True)
+    except Exception:
+        pass
+
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -346,3 +355,4 @@ ax.axis("off")
 fig.savefig(qc_path, dpi=200, bbox_inches="tight")
 print("wrote", qc_path)
 plt.close(fig)
+

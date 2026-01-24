@@ -19,6 +19,15 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import matplotlib
+
+if "ipykernel" in sys.modules:
+    try:
+        if matplotlib.get_backend().lower() == "agg":
+            matplotlib.use("module://matplotlib_inline.backend_inline", force=True)
+    except Exception:
+        pass
+
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -48,3 +57,4 @@ ax.set_title("Template plot")
 ax.set_xlabel("x")
 ax.set_ylabel("sin(2πx)")
 plt.show()
+

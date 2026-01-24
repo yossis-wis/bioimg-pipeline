@@ -68,6 +68,68 @@ class Slice0Params:
     u0_min: float = 30.0
 
 
+
+
+@dataclass(frozen=True)
+class Slice0Debug:
+    """Intermediate arrays from Slice0 LoG spot detection (for QC / notebooks).
+
+    This is intended for *interactive* debugging of a single plane. It contains
+    the LoG kernel, LoG response maps, and the candidate maxima maps before and
+    after masks / thresholds.
+
+    Notes
+    -----
+    - Arrays are returned by reference (no defensive copies).
+    - Shapes follow the implementation in :func:`detect_spots`.
+    """
+
+    # Input image (float32 view of the provided image_2d)
+    img_f: np.ndarray
+
+    # Image shape
+    H: int
+    W: int
+
+    # Optics-derived LoG parameters
+    w0_nm: float
+    sigma0_px: float
+    log_filter: np.ndarray
+    pad_size: int
+
+    # LoG response (valid convolution) and padded-to-image-size version
+    image_conv_valid: np.ndarray
+    image_conv_padded: np.ndarray
+
+    # Local maxima on -LoG response (valid + padded)
+    maxima_valid: np.ndarray
+    maxima_padded_raw: np.ndarray
+    maxima_padded_masked: np.ndarray
+
+    # Candidate maxima coordinates
+    ys_raw: np.ndarray
+    xs_raw: np.ndarray
+    ys_masked: np.ndarray
+    xs_masked: np.ndarray
+
+    # Quality at masked maxima (=-LoG at the candidate location)
+    quality_masked: np.ndarray
+
+    # Quality thresholding (q_min)
+    keep_q: np.ndarray
+    ys_q: np.ndarray
+    xs_q: np.ndarray
+    quality_q: np.ndarray
+
+    # Per-spot measurement masks (window_size = 2*window_radius_px + 1)
+    window_radius_px: int
+    in5_mask: np.ndarray
+    in7_mask: np.ndarray
+    out0_mask: np.ndarray
+
+    # Masks applied (may be None)
+    valid_mask: Optional[np.ndarray]
+    nuclei_mask: Optional[np.ndarray]
 def _robust_std(x: np.ndarray) -> float:
     """Robust std via MAD; returns 0.0 if too few samples."""
     x = np.asarray(x, dtype=float)
@@ -145,35 +207,15 @@ def _ring_mask(inner_radius_px: int, outer_radius_px: int, window_size: int) -> 
     m.setflags(write=False)
     return m
 
-
-def detect_spots(
+def _detect_spots_core(
     image_2d: np.ndarray,
     params: Slice0Params,
     *,
     valid_mask: Optional[np.ndarray] = None,
     nuclei_labels: Optional[np.ndarray] = None,
-) -> pd.DataFrame:
-    """Detect spots in a single 2D image using the realtime LoG method.
-
-    Parameters
-    ----------
-    image_2d:
-        2D image array (Y, X).
-    params:
-        Detection parameters.
-    valid_mask:
-        Optional boolean mask (Y, X). If provided, candidates are restricted
-        to mask==True (e.g. illumination/AOI mask).
-    nuclei_labels:
-        Optional label image (Y, X). If provided, candidates are restricted
-        to pixels where labels>0 (spots inside nuclei).
-
-    Returns
-    -------
-    pd.DataFrame
-        Spots table containing the required Slice0 contract columns.
-        Additional columns are included for debugging/analysis.
-    """
+    return_debug: bool = False,
+) -> tuple[pd.DataFrame, Optional[Slice0Debug]]:
+    """Shared implementation for detect_spots() and detect_spots_debug()."""
 
     if image_2d.ndim != 2:
         raise ValueError(f"detect_spots expects a 2D array; got shape={image_2d.shape}")
@@ -185,7 +227,9 @@ def detect_spots(
     if valid_mask is not None:
         vm = np.asarray(valid_mask).astype(bool, copy=False)
         if vm.shape != (H, W):
-            raise ValueError(f"valid_mask shape {vm.shape} does not match image shape {(H, W)}")
+            raise ValueError(
+                f"valid_mask shape {vm.shape} does not match image shape {(H, W)}"
+            )
     else:
         vm = None
 
@@ -208,7 +252,9 @@ def detect_spots(
     if pixel_size_nm <= 0:
         raise ValueError("pixel_size_nm must be > 0")
 
+    # Rayleigh range relation: z_R = π w0^2 / λ  =>  w0 = sqrt(λ z_R / π)
     w0 = float(np.sqrt(lambda_nm * zR / np.pi))
+    # If w0 is a 1/e^2 radius, σ = w0/√2 for exp(-r^2/(2σ^2))
     sigma0 = float(w0 / np.sqrt(2.0) / pixel_size_nm)
     n1 = int(np.ceil(sigma0 * 3.0) * 2.0 + 1.0)
 
@@ -227,7 +273,7 @@ def detect_spots(
     maxima = (-1.0 * image_conv) == maximum_filter(-1.0 * image_conv, size=se_size)
 
     pad_size = int(log_filter.shape[0] // 2)
-    maxima_padded = np.pad(
+    maxima_padded_raw = np.pad(
         maxima,
         pad_width=((pad_size, pad_size), (pad_size, pad_size)),
         mode="constant",
@@ -240,25 +286,25 @@ def detect_spots(
         constant_values=0,
     )
 
+    maxima_padded_masked = maxima_padded_raw
+
     # Apply optional masks (mirrors `maxima_padded = maxima_padded * mask_crop` and
     # `maxima_padded = maxima_padded * nuclei_mask` in the realtime script).
     if vm is not None:
-        maxima_padded = maxima_padded * vm
+        maxima_padded_masked = maxima_padded_masked * vm
     if nm is not None:
-        maxima_padded = maxima_padded * nm.astype(np.int32)
+        maxima_padded_masked = maxima_padded_masked * nm.astype(np.int32)
 
-    ys_all, xs_all = np.where(maxima_padded)
-    if ys_all.size == 0:
-        return pd.DataFrame(columns=REQUIRED_COLUMNS)
+    ys_raw, xs_raw = np.where(maxima_padded_raw)
+    ys_all, xs_all = np.where(maxima_padded_masked)
 
-    quality = -1.0 * image_conv_padded[ys_all, xs_all]
-    keep_q = quality > float(params.q_min)
-    ys = ys_all[keep_q]
-    xs = xs_all[keep_q]
-    quality = quality[keep_q]
+    # Quality is defined on masked maxima
+    quality_all = -1.0 * image_conv_padded[ys_all, xs_all] if ys_all.size else np.asarray([])
+    keep_q = quality_all > float(params.q_min) if ys_all.size else np.asarray([], dtype=bool)
 
-    if ys.size == 0:
-        return pd.DataFrame(columns=REQUIRED_COLUMNS)
+    ys = ys_all[keep_q] if ys_all.size else np.asarray([], dtype=int)
+    xs = xs_all[keep_q] if xs_all.size else np.asarray([], dtype=int)
+    quality = quality_all[keep_q] if ys_all.size else np.asarray([], dtype=float)
 
     # --- Per-spot measurement masks (31x31 by default) ---
     wr = int(params.window_radius_px)
@@ -266,6 +312,41 @@ def detect_spots(
     in5 = _disk_mask(int(params.in5_radius_px), win)
     in7 = _disk_mask(int(params.in7_radius_px), win)
     out0 = _ring_mask(int(params.ring_inner_radius_px), int(params.ring_outer_radius_px), win)
+
+    debug_obj: Optional[Slice0Debug] = None
+    if return_debug:
+        debug_obj = Slice0Debug(
+            img_f=img_f,
+            H=int(H),
+            W=int(W),
+            w0_nm=float(w0),
+            sigma0_px=float(sigma0),
+            log_filter=log_filter,
+            pad_size=int(pad_size),
+            image_conv_valid=image_conv,
+            image_conv_padded=image_conv_padded,
+            maxima_valid=maxima,
+            maxima_padded_raw=maxima_padded_raw,
+            maxima_padded_masked=maxima_padded_masked,
+            ys_raw=ys_raw,
+            xs_raw=xs_raw,
+            ys_masked=ys_all,
+            xs_masked=xs_all,
+            quality_masked=quality_all,
+            keep_q=keep_q,
+            ys_q=ys,
+            xs_q=xs,
+            quality_q=quality,
+            window_radius_px=int(wr),
+            in5_mask=in5,
+            in7_mask=in7,
+            out0_mask=out0,
+            valid_mask=vm,
+            nuclei_mask=nm,
+        )
+
+    if ys.size == 0:
+        return pd.DataFrame(columns=REQUIRED_COLUMNS), debug_obj
 
     rows = []
     window_range = np.arange(-wr, wr + 1)
@@ -330,9 +411,78 @@ def detect_spots(
         )
 
     if not rows:
-        return pd.DataFrame(columns=REQUIRED_COLUMNS)
+        return pd.DataFrame(columns=REQUIRED_COLUMNS), debug_obj
 
     # Keep required columns first (contract), then extras.
     df = pd.DataFrame(rows)
     ordered = REQUIRED_COLUMNS + [c for c in df.columns if c not in REQUIRED_COLUMNS]
-    return df.loc[:, ordered]
+    return df.loc[:, ordered], debug_obj
+
+
+def detect_spots(
+    image_2d: np.ndarray,
+    params: Slice0Params,
+    *,
+    valid_mask: Optional[np.ndarray] = None,
+    nuclei_labels: Optional[np.ndarray] = None,
+) -> pd.DataFrame:
+    """Detect spots in a single 2D image using the realtime LoG method.
+
+    Parameters
+    ----------
+    image_2d:
+        2D image array (Y, X).
+    params:
+        Detection parameters.
+    valid_mask:
+        Optional boolean mask (Y, X). If provided, candidates are restricted
+        to mask==True (e.g. illumination/AOI mask).
+    nuclei_labels:
+        Optional label image (Y, X). If provided, candidates are restricted
+        to pixels where labels>0 (spots inside nuclei).
+
+    Returns
+    -------
+    pd.DataFrame
+        Spots table containing the required Slice0 contract columns.
+        Additional columns are included for debugging/analysis.
+    """
+
+    df, _ = _detect_spots_core(
+        image_2d,
+        params,
+        valid_mask=valid_mask,
+        nuclei_labels=nuclei_labels,
+        return_debug=False,
+    )
+    return df
+
+
+def detect_spots_debug(
+    image_2d: np.ndarray,
+    params: Slice0Params,
+    *,
+    valid_mask: Optional[np.ndarray] = None,
+    nuclei_labels: Optional[np.ndarray] = None,
+) -> tuple[pd.DataFrame, Slice0Debug]:
+    """Detect spots and also return intermediate arrays for QC notebooks.
+
+    This is a convenience wrapper around the same implementation used by
+    :func:`detect_spots`.
+
+    Returns
+    -------
+    (df, debug)
+        df: same as :func:`detect_spots`
+        debug: :class:`Slice0Debug` with intermediate arrays.
+    """
+
+    df, dbg = _detect_spots_core(
+        image_2d,
+        params,
+        valid_mask=valid_mask,
+        nuclei_labels=nuclei_labels,
+        return_debug=True,
+    )
+    assert dbg is not None
+    return df, dbg
