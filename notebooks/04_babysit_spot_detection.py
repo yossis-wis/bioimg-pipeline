@@ -148,9 +148,11 @@ input_path = _resolve_input_path(config) or Path(
 )
 
 if not input_path.exists():
-    raise FileNotFoundError(
+    raise SystemExit(
         f"Input file not found: {input_path}\n"
-        "Edit input_path above or set input_* keys in configs/local/integrated_ims.local.yaml"
+        "Fix by either:\n"
+        "  1) setting input_relpath/input_relpaths/input_glob in configs/local/integrated_ims.local.yaml, or\n"
+        "  2) editing input_path in this notebook.\n"
     )
 
 # Channels are 1-based (as in the integrated config template).
@@ -210,7 +212,8 @@ def _imshow(ax, img, title: str, p_lo=1.0, p_hi=99.8):
     vmin, vmax = np.percentile(img.astype(float), [p_lo, p_hi])
     ax.imshow(img, cmap="gray", vmin=vmin, vmax=vmax, interpolation="nearest")
     ax.set_title(title)
-    ax.axis("off")
+    ax.set_aspect("equal")
+    ax.set_axis_off()
 
 
 fig, axes = plt.subplots(1, 2, figsize=(12, 5))
@@ -238,7 +241,7 @@ if config.get("nuclei_labels_relpath"):
     print("loaded nuclei_labels:", labels_path, nuclei_labels.shape, nuclei_labels.dtype)
 else:
     if not model_dir.exists():
-        raise FileNotFoundError(
+        raise SystemExit(
             f"StarDist model_dir not found: {model_dir}\n"
             "Either download/copy the model under BIOIMG_DATA_ROOT/models/ or set nuclei_labels_relpath."
         )
@@ -274,24 +277,22 @@ assert nuclei_labels is not None
 # Visualize labels as an outline overlay on nuclei intensity.
 #
 # Use the same boundary logic as the integrated QC overlay (pixel-exact, no interpolation).
-from skimage.morphology import dilation, disk
 from skimage.segmentation import find_boundaries
 
 fig, ax = plt.subplots(figsize=(6, 6))
 _imshow(ax, nuclei_plane, "Nuclei intensity + segmentation outline", p_lo=1.0, p_hi=99.8)
 
-mask = nuclei_labels > 0
-boundaries = dilation(find_boundaries(mask, mode="outer"), disk(1))
+# Compute boundaries on the *label image* (not a boolean union mask),
+# so you get an outline around **each** nucleus.
+boundaries = find_boundaries(nuclei_labels, mode="outer")
 
-# (Optional) very light fill so you can see whether masks cover the *whole* nucleus.
-rgba = np.zeros((mask.shape[0], mask.shape[1], 4), dtype=float)
-rgba[mask, 0] = 1.0
-rgba[mask, 3] = 0.08
+rgba = np.zeros((boundaries.shape[0], boundaries.shape[1], 4), dtype=float)
 rgba[boundaries, 0] = 1.0
-rgba[boundaries, 3] = 0.85
+rgba[boundaries, 3] = 0.90  # 1 px outline (no dilation, no fill)
 
 ax.imshow(rgba, interpolation="nearest")
 plt.show()
+
 
 # %% [markdown]
 # ## Configure Slice0 parameters (spot detection)
@@ -366,17 +367,16 @@ print(f"Derived: w0 = {dbg.w0_nm:.2f} nm, sigma0 = {dbg.sigma0_px:.2f} px, kerne
 fig, axes = plt.subplots(1, 2, figsize=(10, 4))
 axes[0].imshow(dbg.log_filter, interpolation="nearest")
 axes[0].set_title("LoG kernel h (numeric values)")
-axes[0].axis("off")
+axes[0].set_axis_off()
 
 # Show the LoG response map (padded back to image size)
 resp = -dbg.image_conv_padded  # larger => more spot-like (since we look for maxima in -LoG)
 vmin, vmax = np.percentile(resp.astype(float), [1, 99.5])
 axes[1].imshow(resp, cmap="gray", vmin=vmin, vmax=vmax, interpolation="nearest")
 axes[1].set_title(r"$-\,(\mathrm{LoG} * I)$ (padded)")
-axes[1].axis("off")
+axes[1].set_axis_off()
 
-# In notebooks, `Axes.axis()` returns the axis limits; if it's the last line in a cell,
-# Jupyter will print something like (-0.5, 1023.5, 1023.5, -0.5). Force a clean display.
+# Note: use `set_axis_off()` (not `axis("off")`) to avoid printing axis limits in some notebook frontends.
 plt.show()
 # %% [markdown]
 # ### (Optional) View LoG as “Gaussian smoothing” + “Laplacian”
@@ -403,13 +403,13 @@ fig, axes = plt.subplots(1, 2, figsize=(10, 4))
 vmin, vmax = np.percentile(g.astype(float), [1, 99.5])
 axes[0].imshow(g, cmap="gray", vmin=vmin, vmax=vmax, interpolation="nearest")
 axes[0].set_title(r"$G_{\sigma_0} * I$ (Gaussian-smoothed)")
-axes[0].axis("off")
+axes[0].set_axis_off()
 
 score2 = -lap
 vmin2, vmax2 = np.percentile(score2.astype(float), [1, 99.5])
 axes[1].imshow(score2, cmap="gray", vmin=vmin2, vmax=vmax2, interpolation="nearest")
 axes[1].set_title(r"$-\nabla^2(G_{\sigma_0} * I)$ (spot-like score)")
-axes[1].axis("off")
+axes[1].set_axis_off()
 plt.show()
 
 plt.show()
@@ -554,7 +554,9 @@ print("  u0           =", u0)
 # pixel centers at integers (1..W), pixel edges at half-integers.
 
 # %%
-fig, axes = plt.subplots(1, 2, figsize=(9, 4))
+from skimage.measure import find_contours
+
+fig, axes = plt.subplots(1, 3, figsize=(12, 4))
 
 # Left: crop intensity
 vmin, vmax = np.percentile(box.astype(float), [1, 99.5])
@@ -566,19 +568,43 @@ axes[0].imshow(
     interpolation="nearest",
     extent=(0.5, win + 0.5, win + 0.5, 0.5),  # MATLAB-like pixel centers at integers
 )
-axes[0].set_title("31×31 spot crop + in5 outline")
-axes[0].axis("off")
+axes[0].set_title("31×31 spot crop + in5 (yellow) + out0 (cyan)")
+axes[0].set_aspect("equal")
+axes[0].set_axis_off()
 
-x_outline, y_outline = _mask_outline_xy(dbg.in5_mask)
-if x_outline.size:
-    axes[0].plot(x_outline, y_outline, linewidth=1.5, color="yellow")
+# in5 outline (yellow): single simply-connected mask -> use the atlas helper
+x_in5, y_in5 = _mask_outline_xy(dbg.in5_mask)
+if x_in5.size:
+    axes[0].plot(x_in5, y_in5, linewidth=1.5, color="yellow")
 
-# Right: show the binary mask itself (for absolute clarity)
-axes[1].imshow(dbg.in5_mask.astype(int), interpolation="nearest", cmap="gray")
+# out0 outline (cyan): ring mask -> may have multiple contours (outer + inner)
+for c in find_contours(dbg.out0_mask.astype(float), 0.5):
+    axes[0].plot(c[:, 1] + 1.0, c[:, 0] + 1.0, linewidth=1.2, color="cyan")
+
+# Middle: show the in5 mask itself (for absolute clarity)
+axes[1].imshow(
+    dbg.in5_mask.astype(int),
+    interpolation="nearest",
+    cmap="gray",
+    extent=(0.5, win + 0.5, win + 0.5, 0.5),
+)
 axes[1].set_title("in5 mask (1 = included)")
-axes[1].axis("off")
+axes[1].set_aspect("equal")
+axes[1].set_axis_off()
+
+# Right: show the out0 mask itself (for absolute clarity)
+axes[2].imshow(
+    dbg.out0_mask.astype(int),
+    interpolation="nearest",
+    cmap="gray",
+    extent=(0.5, win + 0.5, win + 0.5, 0.5),
+)
+axes[2].set_title("out0 mask (1 = included)")
+axes[2].set_aspect("equal")
+axes[2].set_axis_off()
 
 plt.show()
+
 
 # %% [markdown]
 # ## Step 5 — Nucleus assignment sanity check
@@ -619,35 +645,35 @@ roi_nuc = nuclei_plane[y1:y2, x1:x2]
 roi_spot = spots_plane[y1:y2, x1:x2]
 
 # Build a pixel-exact boundary overlay.
-from skimage.morphology import dilation, disk
+from skimage.measure import find_contours
 from skimage.segmentation import find_boundaries
 
+fig, axes = plt.subplots(1, 2, figsize=(10, 4))
+_imshow(axes[0], roi_nuc, "Nuclei ROI + nucleus outline", p_lo=1.0, p_hi=99.8)
+_imshow(axes[1], roi_spot, "Spot ROI + nucleus outline", p_lo=1.0, p_hi=99.5)
+
+# Plot a *pixel-edge* outline (no dilation, no filled alpha mask),
+# so you can still inspect raw pixel values under the cursor.
 if nuc_id > 0:
-    nuc_mask_full = nuclei_labels == nuc_id
+    nuc_mask_roi = nuclei_labels[y1:y2, x1:x2] == nuc_id
+    for c in find_contours(nuc_mask_roi.astype(float), 0.5):
+        axes[0].plot(c[:, 1], c[:, 0], linewidth=1.5, color="red")
+        axes[1].plot(c[:, 1], c[:, 0], linewidth=1.5, color="red")
 else:
     # If the spot isn't assigned to a nucleus, show all nucleus boundaries for context.
-    nuc_mask_full = nuclei_labels > 0
+    boundaries_roi = find_boundaries(nuclei_labels[y1:y2, x1:x2], mode="outer")
+    rgba = np.zeros((roi_spot.shape[0], roi_spot.shape[1], 4), dtype=float)
+    rgba[boundaries_roi, 0] = 1.0
+    rgba[boundaries_roi, 3] = 0.90
+    axes[0].imshow(rgba, interpolation="nearest")
+    axes[1].imshow(rgba, interpolation="nearest")
 
-boundaries_full = dilation(find_boundaries(nuc_mask_full, mode="outer"), disk(1))
-mask_roi = nuc_mask_full[y1:y2, x1:x2]
-boundaries_roi = boundaries_full[y1:y2, x1:x2]
-
-rgba = np.zeros((roi_spot.shape[0], roi_spot.shape[1], 4), dtype=float)
-rgba[mask_roi, 0] = 1.0
-rgba[mask_roi, 3] = 0.05
-rgba[boundaries_roi, 0] = 1.0
-rgba[boundaries_roi, 3] = 0.95
-
-fig, axes = plt.subplots(1, 2, figsize=(10, 4))
-_imshow(axes[0], roi_nuc, "Nuclei ROI + segmentation outline", p_lo=1.0, p_hi=99.8)
-axes[0].imshow(rgba, interpolation="nearest")
+# Spot center marker
 axes[0].scatter([x0 - x1], [y0 - y1], s=40, facecolors="none", edgecolors="yellow", linewidths=1.5)
-
-_imshow(axes[1], roi_spot, "Spot ROI + nucleus outline", p_lo=1.0, p_hi=99.5)
-axes[1].imshow(rgba, interpolation="nearest")
 axes[1].scatter([x0 - x1], [y0 - y1], s=40, facecolors="none", edgecolors="yellow", linewidths=1.5)
 
 plt.show()
+
 
 print("nucleus_label at (y0,x0):", int(nuclei_labels[y0, x0]))
 print("expected nucleus_label from spots table:", nuc_id)
@@ -664,7 +690,7 @@ rgb = merge_nuclei_spots_rgb(nuclei_plane, spots_plane, spots_to_cyan=True)
 fig, ax = plt.subplots(figsize=(6, 6))
 ax.imshow(rgb, interpolation="nearest")
 ax.set_title("Merged overlay (nuclei + spot channel)")
-ax.axis("off")
+ax.set_axis_off()
 
 # overlay detected spots (u0-filtered) as cyan rings
 xs = spots_df["x_px"].astype(float).values

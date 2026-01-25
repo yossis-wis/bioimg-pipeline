@@ -46,6 +46,7 @@ ims_z_index: 0
 # stardist_model_dir should point to a folder under BIOIMG_DATA_ROOT/models/
 stardist_model_dir: models/y22m01d12_model_0
 nuc_prob_thresh: 0.3
+nuc_nms_thresh: 0.00  # 0 => strict NMS (keep only most probable in overlaps)
 nuc_normalize_pmin: 1.0
 nuc_normalize_pmax: 99.8
 
@@ -53,6 +54,8 @@ nuc_normalize_pmax: 99.8
 spot_pixel_size_nm: 65
 spot_lambda_nm: 667
 spot_zR: 344.5
+spot_se_size: 15        # local-max neighborhood size (px)
+spot_q_min: 1.0         # LoG quality threshold (q_min)
 spot_u0_min: 30
 
 # --- Visual QC ---

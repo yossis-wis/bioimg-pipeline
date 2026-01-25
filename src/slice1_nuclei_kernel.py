@@ -36,7 +36,7 @@ def segment_nuclei_stardist(
     image_2d: np.ndarray,
     model: Any,
     params: Slice1NucleiParams,
-) -> Tuple[np.ndarray, Dict[str, float]]:
+) -> Tuple[np.ndarray, Dict[str, Any]]:
     """Segment nuclei using a loaded StarDist2D model.
 
     Parameters
@@ -78,11 +78,33 @@ def segment_nuclei_stardist(
     # Ensure predictable dtype for downstream steps
     labels = labels.astype(np.int32, copy=False)
 
+    # If available, extract per-instance probabilities from StarDist details.
+    # This lets QC tooling filter nuclei by confidence *without rerunning* the model.
+    instance_probs: Optional[np.ndarray] = None
+    try:
+        if isinstance(_details, dict) and "prob" in _details:
+            instance_probs = np.asarray(_details["prob"], dtype=float).ravel()
+    except Exception:
+        instance_probs = None
+
     # What thresholds were *actually* used?
-    used: Dict[str, float] = {}
+    used: Dict[str, Any] = {}
     if "prob_thresh" in kwargs:
         used["prob_thresh"] = float(kwargs["prob_thresh"])
     if "nms_thresh" in kwargs:
         used["nms_thresh"] = float(kwargs["nms_thresh"])
+
+
+    # Attach per-label probability scores when available.
+    # Convention: label IDs are 1..N, and instance_probs[i-1] corresponds to label i.
+    if instance_probs is not None:
+        n_labels = int(labels.max())
+        if n_labels > 0 and instance_probs.size > 0:
+            probs = instance_probs[:n_labels]
+            used["n_instances"] = int(n_labels)
+            used["instance_probs"] = [float(p) for p in probs.tolist()]
+            used["instance_prob_min"] = float(np.min(probs))
+            used["instance_prob_mean"] = float(np.mean(probs))
+            used["instance_prob_max"] = float(np.max(probs))
 
     return labels, used

@@ -49,3 +49,10 @@ One recommended workflow (with execution):
 
 The generated `.ipynb` files are intentionally ignored by git.
 
+
+
+## Interactive QC (matplotlib)
+
+- `drivers/interactive_spot_qc.py`: interactive spot-detection QC tool with sliders for `q_min`, `u0_min`, and optional nucleus-probability filtering.
+  - Click a candidate spot to open/update a 31×31 ROI view with in5/out0 mask outlines and nucleus outline.
+  - Designed to run in Spyder (Qt backend) or VS Code.

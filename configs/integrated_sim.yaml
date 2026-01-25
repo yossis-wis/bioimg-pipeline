@@ -20,6 +20,8 @@ nuc_nms_thresh: 0.3
 spot_pixel_size_nm: 65
 spot_lambda_nm: 667
 spot_zR: 344.5
+spot_se_size: 15        # local-max neighborhood size (px)
+spot_q_min: 1.0         # LoG quality threshold (q_min)
 spot_u0_min: 30
 
 # --- Visual QC ---
