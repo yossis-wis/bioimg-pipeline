@@ -74,14 +74,14 @@ class Slice0Params:
     Parameter mapping vs TrackMate
     ------------------------------
     - TrackMate "radius" (in calibrated units) is taken to be `spot_radius_nm` if
-      provided; otherwise we derive a radius from (zR, lambda_nm) via the Rayleigh
-      relation and set:
+      provided; otherwise we derive a default radius from (zR, lambda_nm) using the
+      legacy optics-inspired parameterization:
 
-        radius_nm = w0_nm,  where  z_R = π w0^2 / λ.
+        r_nm = sqrt(lambda_nm * zR / pi).
 
-      For a Gaussian intensity profile I(r) ∝ exp(-2 r^2 / w0^2), the corresponding
-      Gaussian σ satisfies σ = w0 / √2, which is consistent with TrackMate's internal
-      choice σ = radius / √nDims (here nDims=2).
+      This is intentionally treated as a *scale parameter* (kept for backward
+      compatibility). For exact TrackMate matching, prefer setting `spot_radius_nm`
+      directly in calibrated units.
 
     - TrackMate "threshold" corresponds to `q_min` here (threshold on LoG response
       at the candidate peak).
@@ -413,10 +413,11 @@ def _detect_spots_core(
     if pixel_size_nm <= 0:
         raise ValueError("pixel_size_nm must be > 0")
 
-    # Rayleigh range relation: z_R = π w0^2 / λ  =>  w0 = sqrt(λ z_R / π)
-    w0_from_optics = float(np.sqrt(lambda_nm * zR / np.pi))
+    # Legacy optics-inspired parameterization (kept for backward compatibility):
+    #   r = sqrt(lambda_nm * zR / pi)
+    r_from_optics = float(np.sqrt(lambda_nm * zR / np.pi))
 
-    radius_nm = float(params.spot_radius_nm) if params.spot_radius_nm is not None else w0_from_optics
+    radius_nm = float(params.spot_radius_nm) if params.spot_radius_nm is not None else r_from_optics
     if radius_nm <= 0:
         raise ValueError("spot_radius_nm (or derived w0) must be > 0")
 

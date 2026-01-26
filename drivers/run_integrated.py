@@ -33,6 +33,8 @@ from slice0_kernel import Slice0Params, detect_spots  # noqa: E402
 from slice1_nuclei_kernel import Slice1NucleiParams, segment_nuclei_stardist  # noqa: E402
 from stardist_utils import StardistModelRef, load_stardist2d  # noqa: E402
 from vis_utils import create_cutout_montage, write_qc_overlay  # noqa: E402
+from pixel_size_utils import infer_pixel_size_nm_mean  # noqa: E402
+
 
 
 def _load_config(path: Path) -> Dict[str, Any]:
@@ -311,11 +313,48 @@ def _run_integrated_single(
 
         nuclei_labels, nuc_meta = segment_nuclei_stardist(img_nuc, model, nuc_params)
 
+    # --- Pixel size (nm/px): prefer explicit config, but allow 'auto' from metadata ---
+    meta_px_mean_nm, meta_px_note = infer_pixel_size_nm_mean(input_path)
+    if meta_px_mean_nm is not None:
+        print(f"[pixel_size] metadata mean: {meta_px_mean_nm:.3f} nm/px ({meta_px_note})")
+    else:
+        print(f"[pixel_size] metadata unavailable: {meta_px_note}")
+
+    cfg_px = cfg.get("spot_pixel_size_nm", None)
+    px_source = ""
+    if cfg_px is None:
+        if meta_px_mean_nm is not None:
+            pixel_size_nm = float(meta_px_mean_nm)
+            px_source = "metadata(default)"
+        else:
+            pixel_size_nm = 65.0
+            px_source = "default(65nm)"
+    elif isinstance(cfg_px, str) and cfg_px.strip().lower() == "auto":
+        if meta_px_mean_nm is not None:
+            pixel_size_nm = float(meta_px_mean_nm)
+            px_source = "metadata(auto)"
+        else:
+            pixel_size_nm = 65.0
+            px_source = "fallback_default(65nm)"
+    else:
+        pixel_size_nm = float(cfg_px)
+        px_source = "config"
+
+    if px_source == "config" and meta_px_mean_nm is not None and float(meta_px_mean_nm) > 0:
+        rel = abs(float(pixel_size_nm) - float(meta_px_mean_nm)) / float(meta_px_mean_nm)
+        if rel > 0.02:
+            print(
+                f"[pixel_size] WARNING: spot_pixel_size_nm={float(pixel_size_nm):.3f} nm/px from config, "
+                f"but metadata suggests {float(meta_px_mean_nm):.3f} nm/px ({100.0*rel:.1f}% difference). "
+                "Consider setting spot_pixel_size_nm: auto or updating your config."
+            )
+    print(f"[pixel_size] using spot_pixel_size_nm={float(pixel_size_nm):.3f} nm/px (source={px_source})")
+
     print("Running spot detection (inside nuclei)...")
     spot_params = Slice0Params(
         zR=float(cfg.get("spot_zR", 344.5)),
         lambda_nm=float(cfg.get("spot_lambda_nm", 667.0)),
-        pixel_size_nm=float(cfg.get("spot_pixel_size_nm", 65.0)),
+        pixel_size_nm=float(pixel_size_nm),
 
         # Optional TrackMate-style overrides (all optional; defaults keep previous behavior).
         spot_radius_nm=(float(cfg["spot_radius_nm"]) if cfg.get("spot_radius_nm", None) is not None else None),

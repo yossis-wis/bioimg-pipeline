@@ -212,6 +212,11 @@ def run_interactive_spot_qc(
     # --- Segment nuclei (optional) ---
     nuclei_labels: Optional[np.ndarray] = None
     nuclei_meta: Optional[Dict[str, Any]] = None
+    if stardist_model_dir is None:
+        print("[nuclei] stardist_model_dir not provided -> skipping nuclei segmentation.")
+    else:
+        print(f"[nuclei] Running StarDist nuclei segmentation (model_dir={stardist_model_dir}) ...")
+
     if stardist_model_dir is not None:
         model_dir = _resolve_path(Path(stardist_model_dir))
         model = load_stardist2d(StardistModelRef(model_dir=model_dir))
@@ -228,6 +233,13 @@ def run_interactive_spot_qc(
         else:
             nuclei_labels = seg_out  # type: ignore[assignment]
             nuclei_meta = None
+
+    if nuclei_labels is not None:
+        try:
+            n_labels = int(np.max(nuclei_labels))
+        except Exception:
+            n_labels = 0
+        print(f"[nuclei] Segmentation result: {n_labels} labels")
 
     # Build a label->prob lookup (label IDs are 1..N).
     label_prob: Optional[np.ndarray] = None

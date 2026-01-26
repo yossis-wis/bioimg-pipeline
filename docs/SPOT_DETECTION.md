@@ -38,64 +38,80 @@ explicitly halved before being stored as `KEY_RADIUS`.
 
 In this repo:
 
-- `spot_radius_nm` (if set) is interpreted as TrackMate’s **radius** in calibrated units.
-- If `spot_radius_nm` is not set, we derive a default radius from `(spot_lambda_nm, spot_zR)`
-  by treating the optical PSF as a Gaussian beam with waist \(w_0\).
+- `spot_radius_nm` (if set) is interpreted as TrackMate’s **radius** in calibrated units (nm in our configs).
+- If `spot_radius_nm` is not set, we derive a default radius from `(spot_lambda_nm, spot_zR)` using a
+  **legacy optics-inspired parameterization**:
 
-Using the usual Gaussian-beam relation:
+$$
+r \equiv \sqrt{\frac{\lambda z_R}{\pi}}\,.
+$$
 
-\begin{equation}
-z_R = \frac{\pi w_0^2}{\lambda}
-\quad\Rightarrow\quad
-w_0 = \sqrt{\frac{\lambda z_R}{\pi}}.
-\end{equation}
+We then use
 
-We then take
+$$
+d_{\mathrm{TM}} = 2r
+$$
 
-\begin{equation}
-\text{radius} \equiv w_0,
-\end{equation}
-
-and TrackMate’s displayed diameter becomes
-
-\begin{equation}
-d_{\mathrm{TM}} = 2\,w_0.
-\end{equation}
+as the TrackMate GUI **estimated blob diameter**.
 
 TrackMate uses an internal Gaussian scale
 
-\begin{equation}
-\sigma = \frac{\text{radius}}{\sqrt{n_{\mathrm{dims}}}},
-\end{equation}
+$$
+\sigma = \frac{r}{\sqrt{n_{\mathrm{dims}}}},
+\qquad
+\sigma_{\mathrm{px}} = \frac{\sigma}{p},
+$$
 
-so in 2D (\(n_{\mathrm{dims}}=2\)):
+so in 2D ($n_{\mathrm{dims}} = 2$):
 
-\begin{equation}
-\sigma_{\mathrm{px}} =
-\frac{\text{radius}/\sqrt{2}}{p},
-\end{equation}
+$$
+\sigma_{\mathrm{px}} = \frac{r}{\sqrt{2}\,p},
+$$
 
-where \(p\) is the pixel size (same length unit as the radius).
+where $p$ is the pixel size (same length unit as $r$).
+
+**Optics note (optional).** If you model the in-focus PSF intensity as a Gaussian beam
+
+$$
+I(r) = I_0\,\exp\!\left(-\frac{2r^2}{w_0^2}\right),
+$$
+
+then the equivalent Gaussian standard deviation is $\sigma = w_0/2$. Matching this to TrackMate’s
+$\sigma = r/\sqrt{2}$ (2D) implies $r = w_0/\sqrt{2}$ and therefore
+
+$$
+d_{\mathrm{TM}} = \sqrt{2}\,w_0
+$$
+
+in 2D. (This repo does **not** enforce a particular optics convention; the quantity that matters for
+TrackMate matching is the **radius $r$ actually used by the detector**.)
 
 Practical tip: you can extract the XY pixel size from file metadata with:
 
-```
+```bash
 python scripts/inspect_pixel_size.py --input <file.tif|file.ims>
 ```
+
+You can also set:
+
+- `spot_pixel_size_nm: auto`
+
+in your YAML config to make the drivers infer pixel size from metadata (and warn if a numeric
+`spot_pixel_size_nm` disagrees strongly with metadata).
 
 ### Thresholding (“quality”)
 
 TrackMate’s LoG detector outputs a “quality” value at each detected maximum; it then keeps
 spots with
 
-\begin{equation}
+$$
 q \ge q_{\min}.
-\end{equation}
+$$
 
 Here:
 
 - `quality` in `spots.parquet` is the **LoG response at the candidate maximum**.
-- `spot_q_min` is the **candidate threshold** \(q_{\min}\) (TrackMate’s “threshold”).
+- `spot_q_min` is the candidate threshold $q_{\min}$ (TrackMate’s “threshold”).
 
 ### Masks
 
@@ -108,7 +124,7 @@ After local maxima are found, Slice0 can restrict candidates by:
 
 ## Stage B — Per-candidate photometry (unchanged)
 
-For each remaining candidate \((y,x)\), Slice0 measures intensity in fixed pixel masks
+For each remaining candidate $(y,x)$, Slice0 measures intensity in fixed pixel masks
 centered on the integer pixel location:
 
 - `background`: median intensity in a thin ring (`out0`)
@@ -117,19 +133,20 @@ centered on the integer pixel location:
 
 and then computes:
 
-\begin{equation}
+$$
 u_0 = \langle I \rangle_{\mathrm{in5}} - \mathrm{median}(I)_{\mathrm{out0}},
 \qquad
 u_1 = \langle I \rangle_{\mathrm{in7}} - \mathrm{median}(I)_{\mathrm{out0}}.
-\end{equation}
+$$
 
 The acceptance rule is **unchanged**:
 
-In this repo, the contract column `intensity` is currently set to `u0` (i.e. the background-subtracted mean in the in5 disk).
+In this repo, the contract column `intensity` is currently set to `u0`
+(i.e. the background-subtracted mean in the in5 disk).
 
-\begin{equation}
+$$
 u_0 > u_{0,\min}.
-\end{equation}
+$$
 
 This is the step that encodes your microscope/dye characterization: the “expected mean pixel
 brightness” over the in5 scale for an in-focus, relatively immobile emitter over the exposure.
@@ -142,8 +159,8 @@ If you want to reproduce the same candidate stage in Fiji/TrackMate for QC:
 
 1. Ensure Fiji’s image calibration (pixel size) matches your dataset.
 2. In TrackMate → LoG detector, set:
-   - **Estimated blob diameter** \(d_{\mathrm{TM}} = 2\,\text{radius}\)
-   - **Threshold** \(= \texttt{spot\_q\_min}\)
+   - **Estimated blob diameter** $d_{\mathrm{TM}} = 2r$
+   - **Threshold** $= \texttt{spot\_q\_min}$
 
 The notebooks `01_step_by_step_integrated_qc.py` and `04_babysit_spot_detection.py`
 print the TrackMate-equivalent **blob diameter** implied by the current config.

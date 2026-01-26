@@ -59,12 +59,12 @@ nuc_normalize_pmax: 99.8
 # TrackMate mapping (see docs/SPOT_DETECTION.md):
 #   - TrackMate GUI "Estimated blob diameter"  d_TM = 2 * radius
 #   - This repo stores the radius in nm (spot_radius_nm), or derives it from (lambda, zR).
-spot_pixel_size_nm: 65
+spot_pixel_size_nm: auto  # auto => infer from metadata (nm/px)
 spot_lambda_nm: 667
 spot_zR: 344.5
 
 # Optional: override TrackMate radius directly (nm).
-# If omitted, we compute w0 = sqrt(lambda * zR / pi) and use radius = w0.
+# If omitted, we compute r = sqrt(lambda * zR / pi) and use radius = r.
 # spot_radius_nm: null
 
 # Optional TrackMate toggles (defaults match TrackMate defaults):

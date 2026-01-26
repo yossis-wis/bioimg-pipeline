@@ -78,7 +78,7 @@ if not bioimg_root_raw:
 BIOIMG_DATA_ROOT = Path(bioimg_root_raw).expanduser().resolve()
 
 # Example:
-batch_dir = BIOIMG_DATA_ROOT / "runs" / "<timestamp>__integrated_batch"
+batch_dir = BIOIMG_DATA_ROOT / "runs" / "20260126T172653Z__integrated_batch"
 
 if not batch_dir.exists():
     raise FileNotFoundError(

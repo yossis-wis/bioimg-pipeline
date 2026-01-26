@@ -55,6 +55,8 @@ sys.path.insert(0, str(REPO_ROOT / "src"))
 
 from image_io import PlaneSelection  # noqa: E402
 from qc_spot_interactive import run_interactive_spot_qc  # noqa: E402
+from pixel_size_utils import infer_pixel_size_nm_mean  # noqa: E402
+
 
 
 def _load_yaml(path: Path) -> Dict[str, Any]:
@@ -259,6 +261,9 @@ def main() -> None:
                 "If you used a relative path, make sure BIOIMG_DATA_ROOT is set correctly."
             )
 
+    if stardist_model_dir is None:
+        print("[nuclei] NOTE: stardist_model_dir not set; nuclei segmentation will be skipped.")
+
     # Nuclei params
     nuc_prob_thresh = float(args.nuc_prob_thresh) if args.nuc_prob_thresh is not None else float(cfg.get("nuc_prob_thresh", 0.10))
     nuc_nms_thresh = float(args.nuc_nms_thresh) if args.nuc_nms_thresh is not None else float(cfg.get("nuc_nms_thresh", 0.00))
@@ -266,7 +271,45 @@ def main() -> None:
     nuc_normalize_pmax = float(args.nuc_normalize_pmax) if args.nuc_normalize_pmax is not None else float(cfg.get("nuc_normalize_pmax", 99.8))
 
     # Spot params
-    spot_pixel_size_nm = float(args.spot_pixel_size_nm) if args.spot_pixel_size_nm is not None else float(cfg.get("spot_pixel_size_nm", 65.0))
+    meta_px_mean_nm, meta_px_note = infer_pixel_size_nm_mean(input_path)
+    if meta_px_mean_nm is not None:
+        print(f"[pixel_size] metadata mean: {meta_px_mean_nm:.3f} nm/px ({meta_px_note})")
+    else:
+        print(f"[pixel_size] metadata unavailable: {meta_px_note}")
+
+    cfg_px = cfg.get("spot_pixel_size_nm", None)
+    px_source = ""
+    if args.spot_pixel_size_nm is not None:
+        spot_pixel_size_nm = float(args.spot_pixel_size_nm)
+        px_source = "cli"
+    else:
+        if cfg_px is None:
+            if meta_px_mean_nm is not None:
+                spot_pixel_size_nm = float(meta_px_mean_nm)
+                px_source = "metadata(default)"
+            else:
+                spot_pixel_size_nm = 65.0
+                px_source = "default(65nm)"
+        elif isinstance(cfg_px, str) and cfg_px.strip().lower() == "auto":
+            if meta_px_mean_nm is not None:
+                spot_pixel_size_nm = float(meta_px_mean_nm)
+                px_source = "metadata(auto)"
+            else:
+                spot_pixel_size_nm = 65.0
+                px_source = "fallback_default(65nm)"
+        else:
+            spot_pixel_size_nm = float(cfg_px)
+            px_source = "config"
+
+    if px_source in ("cli", "config") and meta_px_mean_nm is not None and float(meta_px_mean_nm) > 0:
+        rel = abs(float(spot_pixel_size_nm) - float(meta_px_mean_nm)) / float(meta_px_mean_nm)
+        if rel > 0.02:
+            print(
+                f"[pixel_size] WARNING: using spot_pixel_size_nm={float(spot_pixel_size_nm):.3f} nm/px from {px_source}, "
+                f"but metadata suggests {float(meta_px_mean_nm):.3f} nm/px ({100.0*rel:.1f}% difference). "
+                "Consider setting spot_pixel_size_nm: auto or updating your config."
+            )
+    print(f"[pixel_size] spot_pixel_size_nm={float(spot_pixel_size_nm):.3f} nm/px (source={px_source})")
     spot_lambda_nm = float(args.spot_lambda_nm) if args.spot_lambda_nm is not None else float(cfg.get("spot_lambda_nm", 667.0))
     spot_zR = float(args.spot_zR) if args.spot_zR is not None else float(cfg.get("spot_zR", 344.5))
     spot_se_size = int(args.spot_se_size) if args.spot_se_size is not None else int(cfg.get("spot_se_size", 3))
