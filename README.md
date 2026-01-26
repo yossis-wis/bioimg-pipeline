@@ -2,7 +2,10 @@
 
 ## Integrated Slice (Nuclei + Spots)
 
-This pipeline performs **nuclear segmentation** (StarDist) and **spot detection** (LoG) in a single pass. It produces quality control artifacts including spot cutouts and visual overlays.
+This pipeline performs **nuclear segmentation** (StarDist) and **spot detection** in a single pass.
+
+Spot detection uses a **TrackMate-style LoG detector** for candidate generation, followed by a
+**fixed-mask photometry step** (`in5/out0` → `u0_min`) that is tuned to the microscope/dye. It produces quality control artifacts including spot cutouts and visual overlays.
 Each run processes **one 2D plane per file**, controlled by `ims_resolution_level`, `ims_time_index`, and `ims_z_index` for `.ims` inputs.
 
 ### Setup
@@ -15,6 +18,7 @@ Follow the platform guide first:
 ### Docs map
 
 - [Architecture](docs/ARCHITECTURE.md)
+- [Spot detection (TrackMate-style LoG + u0 photometry)](docs/SPOT_DETECTION.md)
 - [Data contracts](docs/CONTRACTS.md)
 - [Notebooks (QC workflows)](docs/NOTEBOOKS.md)
 - [LLM workflow (human-in-the-loop zip overlays)](docs/LLM_WORKFLOW.md)
@@ -56,6 +60,9 @@ python drivers/run_integrated.py --config configs/integrated_sim.yaml
    - `stardist_model_dir` (path to your StarDist model folder)
    - `channel_nuclei` and `channel_spots` (1-based indices; `channel_spots` can be a list like `[2, 3]`)
    - Detector parameters
+     - **Important:** set `spot_pixel_size_nm` in **nm/px** using your file metadata.
+       You can print it with:
+       `python scripts/inspect_pixel_size.py --input <your_file.tif|.ims>`
 4. (Optional) If you want local intermediates + storWIS publish:
    - Keep `output_runs_dir` under `BIOIMG_DATA_ROOT` for fast local writes.
    - Set `publish_dir` to a writable storWIS location to copy final outputs.
@@ -160,3 +167,4 @@ The recommended notebook workflow is in `notebooks/03_generate_batch_spot_atlas_
 ### LLM-assisted development
 
 We sometimes use an LLM (ChatGPT / GPT‑5.2 Pro) to plan and implement changes (often delivered as a zip overlay), then review diffs in GitHub Desktop and run verification + QC before committing. Full workflow and rules: [docs/LLM_WORKFLOW.md](docs/LLM_WORKFLOW.md).
+

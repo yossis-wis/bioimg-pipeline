@@ -19,7 +19,7 @@
 # 3) Run LoG-based candidate detection (Slice0):
 #    - derive $\sigma_0$ from $(z_R,\lambda)$ and pixel size
 #    - build LoG kernel, convolve
-#    - non-maximum suppression on $-\mathrm{LoG}$ response
+#    - non-maximum suppression on the LoG response (TrackMate-style kernel yields positive peaks)
 #    - quality threshold $q_{\min}$
 # 4) Compute per-candidate measurements (exactly like the realtime script):
 #    - background median in the thin ring mask (out0)
@@ -324,7 +324,7 @@ params = Slice0Params(
     u0_min=float(config.get("spot_u0_min", 30.0)),
     # You can tune these if needed:
     q_min=float(config.get("spot_q_min", 1.0)),
-    se_size=int(config.get("spot_se_size", 15)),
+    se_size=int(config.get("spot_se_size", 3)),
 )
 
 print(params)
@@ -353,16 +353,45 @@ print("  after u0_min:", int(len(spots_df)), f"(u0_min={params.u0_min})")
 # %% [markdown]
 # ## Step 1 — Inspect the LoG kernel and the LoG response
 #
-# Slice0 constructs a 2D Laplacian-of-Gaussian (LoG) kernel:
+# Slice0 constructs a **TrackMate-style LoG kernel** (a normalized version of $-\nabla^2 G$),
+# matching TrackMate’s implementation in `DetectionUtils.createLoGKernel`.
+#
+# TrackMate writes the kernel (in calibrated coordinates) as:
 #
 # \begin{equation}
-# h(\mathbf{r}) = \frac{\left(\|\mathbf{r}\|^2 - 2\sigma_0^2\right)\exp\!\left(-\|\mathbf{r}\|^2/2\sigma_0^2\right)}{\sigma_0^4 \sum_{\mathbf{r}} \exp\!\left(-\|\mathbf{r}\|^2/2\sigma_0^2\right)}.
+# h(\mathbf{r}) = -C\,m(\mathbf{r})\,\exp\!\left(-\frac{\|\mathbf{r}\|^2}{2\sigma^2}\right),
 # \end{equation}
 #
-# The image is convolved with $h$, and candidates are found as local maxima in $-\,(\mathrm{LoG}*I)$.
+# where in 2D:
+#
+# \begin{equation}
+# m(\mathbf{r}) =
+# \sum_{d\in\{x,y\}}
+# \frac{1}{\sigma_{\mathrm{px},d}^2}
+# \left(\frac{x_d^2}{\sigma^2} - 1\right),
+# \qquad
+# C = \frac{1}{\pi\,\sigma_{\mathrm{px},x}^2}.
+# \end{equation}
+#
+# In the common isotropic case this reduces (up to a constant factor) to the familiar form:
+#
+# \begin{equation}
+# h(r) \propto \left(2 - \frac{r^2}{\sigma^2}\right)\exp\!\left(-\frac{r^2}{2\sigma^2}\right),
+# \end{equation}
+#
+# which yields **positive peaks** for bright, in-focus spots.
+#
+# The image is convolved with $h$, and candidates are found as **strict** local maxima in $(\mathrm{LoG} * I)$.
 
 # %%
 print(f"Derived: w0 = {dbg.w0_nm:.2f} nm, sigma0 = {dbg.sigma0_px:.2f} px, kernel size = {dbg.log_filter.shape}")
+
+# TrackMate GUI uses an *estimated blob diameter* (in calibrated units),
+# but internally stores a radius. For QC, the equivalent GUI value is:
+tm_diameter_nm = 2.0 * dbg.w0_nm
+tm_diameter_um = tm_diameter_nm / 1000.0
+tm_diameter_px = tm_diameter_nm / params.pixel_size_nm
+print(f"TrackMate GUI blob diameter ≈ {tm_diameter_um:.4f} µm ({tm_diameter_nm:.1f} nm; {tm_diameter_px:.2f} px)")
 
 fig, axes = plt.subplots(1, 2, figsize=(10, 4))
 axes[0].imshow(dbg.log_filter, interpolation="nearest")
@@ -370,10 +399,10 @@ axes[0].set_title("LoG kernel h (numeric values)")
 axes[0].set_axis_off()
 
 # Show the LoG response map (padded back to image size)
-resp = -dbg.image_conv_padded  # larger => more spot-like (since we look for maxima in -LoG)
+resp = dbg.image_conv_padded  # larger => more spot-like (TrackMate-style kernel yields bright spots directly)
 vmin, vmax = np.percentile(resp.astype(float), [1, 99.5])
 axes[1].imshow(resp, cmap="gray", vmin=vmin, vmax=vmax, interpolation="nearest")
-axes[1].set_title(r"$-\,(\mathrm{LoG} * I)$ (padded)")
+axes[1].set_title(r"$(\mathrm{LoG} * I)$ (padded)")
 axes[1].set_axis_off()
 
 # Note: use `set_axis_off()` (not `axis("off")`) to avoid printing axis limits in some notebook frontends.
@@ -418,7 +447,7 @@ plt.show()
 # ## Step 2 — Non-maximum suppression (candidate maxima)
 #
 # Slice0 performs non-maximum suppression by comparing each pixel to the maximum
-# in a square neighborhood (size `se_size`) **on the negative LoG response**.
+# in a square neighborhood (size `se_size`) **on the LoG response** (TrackMate-style kernel yields bright spots).
 #
 # We can visualize where these candidates fall (before and after the nuclei mask).
 
@@ -440,7 +469,7 @@ plt.show()
 # Slice0 defines the quality at each candidate as:
 #
 # \begin{equation}
-# q = -(\mathrm{LoG}*I)(y_0,x_0),
+# q = (\mathrm{LoG}*I)(y_0,x_0),
 # \end{equation}
 #
 # and keeps candidates with $q > q_{\min}$.
@@ -450,7 +479,7 @@ q = dbg.quality_masked.astype(float)
 fig, ax = plt.subplots(figsize=(6, 3.5))
 ax.hist(q, bins=60)
 ax.axvline(params.q_min, linestyle="--")
-ax.set_xlabel("q  (=-LoG response at candidate)")
+ax.set_xlabel("q  (=LoG response at candidate)")
 ax.set_ylabel("count")
 ax.set_title("Candidate quality distribution")
 plt.show()
@@ -707,3 +736,4 @@ plt.show()
 # - For high-throughput trust building across hundreds of files, use:
 #   - integrated batch runs (`drivers/run_integrated.py` with `batch_aggregate_spots: true`)
 #   - the aggregate PPTX atlas (`drivers/generate_spot_atlas_pptx.py`) or notebook `03_generate_batch_spot_atlas_qc.py`.
+

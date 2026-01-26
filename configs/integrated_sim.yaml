@@ -16,11 +16,26 @@ stardist_model_dir: models/y22m01d12_model_0
 nuc_prob_thresh: 0.5
 nuc_nms_thresh: 0.3
 
-# --- Spot Detection (LoG) ---
+# --- Spot Detection (Slice0; TrackMate-style LoG + fixed-mask photometry) ---
+# Units: all optics-ish lengths here are in **nm**.
+#   - spot_pixel_size_nm is **nm / pixel** (XY).
+#     Example: if Fiji/ImageJ shows 0.108 µm/pixel, then spot_pixel_size_nm: 108.0
+#
+# TrackMate mapping (see docs/SPOT_DETECTION.md):
+#   - TrackMate GUI "Estimated blob diameter"  d_TM = 2 * radius
 spot_pixel_size_nm: 65
 spot_lambda_nm: 667
 spot_zR: 344.5
-spot_se_size: 15        # local-max neighborhood size (px)
+
+# Optional: override TrackMate radius directly (nm).
+# spot_radius_nm: null
+
+# Optional TrackMate toggles:
+# spot_do_median_filter: false
+# spot_do_subpixel_localization: false
+
+# TrackMate uses a strict 3×3 neighborhood for local maxima (RectangleShape(1)).
+spot_se_size: 3        # local-max neighborhood size (px)
 spot_q_min: 1.0         # LoG quality threshold (q_min)
 spot_u0_min: 30
 
@@ -36,3 +51,4 @@ sim_width: 512
 sim_num_nuclei: 15
 sim_num_spots: 100
 sim_seed: 42
+

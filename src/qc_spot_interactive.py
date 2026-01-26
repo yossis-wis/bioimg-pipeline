@@ -159,7 +159,11 @@ def run_interactive_spot_qc(
     spot_pixel_size_nm: float = 65.0,
     spot_lambda_nm: float = 667.0,
     spot_zR: float = 344.5,
-    spot_se_size: int = 15,
+    spot_se_size: int = 3,
+    # Optional TrackMate-style controls (must be set before launching the UI)
+    spot_radius_nm: Optional[float] = None,
+    spot_do_median_filter: bool = False,
+    spot_do_subpixel_localization: bool = False,
     # initial slider values
     q_min_init: float = 1.0,
     u0_min_init: float = 30.0,
@@ -241,6 +245,9 @@ def run_interactive_spot_qc(
         lambda_nm=float(spot_lambda_nm),
         zR=float(spot_zR),
         se_size=int(spot_se_size),
+        spot_radius_nm=(float(spot_radius_nm) if spot_radius_nm is not None else None),
+        do_median_filter=bool(spot_do_median_filter),
+        do_subpixel_localization=bool(spot_do_subpixel_localization),
         # permissive so we compute u0 for all candidates in the masked maxima set
         q_min=-1e9,
         u0_min=-1e9,
@@ -252,6 +259,12 @@ def run_interactive_spot_qc(
         valid_mask=valid_mask,
         nuclei_labels=nuclei_labels,
     )
+
+    # Convenience print for QC: TrackMate GUI uses *estimated blob diameter* = 2 * radius.
+    tm_diameter_nm = 2.0 * float(dbg.w0_nm)
+    tm_diameter_um = tm_diameter_nm / 1000.0
+    tm_diameter_px = tm_diameter_nm / float(spot_pixel_size_nm)
+    print(f"TrackMate GUI blob diameter ≈ {tm_diameter_um:.4f} µm ({tm_diameter_nm:.1f} nm; {tm_diameter_px:.2f} px)")
 
     if spots_df_all.empty:
         raise RuntimeError("No spot candidates found (even with permissive thresholds).")
@@ -284,8 +297,8 @@ def run_interactive_spot_qc(
     else:
         conv = conv_pad
 
-    # Use -LoG response so spots look "bright"
-    resp = -conv
+    # LoG response (TrackMate-style kernel yields bright spots directly)
+    resp = conv
 
     # Slider ranges (robust)
     q_lo, q_hi = np.percentile(qv[np.isfinite(qv)], [0.5, 99.5])
@@ -310,7 +323,7 @@ def run_interactive_spot_qc(
 
     vmin_r, vmax_r = _robust_clim(resp, 1.0, 99.8)
     im1 = ax_resp.imshow(resp, cmap="gray", vmin=vmin_r, vmax=vmax_r, interpolation="nearest", origin="upper")
-    ax_resp.set_title("−LoG response (spots bright)")
+    ax_resp.set_title("LoG response (spots bright)")
     ax_resp.set_aspect("equal")
     ax_resp.set_axis_off()
     ax_resp.format_coord = _format_coord_factory(resp)
@@ -365,7 +378,7 @@ def run_interactive_spot_qc(
     ax_sroi.set_axis_off()
 
     im_rroi = ax_rroi.imshow(np.zeros((win, win), dtype=resp.dtype), cmap="gray", vmin=vmin_r, vmax=vmax_r, interpolation="nearest", origin="upper")
-    ax_rroi.set_title("−LoG ROI")
+    ax_rroi.set_title("LoG ROI")
     ax_rroi.set_aspect("equal")
     ax_rroi.set_axis_off()
 
@@ -445,7 +458,7 @@ def run_interactive_spot_qc(
         u0_i = float(u0[i])
         ax_sroi.set_title(f"Spot ROI | q={q_i:.3g}, u0={u0_i:.3g}")
         ax_nroi.set_title(f"Nuclei ROI | nucleus_id={nid} (prob={nprob:.3g})")
-        ax_rroi.set_title("−LoG ROI")
+        ax_rroi.set_title("LoG ROI")
 
         fig_roi.canvas.draw_idle()
 
@@ -510,3 +523,4 @@ def run_interactive_spot_qc(
         spots_df_all=spots_df_all,
         spot_debug=dbg,
     )
+

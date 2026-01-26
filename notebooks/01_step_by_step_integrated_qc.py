@@ -219,7 +219,23 @@ spot_params = Slice0Params(
     lambda_nm=float(config.get("spot_lambda_nm", 667.0)),
     pixel_size_nm=float(config.get("spot_pixel_size_nm", 65.0)),
     u0_min=float(config.get("spot_u0_min", 30.0)),
+    # TrackMate-style candidate stage controls:
+    spot_radius_nm=(float(config["spot_radius_nm"]) if config.get("spot_radius_nm") is not None else None),
+    do_median_filter=bool(config.get("spot_do_median_filter", False)),
+    do_subpixel_localization=bool(config.get("spot_do_subpixel_localization", False)),
+    q_min=float(config.get("spot_q_min", 1.0)),
+    se_size=int(config.get("spot_se_size", 3)),
 )
+
+# TrackMate GUI uses an *estimated blob diameter* (in calibrated units), but internally stores a radius.
+# For QC: the equivalent GUI value implied by this config is:
+radius_nm = spot_params.spot_radius_nm
+if radius_nm is None:
+    radius_nm = float(np.sqrt(spot_params.lambda_nm * spot_params.zR / np.pi))
+tm_diameter_nm = 2.0 * radius_nm
+tm_diameter_um = tm_diameter_nm / 1000.0
+tm_diameter_px = tm_diameter_nm / spot_params.pixel_size_nm
+print(f"TrackMate GUI blob diameter ≈ {tm_diameter_um:.4f} µm ({tm_diameter_nm:.1f} nm; {tm_diameter_px:.2f} px)")
 
 spots_df = detect_spots(spots_img, spot_params, nuclei_labels=nuclei_labels)
 
@@ -355,4 +371,5 @@ ax.axis("off")
 fig.savefig(qc_path, dpi=200, bbox_inches="tight")
 print("wrote", qc_path)
 plt.close(fig)
+
 

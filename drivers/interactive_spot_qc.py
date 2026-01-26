@@ -170,6 +170,16 @@ def parse_args() -> argparse.Namespace:
     ap.add_argument("--spot-zR", type=float, default=None)
     ap.add_argument("--spot-se-size", type=int, default=None)
 
+    ap.add_argument("--spot-radius-nm", type=float, default=None, help="Optional: override TrackMate radius directly (nm).")
+
+    g_med = ap.add_mutually_exclusive_group()
+    g_med.add_argument("--spot-do-median-filter", dest="spot_do_median_filter", action="store_true", default=None)
+    g_med.add_argument("--spot-no-median-filter", dest="spot_do_median_filter", action="store_false", default=None)
+
+    g_sub = ap.add_mutually_exclusive_group()
+    g_sub.add_argument("--spot-do-subpixel-localization", dest="spot_do_subpixel_localization", action="store_true", default=None)
+    g_sub.add_argument("--spot-no-subpixel-localization", dest="spot_do_subpixel_localization", action="store_false", default=None)
+
     ap.add_argument("--q-min-init", type=float, default=None, help="Initial q_min slider value.")
     ap.add_argument("--u0-min-init", type=float, default=None, help="Initial u0_min slider value.")
     ap.add_argument("--nuc-prob-min-init", type=float, default=None, help="Initial nuc_prob_min slider value (post-hoc filtering).")
@@ -259,7 +269,20 @@ def main() -> None:
     spot_pixel_size_nm = float(args.spot_pixel_size_nm) if args.spot_pixel_size_nm is not None else float(cfg.get("spot_pixel_size_nm", 65.0))
     spot_lambda_nm = float(args.spot_lambda_nm) if args.spot_lambda_nm is not None else float(cfg.get("spot_lambda_nm", 667.0))
     spot_zR = float(args.spot_zR) if args.spot_zR is not None else float(cfg.get("spot_zR", 344.5))
-    spot_se_size = int(args.spot_se_size) if args.spot_se_size is not None else int(cfg.get("spot_se_size", 15))
+    spot_se_size = int(args.spot_se_size) if args.spot_se_size is not None else int(cfg.get("spot_se_size", 3))
+
+    spot_radius_nm = float(args.spot_radius_nm) if args.spot_radius_nm is not None else (float(cfg["spot_radius_nm"]) if cfg.get("spot_radius_nm") is not None else None)
+
+    spot_do_median_filter = (
+        bool(args.spot_do_median_filter)
+        if args.spot_do_median_filter is not None
+        else bool(cfg.get("spot_do_median_filter", False))
+    )
+    spot_do_subpixel_localization = (
+        bool(args.spot_do_subpixel_localization)
+        if args.spot_do_subpixel_localization is not None
+        else bool(cfg.get("spot_do_subpixel_localization", False))
+    )
 
     q_min_init = float(args.q_min_init) if args.q_min_init is not None else float(cfg.get("spot_q_min", cfg.get("spot_q_min_min", 1.0) if isinstance(cfg.get("spot_q_min_min"), (int, float)) else 1.0))
     u0_min_init = float(args.u0_min_init) if args.u0_min_init is not None else float(cfg.get("spot_u0_min", 30.0))
@@ -283,6 +306,9 @@ def main() -> None:
         spot_lambda_nm=spot_lambda_nm,
         spot_zR=spot_zR,
         spot_se_size=spot_se_size,
+        spot_radius_nm=spot_radius_nm,
+        spot_do_median_filter=spot_do_median_filter,
+        spot_do_subpixel_localization=spot_do_subpixel_localization,
         q_min_init=q_min_init,
         u0_min_init=u0_min_init,
         nuc_prob_min_init=nuc_prob_min_init,
@@ -291,3 +317,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+

@@ -9,10 +9,10 @@ This repo stores notebooks as **Jupytext percent-format `.py` files**. Keeping n
 The canonical notebooks live in `notebooks/`:
 
 - `_TEMPLATE__jupytext_percent.py` — copy this to start new analyses
-- `01_step_by_step_integrated_qc.py` — load a single plane, segment nuclei, detect spots, and visualize
+- `01_step_by_step_integrated_qc.py` — load a single plane, segment nuclei, detect spots, and visualize (prints TrackMate-equivalent blob diameter)
 - `02_review_run_folder.py` — review a run folder (manifests, spots table, QC images)
 - `03_generate_batch_spot_atlas_qc.py` — generate a MATLAB-style **spot atlas** PowerPoint for batch QC
-- `04_babysit_spot_detection.py` — "babysit" Slice0 spot detection step-by-step (LoG, nonmax, u0 mask/threshold, nucleus assignment)
+- `04_babysit_spot_detection.py` — "babysit" Slice0 spot detection step-by-step (TrackMate-style LoG, nonmax, u0 mask/threshold, nucleus assignment; prints TrackMate-equivalent blob diameter)
 
 ## Running notebooks
 
@@ -56,3 +56,4 @@ The generated `.ipynb` files are intentionally ignored by git.
 - `drivers/interactive_spot_qc.py`: interactive spot-detection QC tool with sliders for `q_min`, `u0_min`, and optional nucleus-probability filtering.
   - Click a candidate spot to open/update a 31×31 ROI view with in5/out0 mask outlines and nucleus outline.
   - Designed to run in Spyder (Qt backend) or VS Code.
+

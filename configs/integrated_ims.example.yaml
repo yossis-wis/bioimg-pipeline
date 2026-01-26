@@ -50,12 +50,34 @@ nuc_nms_thresh: 0.00  # 0 => strict NMS (keep only most probable in overlaps)
 nuc_normalize_pmin: 1.0
 nuc_normalize_pmax: 99.8
 
-# --- Spot Detection (LoG) ---
+# --- Spot Detection (Slice0; TrackMate-style LoG + fixed-mask photometry) ---
+# Units: all optics-ish lengths here are in **nm**.
+#   - spot_pixel_size_nm is **nm / pixel** (XY).
+#     Example: if Fiji/ImageJ shows 0.108 µm/pixel, then spot_pixel_size_nm: 108.0
+#   - spot_lambda_nm and spot_zR must use the same length unit (nm here).
+#
+# TrackMate mapping (see docs/SPOT_DETECTION.md):
+#   - TrackMate GUI "Estimated blob diameter"  d_TM = 2 * radius
+#   - This repo stores the radius in nm (spot_radius_nm), or derives it from (lambda, zR).
 spot_pixel_size_nm: 65
 spot_lambda_nm: 667
 spot_zR: 344.5
-spot_se_size: 15        # local-max neighborhood size (px)
+
+# Optional: override TrackMate radius directly (nm).
+# If omitted, we compute w0 = sqrt(lambda * zR / pi) and use radius = w0.
+# spot_radius_nm: null
+
+# Optional TrackMate toggles (defaults match TrackMate defaults):
+# spot_do_median_filter: false
+# spot_do_subpixel_localization: false
+
+# TrackMate uses a strict 3×3 neighborhood for local maxima (RectangleShape(1)).
+spot_se_size: 3        # local-max neighborhood size (px)
+
+# Candidate threshold on LoG response at the maximum (TrackMate "threshold").
 spot_q_min: 1.0         # LoG quality threshold (q_min)
+
+# Final acceptance threshold (UNCHANGED): u0 = mean(in5) - median(out0)
 spot_u0_min: 30
 
 # --- Visual QC ---
@@ -63,3 +85,4 @@ qc_cutout_size: 80
 qc_max_cutouts: 50
 qc_montage_cols: 10
 # qc_sample_seed: 0
+

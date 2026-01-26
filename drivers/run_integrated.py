@@ -316,8 +316,19 @@ def _run_integrated_single(
         zR=float(cfg.get("spot_zR", 344.5)),
         lambda_nm=float(cfg.get("spot_lambda_nm", 667.0)),
         pixel_size_nm=float(cfg.get("spot_pixel_size_nm", 65.0)),
+
+        # Optional TrackMate-style overrides (all optional; defaults keep previous behavior).
+        spot_radius_nm=(float(cfg["spot_radius_nm"]) if cfg.get("spot_radius_nm", None) is not None else None),
+        do_median_filter=bool(cfg.get("spot_do_median_filter", False)),
+        do_subpixel_localization=bool(cfg.get("spot_do_subpixel_localization", False)),
+
+        # TrackMate "threshold" (LoG quality threshold).
         q_min=float(cfg.get("spot_q_min", 1.0)),
-        se_size=int(cfg.get("spot_se_size", 15)),
+
+        # TrackMate local maxima is 3×3; we keep this configurable but default to 3.
+        se_size=int(cfg.get("spot_se_size", 3)),
+
+        # Downstream photometry threshold (UNCHANGED).
         u0_min=float(cfg.get("spot_u0_min", 30.0)),
     )
 
@@ -667,4 +678,5 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
 

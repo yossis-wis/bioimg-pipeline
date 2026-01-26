@@ -2,22 +2,41 @@
 
 This kernel is intentionally **pure computation** (no filesystem I/O).
 
-The implementation here mirrors the spot-detection math used in
-`2024-11-12_realtime_analysis_0.py`:
+Spot detection is split into two conceptual stages:
 
-1) Build a Laplacian-of-Gaussian (LoG) filter from optics-ish parameters
-2) Convolve the image with the LoG (mode='valid')
-3) Find local maxima in the *negative* LoG response via a max filter
-4) For each candidate maximum, compute:
+A) **Candidate generation (TrackMate-style LoG detector)**
+
+   We port the core behavior of TrackMate's *Laplacian of Gaussian (LoG) detector*:
+
+   1) Build a calibrated LoG kernel tuned to a target blob radius.
+   2) Convolve the image with this kernel (FFT-based convolution; output is same
+      size as the input).
+   3) Detect *strict* local maxima of the LoG response in a 3×3 neighborhood.
+
+   In TrackMate, these steps are implemented in the `LogDetector` and
+   `DetectionUtils` classes (LoG kernel + local maxima), with optional median
+   filtering and optional sub-pixel localization.
+
+   Attribution note: TrackMate is a Fiji plugin distributed under the GNU GPL v3.
+   This repo contains a Python reimplementation intended to match TrackMate behavior
+   for reproducibility. See docs/SPOT_DETECTION.md.
+
+B) **Per-candidate photometry (kept unchanged from your repo / realtime script)**
+
+   For each candidate maximum that survives optional masks (valid_mask, nuclei),
+   we compute:
+
      - background = median in a thin ring mask (out0)
      - mean_in5   = mean inside a small disk mask (in5)
      - mean_in7   = mean inside a slightly larger disk mask (in7)
      - u0 = mean_in5 - background
      - u1 = mean_in7 - background
-   and keep spots with u0 > u0_min
 
-Optional masks can further restrict candidate maxima (e.g. AOI/illumination mask,
-or nuclei labels from Slice1).
+   and we keep spots with u0 > u0_min.
+
+Only stage (A) is upgraded here; stage (B) is left byte-for-byte identical in
+spirit (and line-for-line identical in implementation) to preserve your
+experimentally calibrated intensity logic.
 """
 
 from __future__ import annotations
@@ -45,19 +64,51 @@ REQUIRED_COLUMNS = [
 class Slice0Params:
     """Parameters for LoG-based spot detection.
 
-    Defaults are chosen to closely match the realtime analysis script.
+    Notes
+    -----
+    - Candidate generation follows TrackMate's LoG detector: calibrated LoG kernel,
+      FFT convolution, and strict local maxima in a 3×3 neighborhood.
+    - The downstream photometry step (in5/out0 masks → u0 threshold) is intentionally
+      unchanged.
+
+    Parameter mapping vs TrackMate
+    ------------------------------
+    - TrackMate "radius" (in calibrated units) is taken to be `spot_radius_nm` if
+      provided; otherwise we derive a radius from (zR, lambda_nm) via the Rayleigh
+      relation and set:
+
+        radius_nm = w0_nm,  where  z_R = π w0^2 / λ.
+
+      For a Gaussian intensity profile I(r) ∝ exp(-2 r^2 / w0^2), the corresponding
+      Gaussian σ satisfies σ = w0 / √2, which is consistent with TrackMate's internal
+      choice σ = radius / √nDims (here nDims=2).
+
+    - TrackMate "threshold" corresponds to `q_min` here (threshold on LoG response
+      at the candidate peak).
     """
 
-    # --- Optics-ish LoG definition (mirrors realtime script) ---
+    # --- Optics-ish radius definition (kept for backward compatibility) ---
     zR: float = 344.5
     lambda_nm: float = 667.0
     pixel_size_nm: float = 65.0
 
-    # --- Candidate maxima + quality threshold ---
-    q_min: float = 1.0
-    se_size: int = 15
+    # Optional direct override of the TrackMate-style radius (calibrated units: nm here).
+    # If None, we compute radius_nm = w0_nm from (zR, lambda_nm).
+    spot_radius_nm: Optional[float] = None
 
-    # --- Per-spot measurements (mirrors realtime script) ---
+    # TrackMate options (defaults match your previous pipeline unless changed in config).
+    do_median_filter: bool = False
+    do_subpixel_localization: bool = False  # currently only exported as extra columns
+
+    # --- Candidate maxima + quality threshold ---
+    # Threshold on LoG response at the candidate location (TrackMate "threshold").
+    q_min: float = 1.0
+
+    # Size of the non-max suppression neighborhood.
+    # TrackMate uses a strict 3×3 neighborhood (RectangleShape(1)).
+    se_size: int = 3
+
+    # --- Per-spot measurements (UNCHANGED; mirrors realtime script) ---
     window_radius_px: int = 15  # -> 31x31 window
     in5_radius_px: int = 2
     in7_radius_px: int = 3
@@ -68,11 +119,9 @@ class Slice0Params:
     u0_min: float = 30.0
 
 
-
-
 @dataclass(frozen=True)
 class Slice0Debug:
-    """Intermediate arrays from Slice0 LoG spot detection (for QC / notebooks).
+    """Intermediate arrays from Slice0 spot detection (for QC / notebooks).
 
     This is intended for *interactive* debugging of a single plane. It contains
     the LoG kernel, LoG response maps, and the candidate maxima maps before and
@@ -91,17 +140,17 @@ class Slice0Debug:
     H: int
     W: int
 
-    # Optics-derived LoG parameters
-    w0_nm: float
-    sigma0_px: float
+    # Optics-derived LoG parameters / TrackMate radius mapping
+    w0_nm: float          # radius_nm actually used (nm)
+    sigma0_px: float      # σ in pixels (σ = radius / √2 / pixel_size_nm for 2D)
     log_filter: np.ndarray
-    pad_size: int
+    pad_size: int         # kernel half-size (informational; convolution is "same")
 
-    # LoG response (valid convolution) and padded-to-image-size version
+    # LoG response (same size as input image)
     image_conv_valid: np.ndarray
     image_conv_padded: np.ndarray
 
-    # Local maxima on -LoG response (valid + padded)
+    # Local maxima on LoG response (same size as image)
     maxima_valid: np.ndarray
     maxima_padded_raw: np.ndarray
     maxima_padded_masked: np.ndarray
@@ -112,7 +161,7 @@ class Slice0Debug:
     ys_masked: np.ndarray
     xs_masked: np.ndarray
 
-    # Quality at masked maxima (=-LoG at the candidate location)
+    # Quality at masked maxima (= LoG response at the candidate location)
     quality_masked: np.ndarray
 
     # Quality thresholding (q_min)
@@ -130,6 +179,8 @@ class Slice0Debug:
     # Masks applied (may be None)
     valid_mask: Optional[np.ndarray]
     nuclei_mask: Optional[np.ndarray]
+
+
 def _robust_std(x: np.ndarray) -> float:
     """Robust std via MAD; returns 0.0 if too few samples."""
     x = np.asarray(x, dtype=float)
@@ -140,39 +191,67 @@ def _robust_std(x: np.ndarray) -> float:
     return float(1.4826 * mad)
 
 
-def _laplacian_of_gaussian(size: int, sigma: float) -> np.ndarray:
-    """LoG filter matching the realtime analysis implementation."""
-    size = int(size)
-    if size % 2 == 0:
-        size += 1
-    half = size // 2
+def _trackmate_log_kernel(radius: float, calibration: tuple[float, float]) -> np.ndarray:
+    """Create a 2D LoG kernel using the same formula as TrackMate.
 
-    n1_grid, n2_grid = np.meshgrid(
-        range(-half, half + 1),
-        range(-half, half + 1),
-        indexing="ij",
+    TrackMate builds a calibrated LoG kernel tuned for a target blob radius.
+    Internally it uses:
+
+        σ = radius / √nDims,
+
+    and maps the kernel onto the pixel grid using `calibration` (pixel sizes).
+    See TrackMate docs for the high-level behavior.
+    """
+    radius = float(radius)
+    if radius <= 0:
+        raise ValueError("radius must be > 0")
+
+    cal_y, cal_x = (float(calibration[0]), float(calibration[1]))
+    if cal_y <= 0 or cal_x <= 0:
+        raise ValueError("calibration values must be > 0")
+
+    n_dims = 2
+    sigma = radius / np.sqrt(n_dims)  # calibrated units (nm here)
+
+    sigma_px_y = sigma / cal_y
+    sigma_px_x = sigma / cal_x
+    sigma_px = (sigma_px_y, sigma_px_x)
+
+    # Kernel half-sizes match TrackMate's logic:
+    # hksize = max(2, int(3*sigmaPixels + 0.5) + 1)
+    hks_y = max(2, int(3.0 * sigma_px_y + 0.5) + 1)
+    hks_x = max(2, int(3.0 * sigma_px_x + 0.5) + 1)
+
+    size_y = 3 + 2 * hks_y
+    size_x = 3 + 2 * hks_x
+    mid_y = 1 + hks_y
+    mid_x = 1 + hks_x
+
+    # Vectorized kernel computation (double precision, cast to float32 at end).
+    yy, xx = np.indices((size_y, size_x), dtype=np.float64)
+    y_phys = cal_y * (yy - mid_y)
+    x_phys = cal_x * (xx - mid_x)
+
+    sumx2 = y_phys * y_phys + x_phys * x_phys
+
+    mantissa = (
+        (1.0 / (sigma_px_y * sigma_px_y)) * (y_phys * y_phys / (sigma * sigma) - 1.0)
+        + (1.0 / (sigma_px_x * sigma_px_x)) * (x_phys * x_phys / (sigma * sigma) - 1.0)
     )
-    n1_grid = n1_grid.astype(np.float32)
-    n2_grid = n2_grid.astype(np.float32)
 
-    sigma = float(sigma)
-    hg = np.exp(-(n1_grid**2 + n2_grid**2) / (2.0 * sigma**2))
-    h_unnormalized = (n1_grid**2 + n2_grid**2 - 2.0 * sigma**2) * hg
-    normalizing_factor = (sigma**4) * np.sum(hg)
-    h_normalized = h_unnormalized / normalizing_factor
-    return h_normalized.astype(np.float32, copy=False)
+    exponent = -sumx2 / (2.0 * sigma * sigma)
+
+    # TrackMate uses C = 1/(π σ_px0^2) where σ_px0 is the first dimension.
+    C = 1.0 / (np.pi * sigma_px[0] * sigma_px[0])
+
+    kernel = -C * mantissa * np.exp(exponent)
+    return kernel.astype(np.float32, copy=False)
 
 
 @lru_cache(maxsize=64)
-def _cached_log_filter(size: int, sigma: float) -> np.ndarray:
-    """Cached LoG filter.
-
-    We keep the math identical to `_laplacian_of_gaussian`; this is purely a
-    performance optimization when the kernel is called repeatedly with the same
-    parameters.
-    """
-    h = _laplacian_of_gaussian(size, sigma)
-    # Make accidental mutation obvious.
+def _cached_trackmate_log_kernel(radius: float, cal_y: float, cal_x: float) -> np.ndarray:
+    """Cached TrackMate-style LoG kernel (2D)."""
+    h = _trackmate_log_kernel(radius, (cal_y, cal_x))
     h.setflags(write=False)
     return h
 
@@ -206,6 +285,88 @@ def _ring_mask(inner_radius_px: int, outer_radius_px: int, window_size: int) -> 
     m = outer & (~inner)
     m.setflags(write=False)
     return m
+
+
+def _strict_local_maxima_2d(img: np.ndarray, se_size: int) -> np.ndarray:
+    """Strict local maxima in a square neighborhood, excluding the center pixel.
+
+    TrackMate's LoG detector finds local maxima in a 3×3 neighborhood (span=1).
+    We keep `se_size` as a (mostly) backwards-compatible knob, but **TrackMate
+    equivalence corresponds to se_size=3**.
+
+    Implementation: a pixel is a strict local maximum if it is strictly greater
+    than the maximum of its neighbors (excluding itself).
+    """
+    try:
+        from scipy.ndimage import maximum_filter  # type: ignore
+    except Exception as e:
+        raise ImportError("SciPy is required for maximum_filter.") from e
+
+    se_size = int(se_size)
+    if se_size < 3:
+        raise ValueError("se_size must be >= 3")
+    if se_size % 2 == 0:
+        se_size += 1
+
+    footprint = np.ones((se_size, se_size), dtype=bool)
+    footprint[se_size // 2, se_size // 2] = False
+
+    neigh_max = maximum_filter(img, footprint=footprint, mode="mirror")
+    return img > neigh_max
+
+
+def _subpixel_refine_parabolic(resp: np.ndarray, ys: np.ndarray, xs: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Very small, TrackMate-inspired subpixel refinement using 1D parabolic fits.
+
+    This is **not** a full port of ImgLib2's SubpixelLocalization, but it captures
+    the common quadratic-vertex refinement used in LoG-based detection pipelines.
+
+    Returns
+    -------
+    (y_sub, x_sub): float arrays of refined coordinates (same length as ys/xs).
+    """
+    ys = np.asarray(ys, dtype=int)
+    xs = np.asarray(xs, dtype=int)
+
+    H, W = resp.shape
+    y_sub = ys.astype(np.float32)
+    x_sub = xs.astype(np.float32)
+
+    # Only refine where we have a 3×3 neighborhood inside bounds.
+    ok = (ys >= 1) & (ys <= H - 2) & (xs >= 1) & (xs <= W - 2)
+    if not np.any(ok):
+        return y_sub, x_sub
+
+    y0 = ys[ok]
+    x0 = xs[ok]
+
+    f0 = resp[y0, x0]
+    fxm1 = resp[y0, x0 - 1]
+    fxp1 = resp[y0, x0 + 1]
+    fym1 = resp[y0 - 1, x0]
+    fyp1 = resp[y0 + 1, x0]
+
+    denom_x = fxm1 - 2.0 * f0 + fxp1
+    denom_y = fym1 - 2.0 * f0 + fyp1
+
+    # Vertex offset for parabola through (-1,0,+1): δ = (f(-1) - f(+1)) / (2*(f(-1) - 2f(0) + f(+1))).
+    dx = np.zeros_like(f0, dtype=np.float32)
+    dy = np.zeros_like(f0, dtype=np.float32)
+
+    nzx = np.abs(denom_x) > 1e-12
+    nzy = np.abs(denom_y) > 1e-12
+
+    dx[nzx] = 0.5 * (fxm1[nzx] - fxp1[nzx]) / denom_x[nzx]
+    dy[nzy] = 0.5 * (fym1[nzy] - fyp1[nzy]) / denom_y[nzy]
+
+    # Clamp (avoid pathological jumps).
+    dx = np.clip(dx, -1.0, 1.0)
+    dy = np.clip(dy, -1.0, 1.0)
+
+    x_sub[ok] = x0.astype(np.float32) + dx
+    y_sub[ok] = y0.astype(np.float32) + dy
+    return y_sub, x_sub
+
 
 def _detect_spots_core(
     image_2d: np.ndarray,
@@ -245,7 +406,7 @@ def _detect_spots_core(
         nl = None
         nm = None
 
-    # --- Build LoG filter (matching realtime script) ---
+    # --- TrackMate-style LoG kernel (calibrated) ---
     zR = float(params.zR)
     lambda_nm = float(params.lambda_nm)
     pixel_size_nm = float(params.pixel_size_nm)
@@ -253,58 +414,56 @@ def _detect_spots_core(
         raise ValueError("pixel_size_nm must be > 0")
 
     # Rayleigh range relation: z_R = π w0^2 / λ  =>  w0 = sqrt(λ z_R / π)
-    w0 = float(np.sqrt(lambda_nm * zR / np.pi))
-    # If w0 is a 1/e^2 radius, σ = w0/√2 for exp(-r^2/(2σ^2))
-    sigma0 = float(w0 / np.sqrt(2.0) / pixel_size_nm)
-    n1 = int(np.ceil(sigma0 * 3.0) * 2.0 + 1.0)
+    w0_from_optics = float(np.sqrt(lambda_nm * zR / np.pi))
 
-    log_filter = _cached_log_filter(n1, sigma0)
+    radius_nm = float(params.spot_radius_nm) if params.spot_radius_nm is not None else w0_from_optics
+    if radius_nm <= 0:
+        raise ValueError("spot_radius_nm (or derived w0) must be > 0")
 
-    # --- Convolution + local maxima on -LoG (matching realtime script) ---
-    try:
-        from scipy.signal import convolve  # type: ignore
-        from scipy.ndimage import maximum_filter  # type: ignore
-    except Exception as e:
-        raise ImportError("SciPy is required for LoG convolution and maximum_filter.") from e
+    # TrackMate uses σ = radius / √nDims, with nDims=2 here.
+    sigma0 = float(radius_nm / np.sqrt(2.0) / pixel_size_nm)
 
-    image_conv = convolve(img_f, log_filter, mode="valid")
-
-    se_size = int(params.se_size)
-    maxima = (-1.0 * image_conv) == maximum_filter(-1.0 * image_conv, size=se_size)
-
+    log_filter = _cached_trackmate_log_kernel(radius_nm, pixel_size_nm, pixel_size_nm)
     pad_size = int(log_filter.shape[0] // 2)
-    maxima_padded_raw = np.pad(
-        maxima,
-        pad_width=((pad_size, pad_size), (pad_size, pad_size)),
-        mode="constant",
-        constant_values=0,
-    )
-    image_conv_padded = np.pad(
-        image_conv,
-        pad_width=((pad_size, pad_size), (pad_size, pad_size)),
-        mode="constant",
-        constant_values=0,
-    )
 
-    maxima_padded_masked = maxima_padded_raw
+    # --- Convolution (FFT) ---
+    try:
+        from scipy.signal import fftconvolve  # type: ignore
+        from scipy.ndimage import median_filter  # type: ignore
+    except Exception as e:
+        raise ImportError("SciPy is required for LoG FFT convolution and median_filter.") from e
 
-    # Apply optional masks (mirrors `maxima_padded = maxima_padded * mask_crop` and
-    # `maxima_padded = maxima_padded * nuclei_mask` in the realtime script).
+    img_for_conv = img_f
+    if bool(params.do_median_filter):
+        # TrackMate applies a simple 3×3 median filter when requested.
+        img_for_conv = median_filter(img_for_conv, size=3)
+
+    resp = fftconvolve(img_for_conv, log_filter, mode="same")
+
+    # --- Local maxima (strict) ---
+    maxima = _strict_local_maxima_2d(resp, params.se_size)
+
+    maxima_masked = maxima
     if vm is not None:
-        maxima_padded_masked = maxima_padded_masked * vm
+        maxima_masked = maxima_masked & vm
     if nm is not None:
-        maxima_padded_masked = maxima_padded_masked * nm.astype(np.int32)
+        maxima_masked = maxima_masked & nm
 
-    ys_raw, xs_raw = np.where(maxima_padded_raw)
-    ys_all, xs_all = np.where(maxima_padded_masked)
+    ys_raw, xs_raw = np.where(maxima)
+    ys_all, xs_all = np.where(maxima_masked)
 
     # Quality is defined on masked maxima
-    quality_all = -1.0 * image_conv_padded[ys_all, xs_all] if ys_all.size else np.asarray([])
+    quality_all = resp[ys_all, xs_all] if ys_all.size else np.asarray([])
     keep_q = quality_all > float(params.q_min) if ys_all.size else np.asarray([], dtype=bool)
 
     ys = ys_all[keep_q] if ys_all.size else np.asarray([], dtype=int)
     xs = xs_all[keep_q] if xs_all.size else np.asarray([], dtype=int)
     quality = quality_all[keep_q] if ys_all.size else np.asarray([], dtype=float)
+
+    # Optional subpixel refinement (export-only; photometry remains pixel-centered)
+    y_sub = x_sub = None
+    if bool(params.do_subpixel_localization) and ys.size:
+        y_sub, x_sub = _subpixel_refine_parabolic(resp, ys, xs)
 
     # --- Per-spot measurement masks (31x31 by default) ---
     wr = int(params.window_radius_px)
@@ -319,15 +478,15 @@ def _detect_spots_core(
             img_f=img_f,
             H=int(H),
             W=int(W),
-            w0_nm=float(w0),
+            w0_nm=float(radius_nm),
             sigma0_px=float(sigma0),
             log_filter=log_filter,
             pad_size=int(pad_size),
-            image_conv_valid=image_conv,
-            image_conv_padded=image_conv_padded,
+            image_conv_valid=resp,
+            image_conv_padded=resp,
             maxima_valid=maxima,
-            maxima_padded_raw=maxima_padded_raw,
-            maxima_padded_masked=maxima_padded_masked,
+            maxima_padded_raw=maxima,
+            maxima_padded_masked=maxima_masked,
             ys_raw=ys_raw,
             xs_raw=xs_raw,
             ys_masked=ys_all,
@@ -351,7 +510,7 @@ def _detect_spots_core(
     rows = []
     window_range = np.arange(-wr, wr + 1)
 
-    for y0, x0, q in zip(ys.tolist(), xs.tolist(), quality.tolist()):
+    for idx, (y0, x0, q) in enumerate(zip(ys.tolist(), xs.tolist(), quality.tolist())):
         y0 = int(y0)
         x0 = int(x0)
 
@@ -389,26 +548,32 @@ def _detect_spots_core(
 
         nucleus_label = int(nl[y0, x0]) if nl is not None else 0
 
-        rows.append(
-            dict(
-                frame=0,
-                y_px=float(y0),
-                x_px=float(x0),
-                intensity=float(u0),
-                background=float(bkg),
-                snr=float(snr),
-                # extras (safe additions)
-                u0=float(u0),
-                u1=float(u1),
-                quality=float(q),
-                mean_in5=float(mean_in5),
-                mean_in7=float(mean_in7),
-                peak_intensity=float(img_f[y0, x0]),
-                nucleus_label=int(nucleus_label),
-                sigma_px=float(sigma0),
-                log_size=int(log_filter.shape[0]),
-            )
+        row = dict(
+            frame=0,
+            y_px=float(y0),
+            x_px=float(x0),
+            intensity=float(u0),
+            background=float(bkg),
+            snr=float(snr),
+            # extras (safe additions)
+            u0=float(u0),
+            u1=float(u1),
+            quality=float(q),
+            mean_in5=float(mean_in5),
+            mean_in7=float(mean_in7),
+            peak_intensity=float(img_f[y0, x0]),
+            nucleus_label=int(nucleus_label),
+            sigma_px=float(sigma0),
+            log_size=int(log_filter.shape[0]),
+            log_radius_nm=float(radius_nm),
         )
+
+        # Export subpixel (if computed) without changing photometry centering.
+        if y_sub is not None and x_sub is not None:
+            row["y_subpx"] = float(y_sub[idx])
+            row["x_subpx"] = float(x_sub[idx])
+
+        rows.append(row)
 
     if not rows:
         return pd.DataFrame(columns=REQUIRED_COLUMNS), debug_obj
@@ -426,7 +591,7 @@ def detect_spots(
     valid_mask: Optional[np.ndarray] = None,
     nuclei_labels: Optional[np.ndarray] = None,
 ) -> pd.DataFrame:
-    """Detect spots in a single 2D image using the realtime LoG method.
+    """Detect spots in a single 2D image.
 
     Parameters
     ----------
@@ -486,3 +651,4 @@ def detect_spots_debug(
     )
     assert dbg is not None
     return df, dbg
+
