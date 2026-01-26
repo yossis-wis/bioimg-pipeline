@@ -160,7 +160,7 @@ If you want to reproduce the same candidate stage in Fiji/TrackMate for QC:
 1. Ensure Fiji’s image calibration (pixel size) matches your dataset.
 2. In TrackMate → LoG detector, set:
    - **Estimated blob diameter** $d_{\mathrm{TM}} = 2r$
-   - **Threshold** $= \texttt{spot\_q\_min}$
+   - **Threshold** $= \mathtt{spot\_{q\_{min}}}$
 
 The notebooks `01_step_by_step_integrated_qc.py` and `04_babysit_spot_detection.py`
 print the TrackMate-equivalent **blob diameter** implied by the current config.
