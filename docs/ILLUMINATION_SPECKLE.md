@@ -1,5 +1,8 @@
 # Illumination design notes: speckle, stops, and FP/FN risk
 
+> **GitHub math note:** GitHub renders LaTeX math only when it is wrapped in `$...$` (inline) or `$$...$$` (display).
+> Do **not** use `\(...\)` or `\[...\]` in this repo’s `.md` docs.
+
 This document collects (and stabilizes) the illumination-design context we have built so far for
 **single-protein widefield imaging** with:
 
@@ -14,28 +17,30 @@ The companion notebook is:
 - `notebooks/05_excitation_speckle_fpfn_proxy.py`
 
 It produces:
-1) excitation-only field views + distributions, and  
-2) a sparse-emitter simulation + confusion-matrix-style FP/FN summary + u0 ECDF plots.
+
+1. excitation-only field views + distributions, and  
+2. a sparse-emitter simulation + confusion-matrix-style FP/FN summary + $u_0$ ECDF plots.
 
 ---
 
 ## 1) Two independent “design knobs”: field stop vs pupil fill
 
-In microscope widefield illumination there are **two distinct sets of conjugate planes**:
+In widefield illumination there are **two distinct sets of conjugate planes**.
 
-### Field-conjugate (image) planes  → ROI size and shape
-A **field stop** placed in a plane conjugate to the sample is imaged onto the sample.  
-This sets the **illuminated area** (e.g. a square 30 µm × 30 µm).
+### Field-conjugate (image) planes → ROI size and shape
 
-### Pupil-conjugate planes (objective back focal plane, BFP) → illumination NA and speckle grain
-An **aperture stop** at a pupil-conjugate plane (often the **objective BFP**) controls the
-**angular spectrum** of illumination at the sample, i.e. the **effective illumination NA**,
-\(\mathrm{NA}_{\mathrm{illum}}\).
+A **field stop** placed in a plane conjugate to the sample is imaged onto the sample.
+This sets the **illuminated area** (e.g. a square $30\,\mu\mathrm{m} \times 30\,\mu\mathrm{m}$).
+
+### Pupil-conjugate planes (objective back focal plane, BFP) → illumination NA and spatial frequencies
+
+An **aperture stop** at a pupil-conjugate plane (often the objective **BFP**) controls the **angular spectrum**
+of illumination at the sample, i.e. the **effective illumination NA**, $\mathrm{NA}_{\mathrm{illum}}$.
 
 These two knobs are often conflated. In this repo’s simulations we treat them separately:
 
-- ROI size: set by a **square field stop** (ideal 30 µm × 30 µm target).
-- Speckle grain size + edge sharpness: set by **\(\mathrm{NA}_{\mathrm{illum}}\)** via the pupil.
+- ROI size: set by a **square field stop** (ideal $30\,\mu\mathrm{m} \times 30\,\mu\mathrm{m}$ target).
+- Speckle correlation length + edge sharpness: set by $\mathrm{NA}_{\mathrm{illum}}$ via the pupil.
 
 ---
 
@@ -43,204 +48,204 @@ These two knobs are often conflated. In this repo’s simulations we treat them 
 
 You will see several NA-like quantities in discussion. Here is a consistent naming set:
 
-1) **\(\mathrm{NA}_{\mathrm{obj}}\)**  
-   The objective’s collection / focusing NA (e.g. 1.40 or 1.45 oil).
-   This sets the best-case emission PSF and the *maximum possible* excitation cone.
+1. **$\mathrm{NA}_{\mathrm{obj}}$**  
+   The objective’s collection/focusing NA (e.g. 1.40 or 1.45 oil).
+   This sets the best-case **emission PSF** and the *maximum possible* excitation cone.
 
-2) **\(\mathrm{NA}_{\mathrm{illum}}\)**  
-   The **effective excitation NA at the sample**, determined by how much of the objective pupil
-   you actually fill with the illumination beam. If the beam underfills the pupil, then  
-   \[
-   \mathrm{NA}_{\mathrm{illum}} \approx \rho\,\mathrm{NA}_{\mathrm{obj}},\qquad
-   \rho \equiv \frac{D_{\mathrm{beam@BFP}}}{D_{\mathrm{pupil}}}.
-   \]
-   (\(D_{\mathrm{pupil}}\) depends on the objective design; use a BFP image if you want the true ratio.)
+2. **$\mathrm{NA}_{\mathrm{illum}}$**  
+   The **effective excitation NA at the sample**, determined by how much of the objective pupil you fill
+   with the illumination beam. If the beam underfills the pupil, then (paraxial) $\mathrm{NA}_{\mathrm{illum}} \approx \rho\,\mathrm{NA}_{\mathrm{obj}}$, with $\rho \equiv D_{\mathrm{beam@BFP}}/D_{\mathrm{pupil}}$.\n   ($D_{\mathrm{pupil}}$ depends on the objective design; use a BFP image if you want the true ratio.)
 
-3) **\(\mathrm{NA}_{\mathrm{fiber}}\)**  
+3. **$\mathrm{NA}_{\mathrm{fiber}}$**  
    The acceptance NA of the multimode fiber (e.g. 0.22). This describes the **guided mode cone**
-   of the fiber itself. It does *not* equal \(\mathrm{NA}_{\mathrm{illum}}\) unless your relay optics
-   map the full fiber far-field into the objective pupil.
+   of the fiber itself. It does *not* equal $\mathrm{NA}_{\mathrm{illum}}$ unless your relay optics map the
+   fiber far-field into the objective pupil.
 
-4) (Sometimes) **source divergence / M²-implied divergence**  
-   For a laser beam with beam quality \(M^2\), the far-field divergence is larger than a diffraction-limited
-   Gaussian. This can matter *only insofar as it changes* pupil fill and/or effective spatial coherence.
+4. (Sometimes) **source divergence / $M^2$-implied divergence**  
+   For a laser beam with beam quality $M^2$, the far-field divergence is larger than a diffraction-limited
+   Gaussian. This can matter only insofar as it changes pupil fill and/or the effective spatial coherence
+   at the sample.
 
 ---
 
 ## 3) Speckle: what we model and why “random phase” is the right primitive
 
-### 3.1 Physical origin (in one paragraph)
-Speckle is an interference phenomenon: at any observation point \(\mathbf{r}\),
-the complex field can be written as a superposition of many partial waves / modes,
-\[
+### 3.1 Physical origin (one paragraph)
+
+Speckle is an interference phenomenon: at any observation point $\mathbf{r}$, the complex field can be written
+as a superposition of many partial waves / modes,
+$$
 U(\mathbf{r}) = \sum_{m=1}^{M} a_m(\mathbf{r})\,e^{i\phi_m}.
-\]
-When there are many contributions with effectively random phases \(\phi_m\), the central-limit theorem
-drives \(U\) toward a complex circular Gaussian random variable, and the intensity
-\(I = |U|^2\) follows the familiar fully developed speckle statistics (negative exponential for a single
-coherent realization).
+$$
+When there are many contributions with effectively random phases $\phi_m$, the central-limit theorem drives
+$U$ toward a complex circular Gaussian random variable, and the intensity $I = |U|^2$ follows the familiar
+fully developed speckle statistics (negative exponential for a single coherent realization).
 
-**That is why “random phase” is not a hack**—it is the simplest correct way to represent the net effect
-of many modes with unknown phases.
+That is why “random phase” is not a hack—it is the simplest correct representation of many modes with unknown phases.
 
-### 3.2 Coherent vs incoherent vs “speckle-averaged”
-These words refer to *how intensities are combined*:
+### 3.2 Coherent vs incoherent vs “speckle-averaged” (what those words mean)
 
-- **Coherent (single realization):** one complex field \(U\), one intensity \(|U|^2\).  
-  Highest speckle contrast.
+These terms describe *how intensities are combined*.
 
-- **Incoherent sum:** sum intensities of mutually incoherent modes/wavelengths/polarizations:  
-  \[
-  I = \sum_{k=1}^{N} |U_k|^2.
-  \]
-  Speckle contrast decreases approximately as \(C \sim 1/\sqrt{N}\) when the realizations are independent.
+#### Coherent (single realization)
 
-- **Speckle-averaged (time averaged):** camera integrates changing speckle within exposure \(\tau\):  
-  \[
-  I_{\tau}(\mathbf{r}) = \frac{1}{N}\sum_{n=1}^{N} I_n(\mathbf{r}),
-  \qquad N \approx f_{\mathrm{scr}}\,\tau.
-  \]
-  Mathematically it behaves like an incoherent average if successive patterns are independent.
+One complex field $U(\mathbf{r})$, one intensity $I(\mathbf{r}) = |U(\mathbf{r})|^2$.  
+This has the **highest speckle contrast**.
 
-**Key point:** time averaging and incoherent summation both reduce contrast; the difference is *what*
-creates independent realizations.
+#### Incoherent sum
 
----
+Sum intensities of mutually incoherent modes/wavelengths/polarizations:
+$$
+I(\mathbf{r}) = \sum_{k=1}^{N} |U_k(\mathbf{r})|^2.
+$$
+If the $U_k$ are independent, speckle contrast decreases approximately as $C \sim 1/\sqrt{N}$.
 
-## 4) Two “scales” you care about for single-molecule work
+#### Speckle-averaged (time averaged)
 
-Your false-positive / false-negative behavior is driven by two different tail mechanisms:
+The camera integrates changing speckle during an exposure time $\tau$:
+$$
+I_{\tau}(\mathbf{r}) = \frac{1}{N}\sum_{n=1}^{N} I_n(\mathbf{r}),\qquad
+N \approx f_{\mathrm{scr}}\,\tau .
+$$
+Mathematically this behaves like an incoherent average *if* successive patterns are independent.
 
-### 4.1 Pixel-scale tails (local hotspots)
-A single molecule “sees” the excitation intensity at its location. So the pixel-scale (or sub-PSF) field
-inhomogeneity affects the distribution of emitter brightness and thus the u0 distribution.
+**Key point:** time averaging and incoherent summation both reduce contrast; the difference is *what* creates independent realizations.
 
-### 4.2 PSF-scale tails (illumination edge spillover)
-Even if the field stop is a sharp square, the sample sees a blurred edge because the illumination system
-has finite \(\mathrm{NA}_{\mathrm{illum}}\). A useful scale estimate is:
-\[
-\Delta x_{\mathrm{edge}} \sim \mathcal{O}\left(\frac{\lambda}{\mathrm{NA}_{\mathrm{illum}}}\right).
-\]
-This is why underfilling the pupil (small \(\mathrm{NA}_{\mathrm{illum}}\)) simultaneously:
-- increases speckle grain size, and
-- makes the “square” edge less sharp.
+### 3.3 “Can I skip the scrambler and just calibrate a static speckle pattern?”
 
-The notebook explicitly shows both pixel-level ROIs and an edge-linecut view.
+Sometimes—*but it is risky for 5 ms single-molecule work*.
+
+A speckle pattern changes when relative optical phases change by $\sim 1\,\mathrm{rad}$.
+For a path-length change $\Delta L$ in glass (index $n$), a phase change of 1 rad corresponds to
+$\Delta L \sim \lambda/(2\pi n)$ (tens of nm at $\lambda\approx 640\,\mathrm{nm}$).
+That is a very small mechanical/thermal perturbation.
+
+So with a multimode fiber, **even minute bending, vibration, or thermal drift** can decorrelate the pattern.
+Without an intentional scrambler you can easily end up in the worst regime: high-contrast speckle *that also drifts*,
+creating frame-to-frame multiplicative noise that is hard to flat-field away.
+
+If you want the “static calibratable” strategy, it is usually more realistic with a **single-mode / clean free-space beam**
+where the dominant nonuniformity is a smooth Gaussian envelope (and any interference fringes are minimized by good baffling/tilts).
 
 ---
 
-## 5) Speckle grain size (and why it can’t be “sub-pixel” for 65 nm sampling)
+## 4) Two spatial-frequency regimes that matter for single-molecule spot detection
 
-A common order-of-magnitude estimate for speckle grain size in the sample plane is:
-\[
+Your FP/FN behavior is driven by two different “tail” mechanisms.
+
+### 4.1 PSF-scale structure (dangerous for FP)
+
+If excitation nonuniformity has significant spatial power at the **emission PSF scale**
+($\sim 200$–$300\,\mathrm{nm}$ for a 1.4 NA objective at visible wavelengths), it can generate
+local maxima that resemble real spots and increase false positives.
+
+This is why it is useful to compare:
+
+- excitation-field structure at **pixel scale** ($65\,\mathrm{nm}$ sampling), and
+- structure at the **PSF scale** (after convolution with an emission PSF model).
+
+### 4.2 ROI-scale structure (biases FN and quantification)
+
+If the excitation varies slowly compared to the PSF (e.g. speckle grains of several $\mu\mathrm{m}$),
+it mostly acts like a **multiplicative flat-field**. That tends to:
+
+- bias *where* molecules are bright enough to be detected (false negatives in dark regions),
+- bias brightness/photobleaching rates across the ROI,
+- but is less likely to create PSF-like false positives.
+
+The notebook is built to quantify both regimes (excitation-only + sparse-emitter FP/FN proxy).
+
+---
+
+## 5) Speckle grain size (correlation length) and why it cannot be “sub-pixel” for 65 nm sampling
+
+A common order-of-magnitude estimate for speckle grain size (intensity correlation width) in the sample plane is:
+$$
 \Delta x_{\mathrm{speckle}} \approx \frac{\lambda}{2\,\mathrm{NA}_{\mathrm{illum}}}.
-\]
+$$
 
-With \(\lambda = 640\,\mathrm{nm}\) and sample-plane sampling \(\Delta x = 65\,\mathrm{nm/px}\):
-- If \(\mathrm{NA}_{\mathrm{illum}} = 0.05\):  
-  \(\Delta x_{\mathrm{speckle}} \approx 6.4\,\mathrm{\mu m} \approx 98\,\mathrm{px}\) (very large grains).
-- If \(\mathrm{NA}_{\mathrm{illum}} = 0.20\):  
-  \(\Delta x_{\mathrm{speckle}} \approx 1.6\,\mathrm{\mu m} \approx 25\,\mathrm{px}\).
-- To get \(\Delta x_{\mathrm{speckle}}\lesssim 1\,\mathrm{px}\) would require \(\mathrm{NA}_{\mathrm{illum}}\gtrsim 5\),
-  which is impossible.
+With $\lambda = 640\,\mathrm{nm}$ and sampling $\Delta x = 65\,\mathrm{nm/px}$:
 
-So the realistic objective is not “sub-pixel speckle,” but rather **low speckle contrast** within the ROI
-at the relevant exposure time.
+- If $\mathrm{NA}_{\mathrm{illum}} = 0.05$:  
+  $\Delta x_{\mathrm{speckle}} \approx 6.4\,\mu\mathrm{m} \approx 98\,\mathrm{px}$ (very large grains).
+- If $\mathrm{NA}_{\mathrm{illum}} = 0.20$:  
+  $\Delta x_{\mathrm{speckle}} \approx 1.6\,\mu\mathrm{m} \approx 25\,\mathrm{px}$.
+
+To get $\Delta x_{\mathrm{speckle}} \lesssim 1\,\mathrm{px}$ would require $\mathrm{NA}_{\mathrm{illum}} \gtrsim 5$,
+which is impossible.
+
+So the practical objective is not “sub-pixel grains,” but **low speckle contrast** (via averaging) and/or
+a correlation length that does **not** inject structure at the emission-PSF scale.
 
 ---
 
-## 6) Where does M² fit?
+## 6) Where does $M^2$ fit?
 
-\(M^2\) is a beam-propagation (second-moment) metric. It does **not** uniquely determine speckle,
-because speckle is controlled by **spatial coherence** at the sample and by how many *independent*
-realizations are averaged during an exposure.
+$M^2$ is a beam-propagation (second-moment) metric. It does **not** uniquely determine speckle, because speckle is controlled by
+
+- spatial coherence at the sample, and
+- how many *independent* realizations are averaged during an exposure.
 
 However, in design exploration it is still useful as a *proxy knob*:
 
-- Larger \(M^2\) often implies more transverse structure / larger angular spread.
+- Larger $M^2$ often implies more transverse structure / larger angular spread.
 - If those components are mutually incoherent (or rapidly decorrelated by a scrambler + mode coupling),
   effective speckle contrast can drop.
 
-**Caution:** the mapping \(M^2 \to N_{\mathrm{eff}}\) is *not universal*.  
-The notebook treats \(M^2\) as an adjustable proxy for additional “incoherent diversity.”
-You should calibrate this using a simple experiment:
+**Caution:** the mapping $M^2 \rightarrow N_{\mathrm{eff}}$ is *not universal*.  
+The notebook treats $M^2$ as an adjustable proxy for additional “incoherent diversity.”
+You should calibrate this empirically for your actual hardware:
 
-1. Fix \(\mathrm{NA}_{\mathrm{illum}}\) (BFP fill) and ROI size.
+1. Fix $\mathrm{NA}_{\mathrm{illum}}$ (BFP fill) and ROI size.
 2. Record repeated short-exposure frames.
-3. Measure speckle contrast \(C\) in the inner ROI.
-4. Back out an empirical \(N_{\mathrm{eff}} \approx 1/C^2\) for your actual hardware.
+3. Measure speckle contrast $C$ in the inner ROI.
+4. Estimate $N_{\mathrm{eff}} \approx 1/C^2$.
 
 ---
 
 ## 7) Free-space Gaussian (no fiber) vs multimode fiber + scrambler + field stop
 
 ### Free-space near-TEM00 Gaussian injection (no fiber)
+
 **Pros**
-- No fiber speckle / mode noise.
+
+- No fiber-mode speckle / mode noise.
 - Fewer components; can be high-throughput.
-- Can be very stable if the optomechanics are rigid and clean.
+- Can be very stable if optomechanics are rigid and the beam path is enclosed.
 
 **Cons**
-- Gaussian nonuniformity across a 30 µm ROI unless you oversize the beam (wastes power).
-- Any attempt to “hard crop” a coherent Gaussian with a square stop can introduce diffraction ringing
-  (fringes), which can become its own FP/FN risk near edges.
-- Alignment drift is usually worse than fiber delivery.
+
+- Gaussian nonuniformity across a $30\,\mu\mathrm{m}$ ROI unless you oversize the beam (wastes power).
+- Coherent “hard cropping” (square stop) can introduce diffraction ringing (fringes) unless you image the stop
+  incoherently (Köhler-like) or accept soft edges.
+- Back reflections can destabilize some laser heads unless you use an isolator and/or careful tilt/wedge management.
 
 ### Multimode fiber + scrambler + square field stop
+
 **Pros**
+
 - Convenient delivery to the microscope; robust beam pointing at the back port.
-- Field stop makes it straightforward to define a crisp ROI (shape set geometrically).
-- With sufficient averaging (scrambler, mode mixing), can approximate a top-hat ROI with low speckle contrast.
+- Field stop makes it straightforward to define ROI shape geometrically.
+- With sufficient averaging (scrambler + mode mixing), can approximate a top-hat ROI with low speckle contrast.
 
 **Cons**
-- Without enough averaging at \(\tau=5\,\mathrm{ms}\), residual speckle can dominate local background variations.
+
+- Without enough averaging at $\tau=5\,\mathrm{ms}$, residual speckle can dominate pixel-level nonuniformity.
 - Mechanical scramblers have finite decorrelation rates; “independent pattern per cycle” is approximate.
-- Extra components introduce loss, alignment, and potential autofluorescence (wavelength dependent).
+- Extra components introduce loss, alignment complexity, and potential wavelength-dependent behavior.
 
-The notebook is designed to compare these tradeoffs *quantitatively* in terms of spot detection metrics.
-
----
-
-## 8) What do other labs do (from `y24m06d25_LASERS_NIKON_0.docx`)?
-
-The setups collected in that document predominantly describe **TIRF/HILO-style injection**
-(focusing beams into the objective BFP, often near the edge for inclined illumination).
-Several explicitly mention **fiber-coupled** delivery, and at least one explicitly uses a
-**single-mode fiber**. The document does not (in the excerpts we have) explicitly describe a
-multimode-fiber + scrambler “speckle reducer” widefield approach.
+The notebook is designed to compare these tradeoffs quantitatively in terms of spot detection metrics.
 
 ---
 
-## 9) Running the notebook
+## 8) Square fiber vs square field stop: does relative rotation matter?
 
-From the repo root:
+If the beam at the field stop **overfills** the stop in both dimensions, rotation is usually not important
+(the stop defines the ROI).
 
-```bash
-conda activate bioimg-pipeline
-jupyter lab
-```
+If you are trying to maximize throughput by matching a square-core image to a square stop, then relative rotation can:
 
-Open:
+- clip corners (power loss),
+- and subtly bias edge uniformity.
 
-- `notebooks/05_excitation_speckle_fpfn_proxy.py`
-
-Suggested first run:
-- keep defaults (\(\mathrm{NA}_{\mathrm{illum}}\approx 0.05\), scrambler 10 kHz, 5 ms)
-- then sweep **\(\mathrm{NA}_{\mathrm{illum}}\)** and **scrambler frequency** and watch:
-  - inner-ROI intensity distribution,
-  - speckle contrast estimate,
-  - FP/FN behavior under Slice0.
-
----
-
-## 10) Scope and limitations
-
-This model is intentionally scalar and 2D. It does **not** include:
-- vector polarization effects,
-- objective aberrations / coverslip mismatch,
-- fluorescence saturation / photophysics,
-- coherent interference from reflections (etalon fringes),
-- true fiber mode solver physics.
-
-But it is still highly useful as a *design intuition tool* because it forces you to keep the conjugate planes straight,
-ties \(\mathrm{NA}_{\mathrm{illum}}\) to speckle/edge scales, and connects field statistics to spot detection outcomes.
+Practical rule: oversize the square-core image at the stop by ~10–20% and treat the stop as the ROI-defining element.

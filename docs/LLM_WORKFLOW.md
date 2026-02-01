@@ -212,6 +212,32 @@ A change is acceptable only if the human can:
 
 ---
 
+
+
+### E) GitHub Markdown + math conventions (important)
+
+Many docs in this repo are read on **GitHub**. GitHub supports LaTeX math (KaTeX), but **only** when it is written with:
+
+- **Inline math:** wrap in single dollars, e.g. `$\mathrm{NA}_{\mathrm{illum}}$`, `$\Delta x pprox \lambda/(2\mathrm{NA})$`
+- **Display math:** wrap in double dollars, e.g.
+
+$$
+\begin{aligned}
+U(\mathbf{r}) &= \sum_{m=1}^{M} a_m(\mathbf{r})\,e^{i\phi_m},\\
+I(\mathbf{r}) &= |U(\mathbf{r})|^2 .
+\end{aligned}
+$$
+
+Do **not** use `\(...\)` or `\[...\]` in `.md` files—GitHub will show the backslashes literally.
+
+Style guidance (optics-journal style):
+
+- Use italic variables (default in math mode), and roman for units/operators: `$\mu\mathrm{m}$`, `$\mathrm{NA}$`, `$\exp(i\phi)$`.
+- Prefer `\mathrm{}` for labels/subscripts that are not variables (e.g. `$\mathrm{NA}_{\mathrm{obj}}$`, `$\mathrm{NA}_{\mathrm{illum}}$`).
+- For multi-line equations, prefer `\begin{aligned}...\end{aligned}` inside `$$...$$` (KaTeX-friendly).
+- Keep underscores outside math either escaped (`\_`) or inside code spans.
+
+
 ## Prompt templates (copy/paste)
 
 ### 1) Planning only
@@ -274,3 +300,4 @@ If you have **local changes not pushed**, attach a flattened snapshot (or at lea
 ## Repo snapshots
 
 See `repo_snapshots/README.md` for the purpose and retention policy of timestamped flattened snapshots.
+
