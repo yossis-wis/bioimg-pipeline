@@ -21,6 +21,7 @@ Follow the platform guide first:
 - [Spot detection (TrackMate-style LoG + u0 photometry)](docs/SPOT_DETECTION.md)
 - [Data contracts](docs/CONTRACTS.md)
 - [Notebooks (QC workflows)](docs/NOTEBOOKS.md)
+- [Illumination design notes: speckle, stops, and FP/FN risk](docs/ILLUMINATION_SPECKLE.md)
 - [LLM workflow (human-in-the-loop zip overlays)](docs/LLM_WORKFLOW.md)
 
 ### 1) Setup & Verification
@@ -167,4 +168,3 @@ The recommended notebook workflow is in `notebooks/03_generate_batch_spot_atlas_
 ### LLM-assisted development
 
 We sometimes use an LLM (ChatGPT / GPT‑5.2 Pro) to plan and implement changes (often delivered as a zip overlay), then review diffs in GitHub Desktop and run verification + QC before committing. Full workflow and rules: [docs/LLM_WORKFLOW.md](docs/LLM_WORKFLOW.md).
-
