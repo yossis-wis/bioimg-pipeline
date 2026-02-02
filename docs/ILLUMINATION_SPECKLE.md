@@ -1,11 +1,11 @@
 # Illumination design notes: speckle, stops, and FP/FN risk
 
 > **GitHub math note (important):** GitHub renders LaTeX math in Markdown using **MathJax**.
->
-> - **Inline math:** `$...$` (or the safer `$`\`...\`$` form).
+> 
+> - **Inline math:** `$...$` (or the safer `$`\``...``$` form).
 > - **Display math:** either `$$...$$` **on its own line** *or* (preferred) a fenced **```math** block.
->
-> Do **not** use `\(...\)` or `\[...\]` in this repo’s `.md` docs—GitHub will show the backslashes literally.
+> 
+> Do **not** use `\(...\)` or `\[...\]` in this repo's `.md` docs—GitHub will show the backslashes literally.
 
 This document collects (and stabilizes) the illumination-design context we have built so far for
 **single-protein widefield imaging** with:
@@ -28,33 +28,33 @@ It produces:
 
 ---
 
-## 1) Two independent “design knobs”: field stop vs pupil fill
+## 1) Two independent "design knobs": field stop vs pupil fill
 
 In widefield illumination there are **two distinct sets of conjugate planes**.
 
 ### Field-conjugate (image) planes → ROI size and shape
 
 A **field stop** placed in a plane conjugate to the sample is imaged onto the sample.
-This sets the **illuminated area** (e.g. a square $30\,\mu\mathrm{m} \times 30\,\mu\mathrm{m}$).
+This sets the **illuminated area** (e.g. a square $30\,\mathrm{m} \times 30\,\mathrm{m}$).
 
 ### Pupil-conjugate planes (objective back focal plane, BFP) → illumination NA and spatial frequencies
 
 An **aperture stop** at a pupil-conjugate plane (often the objective **BFP**) controls the **angular spectrum**
 of illumination at the sample, i.e. the **effective illumination NA**, $\mathrm{NA}_{\mathrm{illum}}$.
 
-These two knobs are often conflated. In this repo’s simulations we treat them separately:
+These two knobs are often conflated. In this repo's simulations we treat them separately:
 
-- ROI size: set by a **square field stop** (ideal $30\,\mu\mathrm{m} \times 30\,\mu\mathrm{m}$ target).
+- ROI size: set by a **square field stop** (ideal $30\,\mathrm{m} \times 30\,\mathrm{m}$ target).
 - Speckle correlation length + edge sharpness: set by $\mathrm{NA}_{\mathrm{illum}}$ via the pupil.
 
 ---
 
-## 2) “Which NA is which?” (quick dictionary)
+## 2) "Which NA is which?" (quick dictionary)
 
 You will see several NA-like quantities in discussion. Here is a consistent naming set:
 
 1. **$\mathrm{NA}_{\mathrm{obj}}$**  
-   The objective’s collection/focusing NA (e.g. 1.40 or 1.45 oil).
+   The objective's collection/focusing NA (e.g. 1.40 or 1.45 oil).
    This sets the best-case **emission PSF** and the *maximum possible* excitation cone.
 
 2. **$\mathrm{NA}_{\mathrm{illum}}$**  
@@ -79,7 +79,7 @@ You will see several NA-like quantities in discussion. Here is a consistent nami
 
 ---
 
-## 3) Speckle: what we model and why “random phase” is the right primitive
+## 3) Speckle: what we model and why "random phase" is the right primitive
 
 ### 3.1 Physical origin (one paragraph)
 
@@ -94,9 +94,9 @@ When there are many contributions with effectively random phases $\phi_m$, the c
 $U$ toward a complex circular Gaussian random variable, and the intensity $I = |U|^2$ follows the familiar
 fully developed speckle statistics (negative exponential for a single coherent realization).
 
-That is why “random phase” is not a hack—it is the simplest correct representation of many modes with unknown phases.
+That is why "random phase" is not a hack—it is the simplest correct representation of many modes with unknown phases.
 
-### 3.2 Coherent vs incoherent vs “speckle-averaged” (what those words mean)
+### 3.2 Coherent vs incoherent vs "speckle-averaged" (what those words mean)
 
 These terms describe *how intensities are combined*.
 
@@ -130,37 +130,37 @@ Mathematically this behaves like an incoherent average *if* successive patterns 
 
 **Key point:** time averaging and incoherent summation both reduce contrast; the difference is *what* creates independent realizations.
 
-### 3.3 “Can I skip the scrambler and just calibrate a static speckle pattern?”
+### 3.3 "Can I skip the scrambler and just calibrate a static speckle pattern?"
 
 Sometimes—*but it is risky for 5 ms single-molecule work*.
 
-A speckle pattern changes when relative optical phases change by $\sim 1\,\mathrm{rad}$.
+A speckle pattern changes when relative optical phases change by $\sim 1\,\mathrm{rad}$.  
 For a path-length change $\Delta L$ in glass (index $n$), a phase change of 1 rad corresponds to
-$\Delta L \sim \lambda/(2\pi n)$ (tens of nm at $\lambda\approx 640\,\mathrm{nm}$).
+$\Delta L \sim \lambda/(2\pi n)$ (tens of nm at $\lambda\approx 640\,\mathrm{nm}$).
 That is a very small mechanical/thermal perturbation.
 
 So with a multimode fiber, **even minute bending, vibration, or thermal drift** can decorrelate the pattern.
 Without an intentional scrambler you can easily end up in the worst regime: high-contrast speckle *that also drifts*,
 creating frame-to-frame multiplicative noise that is hard to flat-field away.
 
-If you want the “static calibratable” strategy, it is usually more realistic with a **single-mode / clean free-space beam**
+If you want the "static calibratable" strategy, it is usually more realistic with a **single-mode / clean free-space beam**
 where the dominant nonuniformity is a smooth Gaussian envelope (and any interference fringes are minimized by good baffling/tilts).
 
 ---
 
 ## 4) Two spatial-frequency regimes that matter for single-molecule spot detection
 
-Your FP/FN behavior is driven by two different “tail” mechanisms.
+Your FP/FN behavior is driven by two different "tail" mechanisms.
 
 ### 4.1 PSF-scale structure (dangerous for FP)
 
 If excitation nonuniformity has significant spatial power at the **emission PSF scale**
-($\sim 200$–$300\,\mathrm{nm}$ for a 1.4 NA objective at visible wavelengths), it can generate
+($\sim 200$–$300\,\mathrm{nm}$ for a 1.4 NA objective at visible wavelengths), it can generate
 local maxima that resemble real spots and increase false positives.
 
 This is why it is useful to compare:
 
-- excitation-field structure at **pixel scale** ($65\,\mathrm{nm}$ sampling), and
+- excitation-field structure at **pixel scale** ($65\,\mathrm{nm}$ sampling), and
 - structure at the **PSF scale** (after convolution with an emission PSF model).
 
 ### 4.2 ROI-scale structure (biases FN and quantification)
@@ -176,7 +176,7 @@ The notebook is built to quantify both regimes (excitation-only + sparse-emitter
 
 ---
 
-## 5) Speckle grain size (correlation length) and why it cannot be “sub-pixel” for 65 nm sampling
+## 5) Speckle grain size (correlation length) and why it cannot be "sub-pixel" for 65 nm sampling
 
 A common order-of-magnitude estimate for speckle grain size (intensity correlation width) in the sample plane is:
 
@@ -184,17 +184,17 @@ A common order-of-magnitude estimate for speckle grain size (intensity correlati
 \Delta x_{\mathrm{speckle}} \approx \frac{\lambda}{2\,\mathrm{NA}_{\mathrm{illum}}}.
 ```
 
-With $\lambda = 640\,\mathrm{nm}$ and sampling $\Delta x = 65\,\mathrm{nm/px}$:
+With $\lambda = 640\,\mathrm{nm}$ and sampling $\Delta x = 65\,\mathrm{nm/px}$:
 
 - If $\mathrm{NA}_{\mathrm{illum}} = 0.05$:  
-  $\Delta x_{\mathrm{speckle}} \approx 6.4\,\mu\mathrm{m} \approx 98\,\mathrm{px}$ (very large grains).
+  $\Delta x_{\mathrm{speckle}} \approx 6.4\,\mathrm{m} \approx 98\,\mathrm{px}$ (very large grains).
 - If $\mathrm{NA}_{\mathrm{illum}} = 0.20$:  
-  $\Delta x_{\mathrm{speckle}} \approx 1.6\,\mu\mathrm{m} \approx 25\,\mathrm{px}$.
+  $\Delta x_{\mathrm{speckle}} \approx 1.6\,\mathrm{m} \approx 25\,\mathrm{px}$.
 
-To get $\Delta x_{\mathrm{speckle}} \lesssim 1\,\mathrm{px}$ would require $\mathrm{NA}_{\mathrm{illum}} \gtrsim 5$,
+To get $\Delta x_{\mathrm{speckle}} \lesssim 1\,\mathrm{px}$ would require $\mathrm{NA}_{\mathrm{illum}} \gtrsim 5$,
 which is impossible.
 
-So the practical objective is not “sub-pixel grains,” but **low speckle contrast** (via averaging) and/or
+So the practical objective is not "sub-pixel grains," but **low speckle contrast** (via averaging) and/or
 a correlation length that does **not** inject structure at the emission-PSF scale.
 
 ---
@@ -210,10 +210,10 @@ However, in design exploration it is still useful as a *proxy knob*:
 
 - Larger $M^2$ often implies more transverse structure / larger angular spread.
 - If those components are mutually incoherent (or rapidly decorrelated by a scrambler + mode coupling),
-  effective speckle contrast can drop.
+effective speckle contrast can drop.
 
 **Caution:** the mapping $M^2 \rightarrow N_{\mathrm{eff}}$ is *not universal*.  
-The notebook treats $M^2$ as an adjustable proxy for additional “incoherent diversity.”
+The notebook treats $M^2$ as an adjustable proxy for additional "incoherent diversity."
 You should calibrate this empirically for your actual hardware:
 
 1. Fix $\mathrm{NA}_{\mathrm{illum}}$ (BFP fill) and ROI size.
@@ -235,8 +235,8 @@ You should calibrate this empirically for your actual hardware:
 
 **Cons**
 
-- Gaussian nonuniformity across a $30\,\mu\mathrm{m}$ ROI unless you oversize the beam (wastes power).
-- Coherent “hard cropping” (square stop) can introduce diffraction ringing (fringes) unless you image the stop
+- Gaussian nonuniformity across a $30\,\mathrm{m}$ ROI unless you oversize the beam (wastes power).
+- Coherent "hard cropping" (square stop) can introduce diffraction ringing (fringes) unless you image the stop
   incoherently (Köhler-like) or accept soft edges.
 - Back reflections can destabilize some laser heads unless you use an isolator and/or careful tilt/wedge management.
 
@@ -250,8 +250,8 @@ You should calibrate this empirically for your actual hardware:
 
 **Cons**
 
-- Without enough averaging at $\tau=5\,\mathrm{ms}$, residual speckle can dominate pixel-level nonuniformity.
-- Mechanical scramblers have finite decorrelation rates; “independent pattern per cycle” is approximate.
+- Without enough averaging at $\tau=5\,\mathrm{ms}$, residual speckle can dominate pixel-level nonuniformity.
+- Mechanical scramblers have finite decorrelation rates; "independent pattern per cycle" is approximate.
 - Extra components introduce loss, alignment complexity, and potential wavelength-dependent behavior.
 
 The notebook is designed to compare these tradeoffs quantitatively in terms of spot detection metrics.
@@ -276,127 +276,124 @@ Practical rule: oversize the square-core image at the stop by ~10–20% and trea
 
 ## 9) The 500 µs regime (10 µm × 10 µm, 10–30 kW/cm²)
 
-At **τ = 500 µs**, the question is not “can I image?” (you likely can), but
-“will the *instantaneous* excitation nonuniformity make the per-protein excitation dose unreliable?”
+At **τ = 500 µs**, the question is not "can I image?" (you likely can), but
+"will the *instantaneous* excitation nonuniformity make the per-protein excitation dose unreliable?"
 
 ### 9.1 Power sanity check (why 100–500 mW at the fiber exit may or may not be needed)
 
-For an ROI of \(10\,\mu\mathrm{m}	imes10\,\mu\mathrm{m}\), the area is
+For an ROI of $10\,\mathrm{m} \times 10\,\mathrm{m}$, the area is
 
 ```math
-A = (10^{-3}\,\mathrm{cm})^2 = 10^{-6}\,\mathrm{cm}^2.
+A = (10^{-3}\,\mathrm{cm})^2 = 10^{-6}\,\mathrm{cm}^2.
 ```
 
-So an irradiance of \(E = 10	ext{–}30\,\mathrm{kW}/\mathrm{cm}^2\) corresponds to
+So an irradiance of $E = 10\text{–}30\,\mathrm{kW}/\mathrm{cm}^2$ corresponds to
 
 ```math
-P_{\mathrm{sample}} = E\,A = (10	ext{–}30)	imes 10^3\,\mathrm{W}/\mathrm{cm}^2 	imes 10^{-6}\,\mathrm{cm}^2
-= 10	ext{–}30\,\mathrm{mW}.
+P_{\mathrm{sample}} = E \cdot A = (10\text{–}30) \times 10^{3}\,\mathrm{W}/\mathrm{cm}^2 \times 10^{-6}\,\mathrm{cm}^2
+= 10\text{–}30\,\mathrm{mW}.
 ```
 
-That’s **power at the sample plane**. The required power at the **fiber exit** is
+That's **power at the sample plane**. The required power at the **fiber exit** is
 
 ```math
-P_{\mathrm{fiber}} = rac{P_{\mathrm{sample}}}{T_{\mathrm{total}}},
+P_{\mathrm{fiber}} = \frac{P_{\mathrm{sample}}}{T_{\mathrm{total}}},
 ```
 
-where \(T_{\mathrm{total}}\) is the total transmission (fiber coupling × relays × stop losses × objective, etc).
-If \(T_{\mathrm{total}}pprox 0.2	ext{–}0.4\), then \(P_{\mathrm{fiber}}pprox 25	ext{–}150\,\mathrm{mW}\).
-If your real \(T_{\mathrm{total}}\) is worse (e.g. aggressive stop clipping, extra AOM, poor coupling), then
-\(100	ext{–}500\,\mathrm{mW}\) can become plausible — but it is **not automatically required**.
+where $T_{\mathrm{total}}$ is the total transmission (fiber coupling × relays × stop losses × objective, etc).
+If $T_{\mathrm{total}} \approx 0.2\text{–}0.4$, then $P_{\mathrm{fiber}} \approx 25\text{–}150\,\mathrm{mW}$.
+If your real $T_{\mathrm{total}}$ is worse (e.g. aggressive stop clipping, extra AOM, poor coupling), then
+$100\text{–}500\,\mathrm{mW}$ can become plausible — but it is **not automatically required**.
 
 ### 9.2 The real constraint at 500 µs: speckle averaging
 
 For fully developed speckle, the contrast scales like
 
 ```math
-C pprox rac{1}{\sqrt{N_{\mathrm{eff}}}},
+C \approx \frac{1}{\sqrt{N_{\mathrm{eff}}}},
 ```
 
-where \(N_{\mathrm{eff}}\) is the effective number of independent realizations averaged *during the exposure*.
+where $N_{\mathrm{eff}}$ is the effective number of independent realizations averaged *during the exposure*.
 A useful bookkeeping split is
 
 ```math
-N_{\mathrm{eff}} pprox N_t\,N_\lambda\,N_{\mathrm{pol}}\,N_{\mathrm{angle}}.
+N_{\mathrm{eff}} \approx N_t \ N_\lambda \ N_{\mathrm{pol}} \ N_{\mathrm{angle}}.
 ```
 
-- \(N_t\): time diversity (scrambler / mode mixing dynamics)
-- \(N_\lambda\): spectral diversity (laser linewidth and/or deliberate wavelength sweep)
-- \(N_{\mathrm{pol}}\): polarization diversity (often \(1\)–\(2\))
-- \(N_{\mathrm{angle}}\): angular diversity (beam steering across pupil / AOD / resonant mirror, etc.)
+- $N_t$: time diversity (scrambler / mode mixing dynamics)
+- $N_\lambda$: spectral diversity (laser linewidth and/or deliberate wavelength sweep)
+- $N_{\mathrm{pol}}$: polarization diversity (often $1$–$2$)
+- $N_{\mathrm{angle}}$: angular diversity (beam steering across pupil / AOD / resonant mirror, etc.)
 
-If you want \(C \lesssim 0.1\) inside the ROI, then \(N_{\mathrm{eff}}\gtrsim 100\).
+If you want $C \lesssim 0.1$ inside the ROI, then $N_{\mathrm{eff}} \gtrsim 100$.
 
-With a conventional mechanical scrambler at \(f_{\mathrm{scr}}\sim 10\,\mathrm{kHz}\) and \(	au=500\,\mu\mathrm{s}\),
+With a conventional mechanical scrambler at $f_{\mathrm{scr}} \sim 10\,\mathrm{kHz}$ and $\tau = 500\,\mathrm{ms}$,
 you only get
 
 ```math
-N_t pprox f_{\mathrm{scr}}	au pprox 10^4 	imes 5	imes10^{-4} pprox 5,
+N_t \approx f_{\mathrm{scr}} \tau \approx 10^4 \times 5 \times 10^{-4} \approx 5,
 ```
 
 which by itself is not enough.
 
-### 9.3 Two “low-cost” paths that can make 500 µs realistic
+### 9.3 Two "low-cost" paths that can make 500 µs realistic
 
-Your conclusion (“MMF is hopeless at 500 µs”) is **true for a narrow-linewidth laser with only slow scrambling**.
-But in your constraints you have two practical knobs that can change \(N_{\mathrm{eff}}\) by orders of magnitude:
+Your conclusion ("MMF is hopeless at 500 µs") is **true for a narrow-linewidth laser with only slow scrambling**.
+But in your constraints you have two practical knobs that can change $N_{\mathrm{eff}}$ by orders of magnitude:
 
 #### Path A: use spectral diversity (often already present with a normal diode)
 
-If your excitation source is a “normal” multimode diode (not single-frequency), it may have a
+If your excitation source is a "normal" multimode diode (not single-frequency), it may have a
 linewidth on the order of **~1 nm** (sometimes more), i.e. **short coherence length**.
 In a multimode fiber, different guided paths have different optical path lengths.
-If the optical-path-length spread \(\Delta\mathrm{OPL}\) is large compared to the coherence length,
+If the optical-path-length spread $\Delta\mathrm{OPL}$ is large compared to the coherence length,
 speckle contrast drops because multiple wavelength components contribute incoherently.
 
 A simple estimate for the speckle spectral correlation width is
 
 ```math
-\Delta\lambda_c \sim rac{\lambda^2}{\Delta\mathrm{OPL}}.
+\Delta\lambda_c \sim \frac{\lambda^2}{\Delta\mathrm{OPL}}.
 ```
 
-Then an effective spectral span \(\Delta\lambda_{\mathrm{src}}\) yields roughly
+Then an effective spectral span $\Delta\lambda_{\mathrm{src}}$ yields roughly
 
 ```math
-N_\lambda pprox \left\lceil rac{\Delta\lambda_{\mathrm{src}}}{\Delta\lambda_c} ightceil.
+N_\lambda \approx \left\lceil \frac{\Delta\lambda_{\mathrm{src}}}{\Delta\lambda_c} \right\rceil.
 ```
 
-In other words: even if \(N_tpprox 5\), you can reach \(N_{\mathrm{eff}}\gtrsim 100\) if \(N_\lambda\) is
+In other words: even if $N_t \approx 5$, you can reach $N_{\mathrm{eff}} \gtrsim 100$ if $N_\lambda$ is
 tens-to-hundreds.
 
 *Practical leverage in your project:* your JF dyes (e.g. JFX646/JFX650) are excitable over a fairly broad
-far-red band, so “wavelength sweep” or “two nearby diodes” (e.g. 637–650 nm) can also be used as
-deliberate \(N_\lambda\) diversity if needed.
+far-red band, so "wavelength sweep" or "two nearby diodes" (e.g. 637–650 nm) can also be used as
+deliberate $N_\lambda$ diversity if needed.
 
-#### Path B: make \(N_t\) fast (cheaply) with a high-frequency fiber agitator *or* pupil-angle scanning
+#### Path B: make $N_t$ fast (cheaply) with a high-frequency fiber agitator *or* pupil-angle scanning
 
-If the laser is narrow or you want margin, you can increase \(N_t\) by increasing the speckle
+If the laser is narrow or you want margin, you can increase $N_t$ by increasing the speckle
 decorrelation rate.
 
 Two comparatively low-cost options that often work in practice:
 
 1. **Piezo fiber shaker / stretcher**: drive a short section of MMF mechanically at **≫100 kHz**
-   (ultrasonic piezo disks, fiber stretcher geometries). This can push \(N_t\) from ~5 to ~50–500
+   (ultrasonic piezo disks, fiber stretcher geometries). This can push $N_t$ from ~5 to ~50–500
    at 500 µs.
 
 2. **Beam steering in a pupil-conjugate plane** (if you already have an AOM, resonant mirror,
    or fast galvo): hop the beam angle across the objective pupil multiple times during the exposure.
-   This contributes an \(N_{\mathrm{angle}}\) factor, and it can be combined with a moderate scrambler.
+   This contributes an $N_{\mathrm{angle}}$ factor, and it can be combined with a moderate scrambler.
 
 The notebook `notebooks/06_mmf_illumination_500us_design.py` turns these into explicit sweeps so you can see
-what assumptions are required for \(C\lesssim 0.1\).
+what assumptions are required for $C \lesssim 0.1$.
 
 ### 9.4 Whether you need a 1 mm × 1 mm field stop
 
-If your sample ROI is \(10\,\mu\mathrm{m}	imes10\,\mu\mathrm{m}\) and you are using a 100× objective, then a
+If your sample ROI is $10\,\mathrm{m} \times 10\,\mathrm{m}$ and you are using a 100× objective, then a
 field stop in a sample-conjugate image plane typically needs to be about
 
 ```math
-D_{\mathrm{stop}} pprox M\,D_{\mathrm{sample}} pprox 100 	imes 10\,\mu\mathrm{m} = 1\,\mathrm{mm}
+D_{\mathrm{stop}} \approx M \cdot D_{\mathrm{sample}} \approx 100 \times 10\,\mathrm{m} = 1\,\mathrm{mm}
 ```
-
 in each dimension, **if** that plane sees ~100× magnification from the sample.
-
 You *can* skip the physical stop and define an ROI digitally, but then you illuminate (and bleach) outside the ROI.
-At 10–30 kW/cm², that’s often a deal-breaker unless you can tolerate the extra photobleaching/heating.
-
+At 10–30 kW/cm², that's often a deal-breaker unless you can tolerate the extra photobleaching/heating.
