@@ -214,19 +214,36 @@ A change is acceptable only if the human can:
 
 
 
+
 ### E) GitHub Markdown + math conventions (important)
 
-Many docs in this repo are read on **GitHub**. GitHub supports LaTeX math (KaTeX), but **only** when it is written with:
+Many docs in this repo are read directly on **GitHub**. GitHub supports LaTeX math in Markdown via **MathJax**, but the parser is picky about delimiters.
 
-- **Inline math:** wrap in single dollars, e.g. `$\mathrm{NA}_{\mathrm{illum}}$`, `$\Delta x pprox \lambda/(2\mathrm{NA})$`
-- **Display math:** wrap in double dollars, e.g.
+Use these patterns (in this repo, treat them as *required*):
 
-$$
-\begin{aligned}
-U(\mathbf{r}) &= \sum_{m=1}^{M} a_m(\mathbf{r})\,e^{i\phi_m},\\
-I(\mathbf{r}) &= |U(\mathbf{r})|^2 .
-\end{aligned}
-$$
+#### Inline math
+
+Use either:
+
+- **Standard:** `$...$`
+- **Safer:** `$`\`...\`$` (useful when the expression contains characters that overlap with Markdown syntax)
+
+Examples:
+
+- `... effective illumination NA, $\mathrm{NA}_{\mathrm{illum}}$.`
+- `... speckle grain size $\Delta x_{\mathrm{speckle}} \approx \lambda/(2\,\mathrm{NA}_{\mathrm{illum}})$.`
+
+#### Display (block) math
+
+Prefer fenced **math blocks** (most robust on GitHub):
+
+```math
+\Delta x_{\mathrm{speckle}} \approx \frac{\lambda}{2\,\mathrm{NA}_{\mathrm{illum}}}
+```
+
+If you use `$$...$$`, it must start on a **new line** (not mid-sentence) and you should keep the expression on the *same line* as the delimiters:
+
+$$\Delta x_{\mathrm{speckle}} \approx \frac{\lambda}{2\,\mathrm{NA}_{\mathrm{illum}}}$$
 
 Do **not** use `\(...\)` or `\[...\]` in `.md` files—GitHub will show the backslashes literally.
 
@@ -234,9 +251,8 @@ Style guidance (optics-journal style):
 
 - Use italic variables (default in math mode), and roman for units/operators: `$\mu\mathrm{m}$`, `$\mathrm{NA}$`, `$\exp(i\phi)$`.
 - Prefer `\mathrm{}` for labels/subscripts that are not variables (e.g. `$\mathrm{NA}_{\mathrm{obj}}$`, `$\mathrm{NA}_{\mathrm{illum}}$`).
-- For multi-line equations, prefer `\begin{aligned}...\end{aligned}` inside `$$...$$` (KaTeX-friendly).
+- For multi-line equations, prefer `\begin{aligned}...\end{aligned}` inside a ` ```math ` block.
 - Keep underscores outside math either escaped (`\_`) or inside code spans.
-
 
 ## Prompt templates (copy/paste)
 

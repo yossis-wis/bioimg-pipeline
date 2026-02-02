@@ -1,7 +1,11 @@
 # Illumination design notes: speckle, stops, and FP/FN risk
 
-> **GitHub math note:** GitHub renders LaTeX math only when it is wrapped in `$...$` (inline) or `$$...$$` (display).
-> Do **not** use `\(...\)` or `\[...\]` in this repo’s `.md` docs.
+> **GitHub math note (important):** GitHub renders LaTeX math in Markdown using **MathJax**.
+>
+> - **Inline math:** `$...$` (or the safer `$`\`...\`$` form).
+> - **Display math:** either `$$...$$` **on its own line** *or* (preferred) a fenced **```math** block.
+>
+> Do **not** use `\(...\)` or `\[...\]` in this repo’s `.md` docs—GitHub will show the backslashes literally.
 
 This document collects (and stabilizes) the illumination-design context we have built so far for
 **single-protein widefield imaging** with:
@@ -9,7 +13,7 @@ This document collects (and stabilizes) the illumination-design context we have 
 - short exposures (e.g. **5 ms**),
 - a small illuminated ROI (e.g. **30 µm × 30 µm**),
 - high irradiance (e.g. **kW/cm²-scale**),
-- and a desire to understand how excitation nonuniformity affects **Slice0 spot detection**
+- and a desire to understand how excitation nonuniformity affects **spot detection**
   false positives / false negatives.
 
 The companion notebook is:
@@ -54,7 +58,13 @@ You will see several NA-like quantities in discussion. Here is a consistent nami
 
 2. **$\mathrm{NA}_{\mathrm{illum}}$**  
    The **effective excitation NA at the sample**, determined by how much of the objective pupil you fill
-   with the illumination beam. If the beam underfills the pupil, then (paraxial) $\mathrm{NA}_{\mathrm{illum}} \approx \rho\,\mathrm{NA}_{\mathrm{obj}}$, with $\rho \equiv D_{\mathrm{beam@BFP}}/D_{\mathrm{pupil}}$.\n   ($D_{\mathrm{pupil}}$ depends on the objective design; use a BFP image if you want the true ratio.)
+   with the illumination beam.
+
+   If the beam underfills the pupil, then (paraxial)
+   $\mathrm{NA}_{\mathrm{illum}} \approx \rho\,\mathrm{NA}_{\mathrm{obj}}$,
+   with $\rho \equiv D_{\mathrm{beam,BFP}}/D_{\mathrm{pupil}}$.
+
+   ($D_{\mathrm{pupil}}$ depends on objective design; use a BFP image if you want the true ratio.)
 
 3. **$\mathrm{NA}_{\mathrm{fiber}}$**  
    The acceptance NA of the multimode fiber (e.g. 0.22). This describes the **guided mode cone**
@@ -74,9 +84,11 @@ You will see several NA-like quantities in discussion. Here is a consistent nami
 
 Speckle is an interference phenomenon: at any observation point $\mathbf{r}$, the complex field can be written
 as a superposition of many partial waves / modes,
-$$
-U(\mathbf{r}) = \sum_{m=1}^{M} a_m(\mathbf{r})\,e^{i\phi_m}.
-$$
+
+```math
+U(\mathbf{r}) = \sum_{m=1}^{M} a_m(\mathbf{r})\,\exp(i\phi_m).
+```
+
 When there are many contributions with effectively random phases $\phi_m$, the central-limit theorem drives
 $U$ toward a complex circular Gaussian random variable, and the intensity $I = |U|^2$ follows the familiar
 fully developed speckle statistics (negative exponential for a single coherent realization).
@@ -95,18 +107,24 @@ This has the **highest speckle contrast**.
 #### Incoherent sum
 
 Sum intensities of mutually incoherent modes/wavelengths/polarizations:
-$$
-I(\mathbf{r}) = \sum_{k=1}^{N} |U_k(\mathbf{r})|^2.
-$$
+
+```math
+I(\mathbf{r}) = \sum_{k=1}^{N} \left|U_k(\mathbf{r})\right|^2.
+```
+
 If the $U_k$ are independent, speckle contrast decreases approximately as $C \sim 1/\sqrt{N}$.
 
 #### Speckle-averaged (time averaged)
 
 The camera integrates changing speckle during an exposure time $\tau$:
-$$
-I_{\tau}(\mathbf{r}) = \frac{1}{N}\sum_{n=1}^{N} I_n(\mathbf{r}),\qquad
-N \approx f_{\mathrm{scr}}\,\tau .
-$$
+
+```math
+\begin{aligned}
+I_{\tau}(\mathbf{r}) &= \frac{1}{N}\sum_{n=1}^{N} I_n(\mathbf{r}),\\
+N &\approx f_{\mathrm{scr}}\,\tau.
+\end{aligned}
+```
+
 Mathematically this behaves like an incoherent average *if* successive patterns are independent.
 
 **Key point:** time averaging and incoherent summation both reduce contrast; the difference is *what* creates independent realizations.
@@ -160,9 +178,10 @@ The notebook is built to quantify both regimes (excitation-only + sparse-emitter
 ## 5) Speckle grain size (correlation length) and why it cannot be “sub-pixel” for 65 nm sampling
 
 A common order-of-magnitude estimate for speckle grain size (intensity correlation width) in the sample plane is:
-$$
+
+```math
 \Delta x_{\mathrm{speckle}} \approx \frac{\lambda}{2\,\mathrm{NA}_{\mathrm{illum}}}.
-$$
+```
 
 With $\lambda = 640\,\mathrm{nm}$ and sampling $\Delta x = 65\,\mathrm{nm/px}$:
 
