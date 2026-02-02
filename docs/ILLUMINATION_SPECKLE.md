@@ -10,15 +10,16 @@
 This document collects (and stabilizes) the illumination-design context we have built so far for
 **single-protein widefield imaging** with:
 
-- short exposures (e.g. **5 ms**),
-- a small illuminated ROI (e.g. **30 µm × 30 µm**),
+- short exposures (from **500 µs** up to a few **ms**),
+- a small illuminated ROI (e.g. **10 µm × 10 µm** or **30 µm × 30 µm**),
 - high irradiance (e.g. **kW/cm²-scale**),
 - and a desire to understand how excitation nonuniformity affects **spot detection**
   false positives / false negatives.
 
-The companion notebook is:
+The companion notebooks are:
 
 - `notebooks/05_excitation_speckle_fpfn_proxy.py`
+- `notebooks/06_mmf_illumination_500us_design.py` (short-exposure / 500 µs design sweeps)
 
 It produces:
 
@@ -268,3 +269,134 @@ If you are trying to maximize throughput by matching a square-core image to a sq
 - and subtly bias edge uniformity.
 
 Practical rule: oversize the square-core image at the stop by ~10–20% and treat the stop as the ROI-defining element.
+
+
+
+---
+
+## 9) The 500 µs regime (10 µm × 10 µm, 10–30 kW/cm²)
+
+At **τ = 500 µs**, the question is not “can I image?” (you likely can), but
+“will the *instantaneous* excitation nonuniformity make the per-protein excitation dose unreliable?”
+
+### 9.1 Power sanity check (why 100–500 mW at the fiber exit may or may not be needed)
+
+For an ROI of \(10\,\mu\mathrm{m}	imes10\,\mu\mathrm{m}\), the area is
+
+```math
+A = (10^{-3}\,\mathrm{cm})^2 = 10^{-6}\,\mathrm{cm}^2.
+```
+
+So an irradiance of \(E = 10	ext{–}30\,\mathrm{kW}/\mathrm{cm}^2\) corresponds to
+
+```math
+P_{\mathrm{sample}} = E\,A = (10	ext{–}30)	imes 10^3\,\mathrm{W}/\mathrm{cm}^2 	imes 10^{-6}\,\mathrm{cm}^2
+= 10	ext{–}30\,\mathrm{mW}.
+```
+
+That’s **power at the sample plane**. The required power at the **fiber exit** is
+
+```math
+P_{\mathrm{fiber}} = rac{P_{\mathrm{sample}}}{T_{\mathrm{total}}},
+```
+
+where \(T_{\mathrm{total}}\) is the total transmission (fiber coupling × relays × stop losses × objective, etc).
+If \(T_{\mathrm{total}}pprox 0.2	ext{–}0.4\), then \(P_{\mathrm{fiber}}pprox 25	ext{–}150\,\mathrm{mW}\).
+If your real \(T_{\mathrm{total}}\) is worse (e.g. aggressive stop clipping, extra AOM, poor coupling), then
+\(100	ext{–}500\,\mathrm{mW}\) can become plausible — but it is **not automatically required**.
+
+### 9.2 The real constraint at 500 µs: speckle averaging
+
+For fully developed speckle, the contrast scales like
+
+```math
+C pprox rac{1}{\sqrt{N_{\mathrm{eff}}}},
+```
+
+where \(N_{\mathrm{eff}}\) is the effective number of independent realizations averaged *during the exposure*.
+A useful bookkeeping split is
+
+```math
+N_{\mathrm{eff}} pprox N_t\,N_\lambda\,N_{\mathrm{pol}}\,N_{\mathrm{angle}}.
+```
+
+- \(N_t\): time diversity (scrambler / mode mixing dynamics)
+- \(N_\lambda\): spectral diversity (laser linewidth and/or deliberate wavelength sweep)
+- \(N_{\mathrm{pol}}\): polarization diversity (often \(1\)–\(2\))
+- \(N_{\mathrm{angle}}\): angular diversity (beam steering across pupil / AOD / resonant mirror, etc.)
+
+If you want \(C \lesssim 0.1\) inside the ROI, then \(N_{\mathrm{eff}}\gtrsim 100\).
+
+With a conventional mechanical scrambler at \(f_{\mathrm{scr}}\sim 10\,\mathrm{kHz}\) and \(	au=500\,\mu\mathrm{s}\),
+you only get
+
+```math
+N_t pprox f_{\mathrm{scr}}	au pprox 10^4 	imes 5	imes10^{-4} pprox 5,
+```
+
+which by itself is not enough.
+
+### 9.3 Two “low-cost” paths that can make 500 µs realistic
+
+Your conclusion (“MMF is hopeless at 500 µs”) is **true for a narrow-linewidth laser with only slow scrambling**.
+But in your constraints you have two practical knobs that can change \(N_{\mathrm{eff}}\) by orders of magnitude:
+
+#### Path A: use spectral diversity (often already present with a normal diode)
+
+If your excitation source is a “normal” multimode diode (not single-frequency), it may have a
+linewidth on the order of **~1 nm** (sometimes more), i.e. **short coherence length**.
+In a multimode fiber, different guided paths have different optical path lengths.
+If the optical-path-length spread \(\Delta\mathrm{OPL}\) is large compared to the coherence length,
+speckle contrast drops because multiple wavelength components contribute incoherently.
+
+A simple estimate for the speckle spectral correlation width is
+
+```math
+\Delta\lambda_c \sim rac{\lambda^2}{\Delta\mathrm{OPL}}.
+```
+
+Then an effective spectral span \(\Delta\lambda_{\mathrm{src}}\) yields roughly
+
+```math
+N_\lambda pprox \left\lceil rac{\Delta\lambda_{\mathrm{src}}}{\Delta\lambda_c} ightceil.
+```
+
+In other words: even if \(N_tpprox 5\), you can reach \(N_{\mathrm{eff}}\gtrsim 100\) if \(N_\lambda\) is
+tens-to-hundreds.
+
+*Practical leverage in your project:* your JF dyes (e.g. JFX646/JFX650) are excitable over a fairly broad
+far-red band, so “wavelength sweep” or “two nearby diodes” (e.g. 637–650 nm) can also be used as
+deliberate \(N_\lambda\) diversity if needed.
+
+#### Path B: make \(N_t\) fast (cheaply) with a high-frequency fiber agitator *or* pupil-angle scanning
+
+If the laser is narrow or you want margin, you can increase \(N_t\) by increasing the speckle
+decorrelation rate.
+
+Two comparatively low-cost options that often work in practice:
+
+1. **Piezo fiber shaker / stretcher**: drive a short section of MMF mechanically at **≫100 kHz**
+   (ultrasonic piezo disks, fiber stretcher geometries). This can push \(N_t\) from ~5 to ~50–500
+   at 500 µs.
+
+2. **Beam steering in a pupil-conjugate plane** (if you already have an AOM, resonant mirror,
+   or fast galvo): hop the beam angle across the objective pupil multiple times during the exposure.
+   This contributes an \(N_{\mathrm{angle}}\) factor, and it can be combined with a moderate scrambler.
+
+The notebook `notebooks/06_mmf_illumination_500us_design.py` turns these into explicit sweeps so you can see
+what assumptions are required for \(C\lesssim 0.1\).
+
+### 9.4 Whether you need a 1 mm × 1 mm field stop
+
+If your sample ROI is \(10\,\mu\mathrm{m}	imes10\,\mu\mathrm{m}\) and you are using a 100× objective, then a
+field stop in a sample-conjugate image plane typically needs to be about
+
+```math
+D_{\mathrm{stop}} pprox M\,D_{\mathrm{sample}} pprox 100 	imes 10\,\mu\mathrm{m} = 1\,\mathrm{mm}
+```
+
+in each dimension, **if** that plane sees ~100× magnification from the sample.
+
+You *can* skip the physical stop and define an ROI digitally, but then you illuminate (and bleach) outside the ROI.
+At 10–30 kW/cm², that’s often a deal-breaker unless you can tolerate the extra photobleaching/heating.
+

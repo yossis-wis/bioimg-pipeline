@@ -23,6 +23,11 @@
 #
 # Companion doc:
 # - `docs/ILLUMINATION_SPECKLE.md`
+#
+# For the **500 µs** design regime (10 µm × 10 µm, 10–30 kW/cm²) and explicit
+# parameter sweeps (power budget, stop sizing, spectral vs temporal speckle
+# averaging), see:
+# - `notebooks/06_mmf_illumination_500us_design.py`
 
 # %% [markdown]
 # ## 0) Imports + repo plumbing
@@ -604,3 +609,4 @@ plt.show()
 # For realism:
 # - Measure an actual BFP pupil-fill image and set \(\mathrm{NA}_{\rm illum}\) from that underfill ratio.
 # - Measure speckle contrast vs exposure and scrambler state to calibrate \(N_{\rm eff}\).
+

@@ -14,6 +14,7 @@ The canonical notebooks live in `notebooks/`:
 - `03_generate_batch_spot_atlas_qc.py` — generate a MATLAB-style **spot atlas** PowerPoint for batch QC
 - `04_babysit_spot_detection.py` — "babysit" Slice0 spot detection step-by-step (TrackMate-style LoG, nonmax, u0 mask/threshold, nucleus assignment; prints TrackMate-equivalent blob diameter)
 - `05_excitation_speckle_fpfn_proxy.py`: simulate excitation (speckle + field stop) and quantify Slice0 TP/FP/FN risk.
+- `06_mmf_illumination_500us_design.py`: 500 µs design sweeps for MMF widefield illumination (power budget, stop sizing, pupil fill, and speckle-averaging strategies).
 
 ## Running notebooks
 
@@ -57,3 +58,4 @@ The generated `.ipynb` files are intentionally ignored by git.
 - `drivers/interactive_spot_qc.py`: interactive spot-detection QC tool with sliders for `q_min`, `u0_min`, and optional nucleus-probability filtering.
   - Click a candidate spot to open/update a 31×31 ROI view with in5/out0 mask outlines and nucleus outline.
   - Designed to run in Spyder (Qt backend) or VS Code.
+

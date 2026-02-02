@@ -1,0 +1,56 @@
+# MMF widefield illumination: 500 µs design sweep config
+#
+# This config is used by:
+#   scripts/run_mmf_500us_sweep.py
+#
+# It is intentionally lightweight and does not touch the image-processing pipeline.
+
+target:
+  wavelength_nm: 640.0
+  exposure_us: 500.0
+  roi_um: [10.0, 10.0]
+  irradiance_kw_per_cm2: 20.0  # set to 10–30 as needed
+
+microscope:
+  objective_magnification: 100.0
+  objective_na: 1.45
+  tube_lens_f_mm: 200.0
+  pupil_fill_fraction: 0.30
+  camera_pixel_um: 6.5
+
+fiber:
+  na: 0.22
+  f_coll_mm: 3.0
+  # Effective optical-path-length spread used for speckle spectral decorrelation.
+  # If you do not know this, sweep it (1e-3 .. 1e-1) in the script.
+  optical_path_spread_m: 3.0e-2
+
+power_budget:
+  coupling_into_fiber: 0.6
+  fiber_to_collimator: 0.95
+  stop_and_relays: 0.7
+  objective_and_misc: 0.8
+
+speckle_averaging:
+  # Time diversity
+  scrambler_hz: 10000.0
+  successive_pattern_correlation: 0.0
+
+  # Spectral diversity:
+  # - For a narrow-line laser, use ~0.01–0.05 nm.
+  # - For a "normal" multimode diode, 0.5–2 nm may be plausible.
+  # - If you intentionally sweep across dye-friendly wavelengths (e.g. 637→650 nm),
+  #   set this to ~13 nm.
+  source_span_nm: 1.0
+  n_lines: 1
+
+  # Polarization/angle diversity
+  n_pol: 2
+  n_angle: 1
+
+targets:
+  speckle_contrast_target: 0.10
+
+simulation:
+  n_grid: 512
+  seed: 0
