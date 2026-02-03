@@ -80,11 +80,11 @@ from src.slice0_kernel import Slice0Params, detect_spots  # noqa: E402
 #
 # - **ROI size** is set by a **field stop** (field plane).
 # - **Speckle grain size** and **edge roll-off** are set by **effective illumination NA**
-#   \(\mathrm{NA}_{\mathrm{illum}}\) (pupil plane / BFP underfill).
+#   $\mathrm{NA}_{\mathrm{illum}}$ (pupil plane / BFP underfill).
 #
 # For your use case:
-# - \(\lambda_{\rm exc}=640\,\mathrm{nm}\)
-# - \(\tau = 5\,\mathrm{ms}\)
+# - $\lambda_{\rm exc}=640\,\mathrm{nm}$
+# - $\tau = 5\,\mathrm{ms}$
 # - ROI = 30 µm × 30 µm
 # - pixel size: 6.5 µm on camera, 100× → 65 nm at sample
 
@@ -129,7 +129,7 @@ seed = 0  # reproducibility
 # We keep using a single representative multimode fiber spec (edit if needed):
 #
 # - core: **400 µm**
-# - \(\mathrm{NA}_{\rm fiber}=0.22\)
+# - $\mathrm{NA}_{\rm fiber}=0.22$
 #
 # This matches a very common “easy coupling / many modes” class. The notebook does **not**
 # simulate exact guided modes; it uses speckle statistics + Fourier low-pass filtering instead.
@@ -149,7 +149,7 @@ print(f"Fiber context: core={fiber_core_um:.0f} µm, NA={NA_fiber:.2f}, V≈{V:.
 # %% [markdown]
 # ## 2) Simulate one **excitation-only** frame (time-averaged over 5 ms)
 #
-# We synthesize the excitation intensity field \(I_{\rm exc}(x,y)\) in arbitrary units.
+# We synthesize the excitation intensity field $I_{\rm exc}(x,y)$ in arbitrary units.
 # We then normalize by the **inner ROI mean** so that the inside-ROI distribution is easy to read.
 
 # %%
@@ -205,7 +205,7 @@ print(
 # 3) the **full inside-ROI distribution shape** (histogram) + a gamma-model overlay.
 #
 # The gamma overlay is not “truth,” but it is a good sanity check:
-# averaging \(N_{\rm eff}\) independent speckles gives a gamma-like intensity distribution.
+# averaging $N_{\rm eff}$ independent speckles gives a gamma-like intensity distribution.
 
 # %%
 def extract_edge_patch(I: np.ndarray) -> tuple[np.ndarray, float]:
@@ -598,8 +598,8 @@ plt.show()
 # %% [markdown]
 # ## 7) Next steps (recommended exploration ladder)
 #
-# 1) Sweep **scrambler frequency** (e.g. 0 → 1 → 10 → 30 kHz) at fixed \(\mathrm{NA}_{\rm illum}\).
-# 2) Sweep **\(\mathrm{NA}_{\rm illum}\)** by changing BFP fill (keep ROI constant).
+# 1) Sweep **scrambler frequency** (e.g. 0 → 1 → 10 → 30 kHz) at fixed $\mathrm{NA}_{\rm illum}$.
+# 2) Sweep **$\mathrm{NA}_{\rm illum}$** by changing BFP fill (keep ROI constant).
 # 3) Sweep **M² proxy** cautiously (treat as a knob for extra incoherent diversity).
 # 4) Track how:
 #    - the *excitation-only* inner-ROI distribution (hist/ECDF) changes,
@@ -607,6 +607,6 @@ plt.show()
 #    - TP/FP/FN changes for the *same* Slice0 parameters.
 #
 # For realism:
-# - Measure an actual BFP pupil-fill image and set \(\mathrm{NA}_{\rm illum}\) from that underfill ratio.
-# - Measure speckle contrast vs exposure and scrambler state to calibrate \(N_{\rm eff}\).
+# - Measure an actual BFP pupil-fill image and set $\mathrm{NA}_{\rm illum}$ from that underfill ratio.
+# - Measure speckle contrast vs exposure and scrambler state to calibrate $N_{\rm eff}$.
 

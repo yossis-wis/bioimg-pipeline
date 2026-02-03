@@ -262,23 +262,32 @@ A change is acceptable only if the human can:
 
 ### E) GitHub Markdown + math conventions (important)
 
+**Canonical reference:** `docs/MATH_STYLE.md` (this section is a short summary).
+
+This repo needs LaTeX math to render correctly in two surfaces:
+
+- **GitHub-rendered Markdown** (`*.md`) in the browser
+- **Notebook Markdown cells** in **JupyterLab** and **VS Code Jupyter** (`notebooks/*.py` in Jupytext percent format)
+
+#### GitHub-rendered Markdown (`*.md`)
+
 Many docs in this repo are read directly on **GitHub**. GitHub supports LaTeX math in Markdown via **MathJax**, but the parser is picky about delimiters.
 
 Use these patterns (in this repo, treat them as *required*):
 
-#### Inline math
+##### Inline math
 
 Use either:
 
 - **Standard:** `$...$`
-- **Safer:** `$`\`...\`$` (useful when the expression contains characters that overlap with Markdown syntax)
+- **Safer (GitHub-only):** `$`\`...\`$` (useful when the expression contains characters that overlap with Markdown syntax)
 
 Examples:
 
 - `... effective illumination NA, $\mathrm{NA}_{\mathrm{illum}}$.`
 - `... speckle grain size $\Delta x_{\mathrm{speckle}} \approx \lambda/(2\,\mathrm{NA}_{\mathrm{illum}})$.`
 
-#### Display (block) math
+##### Display (block) math
 
 Prefer fenced **math blocks** (most robust on GitHub):
 
@@ -286,19 +295,36 @@ Prefer fenced **math blocks** (most robust on GitHub):
 \Delta x_{\mathrm{speckle}} \approx \frac{\lambda}{2\,\mathrm{NA}_{\mathrm{illum}}}
 ```
 
-If you use `$$...$$`, it must start on a **new line** (not mid-sentence) and you should keep the expression on the *same line* as the delimiters:
-
-$$\Delta x_{\mathrm{speckle}} \approx \frac{\lambda}{2\,\mathrm{NA}_{\mathrm{illum}}}$$
+If you use `$$...$$`, it must start on a **new line** (not mid-sentence). For multi-line blocks, keep `$$` on their own lines.
 
 Do **not** use `\(...\)` or `\[...\]` in `.md` files—GitHub will show the backslashes literally.
+
+#### Notebook Markdown cells (`notebooks/*.py` via Jupytext)
+
+Notebook math must render in both **JupyterLab** and **VS Code Jupyter**. VS Code is picky about delimiters, so in notebooks:
+
+- Inline math: `$...$` (never `\(...\)`)
+- Display math: `$$ ... $$` (never fenced ```math blocks)
+- Multi-line: use `\begin{aligned}...\end{aligned}` inside `$$ ... $$` (avoid `align` / `equation` environments)
+
+Example (multi-line):
+
+```text
+$$
+\begin{aligned}
+u_0 &= \langle I\rangle_{\mathrm{in5}} - \mathrm{median}(I)_{\mathrm{out0}}
+\end{aligned}
+$$
+```
 
 Style guidance (optics-journal style):
 
 - Use italic variables (default in math mode), and roman for units/operators: `$\mu\mathrm{m}$`, `$\mathrm{NA}$`, `$\exp(i\phi)$`.
 - Prefer `\mathrm{}` for labels/subscripts that are not variables (e.g. `$\mathrm{NA}_{\mathrm{obj}}$`, `$\mathrm{NA}_{\mathrm{illum}}$`).
-- For multi-line equations, prefer `\begin{aligned}...\end{aligned}` inside a ` ```math ` block.
+- For multi-line equations:
+  - in `.md` files: prefer `\begin{aligned}...\end{aligned}` inside a fenced ```math block.
+  - in notebooks: prefer `\begin{aligned}...\end{aligned}` inside `$$ ... $$`.
 - Keep underscores outside math either escaped (`\_`) or inside code spans.
-
 ## Prompt templates (copy/paste)
 
 ### 1) Planning only

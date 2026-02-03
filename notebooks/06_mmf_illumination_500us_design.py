@@ -91,11 +91,11 @@ from src.speckle_diversity_models import (  # noqa: E402
 #
 # Power needed at the *sample* is set by irradiance × area.
 #
-# For ROI = \(10\,\mu\mathrm{m}\times10\,\mu\mathrm{m}\),
+# For ROI = $10\,\mu\mathrm{m}\times10\,\mu\mathrm{m}$,
 #
-# ```math
+# $$
 # A = 10^{-6}\,\mathrm{cm}^2.
-# ```
+# $$
 #
 # So 10–30 kW/cm² corresponds to 10–30 mW at the sample.
 
@@ -112,9 +112,9 @@ pd.DataFrame({"E_kW_cm2": irradiance_kw_cm2_list, "P_sample_mW": p_sample_mw_lis
 # %% [markdown]
 # A **1 mm × 1 mm** field stop at a 100× sample-conjugate image plane is the right scale:
 #
-# ```math
+# $$
 # D_{\mathrm{stop}} \approx M\,D_{\mathrm{sample}} \approx 100\times 10\,\mu\mathrm{m} = 1\,\mathrm{mm}.
-# ```
+# $$
 #
 # If you skip the field stop and rely on a digital ROI, you bleach outside the ROI
 # (often unacceptable at 10–30 kW/cm²).
@@ -129,21 +129,21 @@ print(f"Field stop for ROI {roi_um[0]:.0f}×{roi_um[1]:.0f} µm at {M_obj:.0f}×
 #
 # For an infinity system, the objective focal length is approximately
 #
-# ```math
+# $$
 # f_{\mathrm{obj}} \approx \frac{f_{\mathrm{TL}}}{M}.
-# ```
+# $$
 #
 # A useful pupil diameter estimate is
 #
-# ```math
+# $$
 # D_{\mathrm{pupil}} \approx 2 f_{\mathrm{obj}}\,\mathrm{NA}_{\mathrm{obj}}.
-# ```
+# $$
 #
-# If you fill a fraction \(\rho\) of the pupil diameter, then
+# If you fill a fraction $\rho$ of the pupil diameter, then
 #
-# ```math
+# $$
 # \mathrm{NA}_{\mathrm{illum}} \approx \rho\,\mathrm{NA}_{\mathrm{obj}}.
-# ```
+# $$
 
 # %%
 na_obj = 1.45
@@ -175,9 +175,9 @@ pd.DataFrame(
 #
 # Using the far-field cone of the MMF (NA_fiber) and a collimator focal length:
 #
-# ```math
+# $$
 # D_{\mathrm{coll}} \approx 2 f_{\mathrm{coll}} \tan\!\left(\arcsin\mathrm{NA}_{\mathrm{fiber}}\right).
-# ```
+# $$
 #
 # With NA_fiber ~ 0.22, f_coll ≈ 3 mm gives ~1.3 mm diameter. That lines up with your intuition.
 
@@ -189,7 +189,7 @@ for f_coll_mm in [2.0, 2.75, 3.0, 4.5, 8.0]:
     print(f"f_coll={f_coll_mm:>4.2f} mm -> D_coll≈{d:>5.2f} mm")
 
 # %% [markdown]
-# If you want \(D_{\mathrm{beam@BFP}}\approx 1.7\,\mathrm{mm}\) and the fiber collimator gives \(D_{\mathrm{coll}}\approx 1.3\,\mathrm{mm}\),
+# If you want $D_{\mathrm{beam@BFP}}\approx 1.7\,\mathrm{mm}$ and the fiber collimator gives $D_{\mathrm{coll}}\approx 1.3\,\mathrm{mm}$,
 # you need only a modest telescope (≈1.3× beam expansion).
 #
 # In other words, the **geometrical** parts of the optical train are not the hard part here.
@@ -218,7 +218,7 @@ p_fiber_mw_list = [required_fiber_exit_power_mw(p, throughput=T) for p in p_samp
 pd.DataFrame({"E_kW_cm2": irradiance_kw_cm2_list, "P_sample_mW": p_sample_mw_list, "P_fiber_exit_mW": p_fiber_mw_list})
 
 # %% [markdown]
-# If you end up needing **100–500 mW at the fiber exit**, that implies \(T_{\mathrm{total}}\lesssim 0.1	ext{–}0.3\) for the 10–30 mW sample target.
+# If you end up needing **100–500 mW at the fiber exit**, that implies $T_{\mathrm{total}}\lesssim 0.1\text{–}0.3$ for the 10–30 mW sample target.
 # That can happen (extra AOMs, poor coupling, heavy clipping), but it is not automatic.
 
 # %% [markdown]
@@ -226,12 +226,12 @@ pd.DataFrame({"E_kW_cm2": irradiance_kw_cm2_list, "P_sample_mW": p_sample_mw_lis
 #
 # For fully developed speckle, a useful approximation is:
 #
-# ```math
+# $$
 # C \approx \frac{1}{\sqrt{N_{\mathrm{eff}}}},\qquad
 # N_{\mathrm{eff}} \approx N_t\,N_\lambda\,N_{\mathrm{pol}}\,N_{\mathrm{angle}}.
-# ```
+# $$
 #
-# If you want \(C\lesssim 0.1\), you need \(N_{\mathrm{eff}}\gtrsim 100\).
+# If you want $C\lesssim 0.1$, you need $N_{\mathrm{eff}}\gtrsim 100$.
 
 # %%
 c_target = 0.10
@@ -255,7 +255,7 @@ for f in scrambler_hz_list:
 pd.DataFrame(rows)
 
 # %% [markdown]
-# At 10 kHz, \(N_t\approx 5\). That alone cannot reach \(N_{\mathrm{eff}}\gtrsim100\).
+# At 10 kHz, $N_t\approx 5$. That alone cannot reach $N_{\mathrm{eff}}\gtrsim100$.
 #
 # So the question becomes: can we get the remaining factor from **spectral diversity** and/or **cheap faster scrambling**?
 
@@ -264,14 +264,14 @@ pd.DataFrame(rows)
 #
 # A simple spectral decorrelation estimate is
 #
-# ```math
+# $$
 # \Delta\lambda_c \sim \frac{\lambda^2}{\Delta\mathrm{OPL}}.
-# ```
+# $$
 #
 # In an MMF, different guided paths can have different optical path lengths; if your laser spectrum spans many
-# independent speckle correlation widths, then \(N_\lambda\) can be large even during a short exposure.
+# independent speckle correlation widths, then $N_\lambda$ can be large even during a short exposure.
 #
-# The key uncertainty is the effective optical-path-length spread \(\Delta\mathrm{OPL}\) of *the interfering contributions*.
+# The key uncertainty is the effective optical-path-length spread $\Delta\mathrm{OPL}$ of *the interfering contributions*.
 # We therefore sweep it.
 
 # %%
@@ -299,15 +299,15 @@ df_spec
 # %% [markdown]
 # Interpretation:
 #
-# - If your source behaves like a **narrow-line** laser (effective span ≪ 0.1 nm), \(N_\lambda\) is small.
-# - If your **diode** behaves like a ~1–2 nm source *and* the fiber induces **cm-scale optical path spread**, \(N_\lambda\) can be tens-to-hundreds.
+# - If your source behaves like a **narrow-line** laser (effective span ≪ 0.1 nm), $N_\lambda$ is small.
+# - If your **diode** behaves like a ~1–2 nm source *and* the fiber induces **cm-scale optical path spread**, $N_\lambda$ can be tens-to-hundreds.
 #
 # That is the first “escape hatch” for 500 µs: you may get enough averaging **without** a super-fast mechanical scrambler.
 #
-# The second escape hatch is to make \(N_t\) faster (piezo fiber shaker, AOM pupil hops), which we treat as \(N_t\) or \(N_{\mathrm{angle}}\).
+# The second escape hatch is to make $N_t$ faster (piezo fiber shaker, AOM pupil hops), which we treat as $N_t$ or $N_{\mathrm{angle}}$.
 
 # %% [markdown]
-# ### 5.3 Combine diversity channels into \(N_{\mathrm{eff}}\)
+# ### 5.3 Combine diversity channels into $N_{\mathrm{eff}}$
 #
 # We'll compare a few realistic scenarios:
 #
@@ -349,12 +349,12 @@ df
 # If any of the “helpful” scenarios look plausible *for your hardware*, then MMF is not automatically disqualified at 500 µs.
 #
 # The point is not that the numbers above are gospel — they’re placeholders you should replace with **your measured**
-# speckle contrast \(C\) and your measured diode spectrum (or deliberate sweep).
+# speckle contrast $C$ and your measured diode spectrum (or deliberate sweep).
 #
 # The notebook’s job is to make those dependencies explicit.
 
 # %% [markdown]
-# ## 6) Fourier-optics simulation: visualize a few \(N_{\mathrm{eff}}\) cases
+# ## 6) Fourier-optics simulation: visualize a few $N_{\mathrm{eff}}$ cases
 #
 # We use `simulate_excitation_speckle_field(...)` which implements:
 # - a square ROI mask (field stop)
@@ -410,7 +410,7 @@ for ax, (label, scr_hz, n_src) in zip(axes, viz_cases, strict=True):
 plt.tight_layout()
 
 # %% [markdown]
-# You should see that as \(N_{\mathrm{eff}}\) increases, the intensity field becomes more uniform.
+# You should see that as $N_{\mathrm{eff}}$ increases, the intensity field becomes more uniform.
 #
 # **Important:** this is an *idealized* model:
 # - it treats independent patterns as truly independent
@@ -424,10 +424,10 @@ plt.tight_layout()
 #
 # 1. Measure the diode spectrum (or effective spectral span during an exposure).
 # 2. With MMF illumination, record many short-exposure frames at low camera noise.
-# 3. Compute speckle contrast \(C\) in a central sub-ROI (avoid edges).
-# 4. Infer \(N_{\mathrm{eff}}\approx 1/C^2\).
+# 3. Compute speckle contrast $C$ in a central sub-ROI (avoid edges).
+# 4. Infer $N_{\mathrm{eff}}\approx 1/C^2$.
 #
 # Then update:
 # - `source_span_nm` and/or the “sweep” concept (637–650 nm is allowed by your dyes)
 # - `scrambler_hz` or “angle hops per exposure”
-# - the optical-path spread assumption (or simply treat \(N_\lambda\) as a fitted parameter)
+# - the optical-path spread assumption (or simply treat $N_\lambda$ as a fitted parameter)

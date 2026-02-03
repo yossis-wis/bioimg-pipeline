@@ -12,6 +12,14 @@
 # # Notebook template
 #
 # Copy this file, update the title, and start adding cells below.
+#
+# Math in notebook Markdown cells (must render in JupyterLab + VS Code):
+# - Inline: `$...$`
+# - Display: `$$ ... $$`
+# - Multi-line: use `\begin{aligned}...\end{aligned}` inside `$$ ... $$`
+# - Avoid: GitHub-style math fences and backslash-delimiter variants
+#
+# Canonical reference: `docs/MATH_STYLE.md`.
 
 # %%
 # Imports

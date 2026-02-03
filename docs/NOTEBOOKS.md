@@ -32,6 +32,24 @@ The canonical notebooks live in `notebooks/`:
    - Note: `environment.yml` already includes Jupytext.
 3. Jupytext will render the `.py` file as a notebook with cells.
 
+
+
+## Math in notebook Markdown cells
+
+When writing Markdown cells in `notebooks/*.py` (Jupytext percent format), use the notebook-safe math delimiters so equations render in both **JupyterLab** and **VS Code Jupyter**:
+
+- Inline: `$...$`
+- Display: `$$ ... $$` (use `$$` on their own lines for multi-line)
+- Multi-line: use `\begin{aligned}...\end{aligned}` inside `$$ ... $$`
+
+Do **not** use:
+
+- `\(...\)` / `\[...\]`
+- fenced ```math blocks
+- `align` / `equation` environments (use `aligned`)
+
+Canonical reference: `docs/MATH_STYLE.md`.
+
 ## Exporting HTML/PDF
 
 One recommended workflow (with execution):

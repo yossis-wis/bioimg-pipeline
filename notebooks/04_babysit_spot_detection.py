@@ -299,20 +299,20 @@ plt.show()
 #
 # The optics-derived scale comes from the Rayleigh range relation:
 #
-# \begin{equation}
+# $$
 # z_R = \frac{\pi w_0^2}{\lambda}
 # \quad\Rightarrow\quad
 # w_0 = \sqrt{\frac{\lambda z_R}{\pi}}.
-# \end{equation}
+# $$
 #
 # If the PSF is approximated as a Gaussian with $1/e^2$ radius $w_0$, then
 # $\sigma = w_0/\sqrt{2}$ in the $\exp(-r^2/2\sigma^2)$ convention.
 #
 # Slice0 uses:
 #
-# \begin{equation}
+# $$
 # \sigma_0\;[\mathrm{px}] = \frac{w_0/\sqrt{2}}{p},
-# \end{equation}
+# $$
 #
 # where $p$ is the pixel size (same length units as $w_0$).
 
@@ -358,26 +358,26 @@ print("  after u0_min:", int(len(spots_df)), f"(u0_min={params.u0_min})")
 #
 # TrackMate writes the kernel (in calibrated coordinates) as:
 #
-# \begin{equation}
+# $$
 # h(\mathbf{r}) = -C\,m(\mathbf{r})\,\exp\!\left(-\frac{\|\mathbf{r}\|^2}{2\sigma^2}\right),
-# \end{equation}
+# $$
 #
 # where in 2D:
 #
-# \begin{equation}
+# $$
 # m(\mathbf{r}) =
 # \sum_{d\in\{x,y\}}
 # \frac{1}{\sigma_{\mathrm{px},d}^2}
 # \left(\frac{x_d^2}{\sigma^2} - 1\right),
 # \qquad
 # C = \frac{1}{\pi\,\sigma_{\mathrm{px},x}^2}.
-# \end{equation}
+# $$
 #
 # In the common isotropic case this reduces (up to a constant factor) to the familiar form:
 #
-# \begin{equation}
+# $$
 # h(r) \propto \left(2 - \frac{r^2}{\sigma^2}\right)\exp\!\left(-\frac{r^2}{2\sigma^2}\right),
-# \end{equation}
+# $$
 #
 # which yields **positive peaks** for bright, in-focus spots.
 #
@@ -412,9 +412,9 @@ plt.show()
 #
 # In continuous space, applying a LoG is equivalent to applying a Laplacian after Gaussian smoothing:
 #
-# \begin{equation}
+# $$
 # \nabla^2\!\left(G_{\sigma_0} * I\right) \equiv \left(\nabla^2 G_{\sigma_0}\right) * I.
-# \end{equation}
+# $$
 #
 # Slice0 uses the **direct LoG kernel convolution** (right-hand form), but it can be helpful
 # to visualize the intermediate “Gaussian-smoothed” image as an intuition aid.
@@ -468,9 +468,9 @@ plt.show()
 #
 # Slice0 defines the quality at each candidate as:
 #
-# \begin{equation}
+# $$
 # q = (\mathrm{LoG}*I)(y_0,x_0),
-# \end{equation}
+# $$
 #
 # and keeps candidates with $q > q_{\min}$.
 
@@ -490,11 +490,13 @@ plt.show()
 # For each candidate (after $q_{\min}$), Slice0 extracts a `(2*window_radius_px+1)^2` crop (default: 31×31),
 # and computes:
 #
-# \begin{align}
+# $$
+# \begin{aligned}
 # b &= \mathrm{median}\{ I(\mathbf{r}) : \mathbf{r}\in\mathrm{out0}\},\\
 # \langle I\rangle_{\mathrm{in5}} &= \frac{1}{|\mathrm{in5}|}\sum_{\mathbf{r}\in\mathrm{in5}} I(\mathbf{r}),\\
 # u_0 &= \langle I\rangle_{\mathrm{in5}} - b.
-# \end{align}
+# \end{aligned}
+# $$
 #
 # The **yellow outline** used in the PowerPoint atlas corresponds to the *pixel mask* `in5`.
 #
@@ -640,9 +642,9 @@ plt.show()
 #
 # `nucleus_label` is assigned by sampling the nuclei label image at the spot center:
 #
-# \begin{equation}
+# $$
 # \mathrm{nucleus\_label}(y_0,x_0) = L(y_0,x_0),
-# \end{equation}
+# $$
 #
 # where $L$ is the integer label image from Slice1.
 
