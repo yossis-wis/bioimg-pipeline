@@ -160,6 +160,51 @@ If deletions are needed:
 - the LLM must list them explicitly
 - you delete them manually (then verify + commit)
 
+
+## Unified diff workflow (human)
+
+Sometimes the LLM will output a raw unified diff (i.e. `git diff` style text) directly in chat instead of a zip overlay. You can still apply it safely.
+
+### 0) Pre-flight
+
+- Make sure your working tree is clean (no uncommitted changes).
+- (Recommended) create a checkpoint commit (or a throwaway branch) before applying the diff.
+
+### 1) Save the diff text as a `.diff` file
+
+Recommended location: `repo_snapshots/llm_patch.diff` (this folder ignores `*.diff` in git).
+
+1. Create a new text file at `repo_snapshots/llm_patch.diff`.
+2. Copy/paste the LLM's diff text **exactly** into the file.
+3. Make sure the file contains **only** the raw diff:
+   - Remove any surrounding Markdown code fences (the triple-backtick lines).
+   - Remove any prose before the first `diff --git ...` line.
+
+### 2) Inspect + dry-run (no changes yet)
+
+```bash
+git apply --stat repo_snapshots/llm_patch.diff
+git apply --check repo_snapshots/llm_patch.diff
+```
+
+If `--check` fails, you are probably on a different base commit/branch than the patch expects. Confirm with:
+
+```bash
+git rev-parse --short HEAD
+```
+
+### 3) Apply, then review
+
+```bash
+git apply repo_snapshots/llm_patch.diff
+git status
+git diff
+```
+
+### 4) Verify
+
+Run the standard verification ladder (see above), then commit only after QC.
+
 ---
 
 ## Rules for the LLM (read before proposing changes)

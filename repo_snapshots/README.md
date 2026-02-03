@@ -101,6 +101,34 @@ git apply --check --reverse repo_snapshots/local_changes.diff
 git apply --check repo_snapshots/local_changes.diff
 ```
 
+
+## Applying a patch you got from an LLM
+
+If an LLM prints a raw unified diff in chat (instead of sending a zip), you can save it and apply it locally:
+
+1. Create `repo_snapshots/llm_patch.diff` (this folder ignores `*.diff` in git).
+2. Copy/paste the diff text into the file.
+   - Remove any Markdown code fences.
+   - Remove any prose before the first `diff --git ...` line.
+3. Dry-run + inspect:
+
+```bash
+git apply --stat repo_snapshots/llm_patch.diff
+git apply --check repo_snapshots/llm_patch.diff
+```
+
+4. Apply + review:
+
+```bash
+git apply repo_snapshots/llm_patch.diff
+git status
+git diff
+```
+
+If the patch was generated against a different base commit/branch, `git apply --check` will fail; checkout the intended base first (or ask the LLM to rebase the patch).
+
+Note: the **annotated** `LOCAL CHANGES (PATCH)` section inside a full snapshot is for reading only and is not meant to be applied. If you need an apply-able patch, request (or generate) **raw unified diff text only**.
+
 ## When to attach a snapshot to an LLM
 
 Attach a snapshot when:
