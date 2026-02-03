@@ -20,6 +20,9 @@ htmlcov/
 .ipynb_checkpoints/
 *.ipynb
 
+# JupyterLab / VS Code Jupyter virtual documents (ephemeral)
+.virtual_documents/
+
 # --- VS Code ---
 .vscode/
 *.code-workspace

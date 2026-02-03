@@ -93,7 +93,8 @@ $$
 Use the conventions typical of optics journals (e.g. *Optics Express*, *Applied Optics*):
 
 - **Variables** italic by default (math mode default).
-- **Units** in roman with a thin space: `10\,\mu\mathrm{m}`, `500\,\mu\mathrm{s}`, `30\,\mathrm{kW}/\mathrm{cm}^2`.
+- **Units** in roman with a thin space: `10\thinspace\mu\mathrm{m}`, `500\thinspace\mu\mathrm{s}`, `30\thinspace\mathrm{kW}/\mathrm{cm}^2`.
+- **Markdown note**: In `.md`, prefer `\thinspace` (word macro) for thin spaces in math; some Markdown parsers can treat the backslash-comma thinspace macro as an escaped comma.
 - **Named quantities / labels** in roman: `\mathrm{NA}`, `\mathrm{PSF}`, `\mathrm{SNR}`, `\mathrm{LoG}`.
 - Prefer `\exp(\cdot)` and roman differential `\mathrm{d}x` when relevant.
 - Vectors in bold: `\mathbf{r}`.

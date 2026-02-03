@@ -93,6 +93,7 @@ python drivers/run_integrated.py --config configs/integrated_sim.yaml
 
 Never include in LLM zips and never commit:
 
+- `.virtual_documents/` (Jupyter virtual documents; local-only)
 - `runs/`, `raw_staging/`, `cache/`, `models/`, `reports/`
 - `configs/local/` or `configs/*.local.yaml`
 
@@ -285,14 +286,14 @@ Use either:
 Examples:
 
 - `... effective illumination NA, $\mathrm{NA}_{\mathrm{illum}}$.`
-- `... speckle grain size $\Delta x_{\mathrm{speckle}} \approx \lambda/(2\,\mathrm{NA}_{\mathrm{illum}})$.`
+- `... speckle grain size $\Delta x_{\mathrm{speckle}} \approx \lambda/(2\thinspace\mathrm{NA}_{\mathrm{illum}})$.`
 
 ##### Display (block) math
 
 Prefer fenced **math blocks** (most robust on GitHub):
 
 ```math
-\Delta x_{\mathrm{speckle}} \approx \frac{\lambda}{2\,\mathrm{NA}_{\mathrm{illum}}}
+\Delta x_{\mathrm{speckle}} \approx \frac{\lambda}{2\thinspace\mathrm{NA}_{\mathrm{illum}}}
 ```
 
 If you use `$$...$$`, it must start on a **new line** (not mid-sentence). For multi-line blocks, keep `$$` on their own lines.

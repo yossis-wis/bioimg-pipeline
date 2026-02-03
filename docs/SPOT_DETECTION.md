@@ -43,7 +43,7 @@ In this repo:
   **legacy optics-inspired parameterization**:
 
 ```math
-r \equiv \sqrt{\frac{\lambda z_R}{\pi}}\,.
+r \equiv \sqrt{\frac{\lambda z_R}{\pi}}\thinspace.
 ```
 
 We then use
@@ -65,7 +65,7 @@ TrackMate uses an internal Gaussian scale
 so in 2D ($n_{\mathrm{dims}} = 2$):
 
 ```math
-\sigma_{\mathrm{px}} = \frac{r}{\sqrt{2}\,p},
+\sigma_{\mathrm{px}} = \frac{r}{\sqrt{2}\thinspacep},
 ```
 
 where $p$ is the pixel size (same length unit as $r$).
@@ -73,14 +73,14 @@ where $p$ is the pixel size (same length unit as $r$).
 **Optics note (optional).** If you model the in-focus PSF intensity as a Gaussian beam
 
 ```math
-I(r) = I_0\,\exp\!\left(-\frac{2r^2}{w_0^2}\right),
+I(r) = I_0\thinspace\exp\!\left(-\frac{2r^2}{w_0^2}\right),
 ```
 
 then the equivalent Gaussian standard deviation is $\sigma = w_0/2$. Matching this to TrackMate's
 $\sigma = r/\sqrt{2}$ (2D) implies $r = w_0/\sqrt{2}$ and therefore
 
 ```math
-d_{\mathrm{TM}} = \sqrt{2}\,w_0
+d_{\mathrm{TM}} = \sqrt{2}\thinspacew_0
 ```
 
 in 2D. (This repo does **not** enforce a particular optics convention; the quantity that matters for
