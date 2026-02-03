@@ -323,7 +323,7 @@ N_{\mathrm{eff}} \approx N_t \ N_\lambda \ N_{\mathrm{pol}} \ N_{\mathrm{angle}}
 
 If you want $C \lesssim 0.1$ inside the ROI, then $N_{\mathrm{eff}} \gtrsim 100$.
 
-With a conventional mechanical scrambler at $f_{\mathrm{scr}} \sim 10\thinspace\mathrm{kHz}$ and $\tau = 500\thinspace\mathrm{ms}$,
+With a conventional mechanical scrambler at $f_{\mathrm{scr}} \sim 10\thinspace\mathrm{kHz}$ and $\tau = 500\thinspace\mu\mathrm{s}$,
 you only get
 
 ```math
@@ -382,6 +382,11 @@ Two comparatively low-cost options that often work in practice:
 The notebook `notebooks/06_mmf_illumination_500us_design.py` turns these into explicit sweeps so you can see
 what assumptions are required for $C \lesssim 0.1$.
 
+If you specifically want to **see** how linewidth reduces speckle in the **inner ROI** and near the **edge**,
+use:
+
+- `notebooks/07_linewidth_speckle_mechanism_500us.py`
+
 ### 9.4 Whether you need a 1 mm × 1 mm field stop
 
 If your sample ROI is $10\thinspace\mu\mathrm{m} \times 10\thinspace\mu\mathrm{m}$ and you are using a 100× objective, then a
@@ -393,3 +398,41 @@ D_{\mathrm{stop}} \approx M \cdot D_{\mathrm{sample}} \approx 100 \times 10\thin
 in each dimension, **if** that plane sees ~100× magnification from the sample.
 You *can* skip the physical stop and define an ROI digitally, but then you illuminate (and bleach) outside the ROI.
 At 10–30 kW/cm², that's often a deal-breaker unless you can tolerate the extra photobleaching/heating.
+
+### 9.5 Terminology mini-glossary (MMF speckle)
+
+#### Coherence time and coherence length
+
+For a (roughly) stationary source with a spectral FWHM $\Delta\lambda_{\mathrm{FWHM}}$, a useful order-of-magnitude
+coherence length estimate is
+
+```math
+L_c \sim \frac{\lambda_0^2}{\Delta\lambda_{\mathrm{FWHM}}}.
+```
+
+When the optical-path-length spread $\Delta\mathrm{OPL}$ between interfering contributions is
+$\Delta\mathrm{OPL} \gg L_c$, interference is strongly suppressed and speckle contrast drops.
+
+#### Modal group delay difference
+
+In a multimode fiber, different guided modes have different **group velocities** $v_g$.
+Over a length $L$, two modes can arrive with a relative delay
+
+```math
+\Delta\tau_g \approx \frac{\Delta\mathrm{OPL}}{c} \approx \frac{n_g\thinspace\Delta L}{c}.
+```
+
+People sometimes call $\Delta\tau_g$ the *modal group delay difference* (or *intermodal group delay*).
+It is one way to parameterize the same physics as $\Delta\mathrm{OPL}$: a spread in arrival times / path lengths.
+
+#### Intermode interference
+
+If two modes are mutually coherent (their relative delay is shorter than the coherence time), then
+their complex fields add and interfere. That interference produces a high-contrast, grainy speckle pattern.
+
+If the source linewidth is wide enough that different modes are **not** mutually coherent, then the observed
+intensity becomes closer to an incoherent sum of modal intensities.
+
+Important nuance: a wide linewidth suppresses **interference speckle**, but it does not guarantee a perfectly
+flat **near-field** image of the fiber output. You can still see nonuniformity due to incomplete mode mixing,
+launch geometry, fiber bends/stress, polarization effects, and non-ideal fiber structure.
