@@ -35,7 +35,7 @@ In widefield illumination there are **two distinct sets of conjugate planes**.
 ### Field-conjugate (image) planes → ROI size and shape
 
 A **field stop** placed in a plane conjugate to the sample is imaged onto the sample.
-This sets the **illuminated area** (e.g. a square $30\thinspace\mu\mathrm{m} \times 30\thinspace\mu\mathrm{m}$).
+This sets the **illuminated area** (e.g. a square $30\,\mu\mathrm{m} \times 30\,\mu\mathrm{m}$).
 
 ### Pupil-conjugate planes (objective back focal plane, BFP) → illumination NA and spatial frequencies
 
@@ -44,7 +44,7 @@ of illumination at the sample, i.e. the **effective illumination NA**, $\mathrm{
 
 These two knobs are often conflated. In this repo's simulations we treat them separately:
 
-- ROI size: set by a **square field stop** (ideal $30\thinspace\mu\mathrm{m} \times 30\thinspace\mu\mathrm{m}$ target).
+- ROI size: set by a **square field stop** (ideal $30\,\mu\mathrm{m} \times 30\,\mu\mathrm{m}$ target).
 - Speckle correlation length + edge sharpness: set by $\mathrm{NA}_{\mathrm{illum}}$ via the pupil.
 
 ---
@@ -61,7 +61,7 @@ You will see several NA-like quantities in discussion. Here is a consistent nami
    The **effective excitation NA at the sample**, determined by how much of the objective pupil you fill
    with the illumination beam.
 
-   If the beam underfills the pupil, then (paraxial) $\mathrm{NA}_{\mathrm{illum}} \approx \rho\thinspace\mathrm{NA}_{\mathrm{obj}}$, with $\rho \equiv D_{\mathrm{beam,BFP}}/D_{\mathrm{pupil}}$.
+   If the beam underfills the pupil, then (paraxial) $\mathrm{NA}_{\mathrm{illum}} \approx \rho\,\mathrm{NA}_{\mathrm{obj}}$, with $\rho \equiv D_{\mathrm{beam,BFP}}/D_{\mathrm{pupil}}$.
 
    ($D_{\mathrm{pupil}}$ depends on objective design; use a BFP image if you want the true ratio.)
 
@@ -85,7 +85,7 @@ Speckle is an interference phenomenon: at any observation point $\mathbf{r}$, th
 as a superposition of many partial waves / modes,
 
 ```math
-U(\mathbf{r}) = \sum_{m=1}^{M} a_m(\mathbf{r})\thinspace\exp(i\phi_m).
+U(\mathbf{r}) = \sum_{m=1}^{M} a_m(\mathbf{r})\,\exp(i\phi_m).
 ```
 
 When there are many contributions with effectively random phases $\phi_m$, the central-limit theorem drives
@@ -120,7 +120,7 @@ The camera integrates changing speckle during an exposure time $\tau$:
 ```math
 \begin{aligned}
 I_{\tau}(\mathbf{r}) &= \frac{1}{N}\sum_{n=1}^{N} I_n(\mathbf{r}),\\
-N &\approx f_{\mathrm{scr}}\thinspace\tau.
+N &\approx f_{\mathrm{scr}}\,\tau.
 \end{aligned}
 ```
 
@@ -132,9 +132,9 @@ Mathematically this behaves like an incoherent average *if* successive patterns 
 
 Sometimes—*but it is risky for 5 ms single-molecule work*.
 
-A speckle pattern changes when relative optical phases change by $\sim 1\thinspace\mathrm{rad}$.  
+A speckle pattern changes when relative optical phases change by $\sim 1\,\mathrm{rad}$.  
 For a path-length change $\Delta L$ in glass (index $n$), a phase change of 1 rad corresponds to
-$\Delta L \sim \lambda/(2\pi n)$ (tens of nm at $\lambda\approx 640\thinspace\mathrm{nm}$).
+$\Delta L \sim \lambda/(2\pi n)$ (tens of nm at $\lambda\approx 640\,\mathrm{nm}$).
 That is a very small mechanical/thermal perturbation.
 
 So with a multimode fiber, **even minute bending, vibration, or thermal drift** can decorrelate the pattern.
@@ -153,12 +153,12 @@ Your FP/FN behavior is driven by two different "tail" mechanisms.
 ### 4.1 PSF-scale structure (dangerous for FP)
 
 If excitation nonuniformity has significant spatial power at the **emission PSF scale**
-($\sim 200$–$300\thinspace\mathrm{nm}$ for a 1.4 NA objective at visible wavelengths), it can generate
+($\sim 200$–$300\,\mathrm{nm}$ for a 1.4 NA objective at visible wavelengths), it can generate
 local maxima that resemble real spots and increase false positives.
 
 This is why it is useful to compare:
 
-- excitation-field structure at **pixel scale** ($65\thinspace\mathrm{nm}$ sampling), and
+- excitation-field structure at **pixel scale** ($65\,\mathrm{nm}$ sampling), and
 - structure at the **PSF scale** (after convolution with an emission PSF model).
 
 ### 4.2 ROI-scale structure (biases FN and quantification)
@@ -179,15 +179,15 @@ The notebook is built to quantify both regimes (excitation-only + sparse-emitter
 A common order-of-magnitude estimate for speckle grain size (intensity correlation width) in the sample plane is:
 
 ```math
-\Delta x_{\mathrm{speckle}} \approx \frac{\lambda}{2\thinspace\mathrm{NA}_{\mathrm{illum}}}.
+\Delta x_{\mathrm{speckle}} \approx \frac{\lambda}{2\,\mathrm{NA}_{\mathrm{illum}}}.
 ```
 
-With $\lambda = 640\thinspace\mathrm{nm}$ and sampling $\Delta x = 65\thinspace\mathrm{nm/px}$:
+With $\lambda = 640\,\mathrm{nm}$ and sampling $\Delta x = 65\,\mathrm{nm/px}$:
 
-- If $\mathrm{NA}_{\mathrm{illum}} = 0.05$: $\Delta x_{\mathrm{speckle}} \approx 6.4\thinspace\mu\mathrm{m} \approx 98\thinspace\mathrm{px}$ (very large grains).
-- If $\mathrm{NA}_{\mathrm{illum}} = 0.20$: $\Delta x_{\mathrm{speckle}} \approx 1.6\thinspace\mu\mathrm{m} \approx 25\thinspace\mathrm{px}$.
+- If $\mathrm{NA}_{\mathrm{illum}} = 0.05$: $\Delta x_{\mathrm{speckle}} \approx 6.4\,\mu\mathrm{m} \approx 98\,\mathrm{px}$ (very large grains).
+- If $\mathrm{NA}_{\mathrm{illum}} = 0.20$: $\Delta x_{\mathrm{speckle}} \approx 1.6\,\mu\mathrm{m} \approx 25\,\mathrm{px}$.
 
-To get $\Delta x_{\mathrm{speckle}} \lesssim 1\thinspace\mathrm{px}$ would require $\mathrm{NA}_{\mathrm{illum}} \gtrsim 5$,
+To get $\Delta x_{\mathrm{speckle}} \lesssim 1\,\mathrm{px}$ would require $\mathrm{NA}_{\mathrm{illum}} \gtrsim 5$,
 which is impossible.
 
 So the practical objective is not "sub-pixel grains," but **low speckle contrast** (via averaging) and/or
@@ -231,7 +231,7 @@ You should calibrate this empirically for your actual hardware:
 
 **Cons**
 
-- Gaussian nonuniformity across a $30\thinspace\mu\mathrm{m}$ ROI unless you oversize the beam (wastes power).
+- Gaussian nonuniformity across a $30\,\mu\mathrm{m}$ ROI unless you oversize the beam (wastes power).
 - Coherent "hard cropping" (square stop) can introduce diffraction ringing (fringes) unless you image the stop
   incoherently (Köhler-like) or accept soft edges.
 - Back reflections can destabilize some laser heads unless you use an isolator and/or careful tilt/wedge management.
@@ -246,7 +246,7 @@ You should calibrate this empirically for your actual hardware:
 
 **Cons**
 
-- Without enough averaging at $\tau=5\thinspace\mathrm{ms}$, residual speckle can dominate pixel-level nonuniformity.
+- Without enough averaging at $\tau=5\,\mathrm{ms}$, residual speckle can dominate pixel-level nonuniformity.
 - Mechanical scramblers have finite decorrelation rates; "independent pattern per cycle" is approximate.
 - Extra components introduce loss, alignment complexity, and potential wavelength-dependent behavior.
 
@@ -277,17 +277,17 @@ At **τ = 500 µs**, the question is not "can I image?" (you likely can), but
 
 ### 9.1 Power sanity check (why 100–500 mW at the fiber exit may or may not be needed)
 
-For an ROI of $10\thinspace\mu\mathrm{m} \times 10\thinspace\mu\mathrm{m}$, the area is
+For an ROI of $10\,\mu\mathrm{m} \times 10\,\mu\mathrm{m}$, the area is
 
 ```math
-A = (10^{-3}\thinspace\mathrm{cm})^2 = 10^{-6}\thinspace\mathrm{cm}^2.
+A = (10^{-3}\,\mathrm{cm})^2 = 10^{-6}\,\mathrm{cm}^2.
 ```
 
-So an irradiance of $E = 10\text{–}30\thinspace\mathrm{kW}/\mathrm{cm}^2$ corresponds to
+So an irradiance of $E = 10\text{–}30\,\mathrm{kW}/\mathrm{cm}^2$ corresponds to
 
 ```math
-P_{\mathrm{sample}} = E \cdot A = (10\text{–}30) \times 10^{3}\thinspace\mathrm{W}/\mathrm{cm}^2 \times 10^{-6}\thinspace\mathrm{cm}^2
-= 10\text{–}30\thinspace\mathrm{mW}.
+P_{\mathrm{sample}} = E \cdot A = (10\text{–}30) \times 10^{3}\,\mathrm{W}/\mathrm{cm}^2 \times 10^{-6}\,\mathrm{cm}^2
+= 10\text{–}30\,\mathrm{mW}.
 ```
 
 That's **power at the sample plane**. The required power at the **fiber exit** is
@@ -297,9 +297,9 @@ P_{\mathrm{fiber}} = \frac{P_{\mathrm{sample}}}{T_{\mathrm{total}}},
 ```
 
 where $T_{\mathrm{total}}$ is the total transmission (fiber coupling × relays × stop losses × objective, etc).
-If $T_{\mathrm{total}} \approx 0.2\text{–}0.4$, then $P_{\mathrm{fiber}} \approx 25\text{–}150\thinspace\mathrm{mW}$.
+If $T_{\mathrm{total}} \approx 0.2\text{–}0.4$, then $P_{\mathrm{fiber}} \approx 25\text{–}150\,\mathrm{mW}$.
 If your real $T_{\mathrm{total}}$ is worse (e.g. aggressive stop clipping, extra AOM, poor coupling), then
-$100\text{–}500\thinspace\mathrm{mW}$ can become plausible — but it is **not automatically required**.
+$100\text{–}500\,\mathrm{mW}$ can become plausible — but it is **not automatically required**.
 
 ### 9.2 The real constraint at 500 µs: speckle averaging
 
@@ -323,7 +323,7 @@ N_{\mathrm{eff}} \approx N_t \ N_\lambda \ N_{\mathrm{pol}} \ N_{\mathrm{angle}}
 
 If you want $C \lesssim 0.1$ inside the ROI, then $N_{\mathrm{eff}} \gtrsim 100$.
 
-With a conventional mechanical scrambler at $f_{\mathrm{scr}} \sim 10\thinspace\mathrm{kHz}$ and $\tau = 500\thinspace\mu\mathrm{s}$,
+With a conventional mechanical scrambler at $f_{\mathrm{scr}} \sim 10\,\mathrm{kHz}$ and $\tau = 500\,\mu\mathrm{s}$,
 you only get
 
 ```math
@@ -389,11 +389,11 @@ use:
 
 ### 9.4 Whether you need a 1 mm × 1 mm field stop
 
-If your sample ROI is $10\thinspace\mu\mathrm{m} \times 10\thinspace\mu\mathrm{m}$ and you are using a 100× objective, then a
+If your sample ROI is $10\,\mu\mathrm{m} \times 10\,\mu\mathrm{m}$ and you are using a 100× objective, then a
 field stop in a sample-conjugate image plane typically needs to be about
 
 ```math
-D_{\mathrm{stop}} \approx M \cdot D_{\mathrm{sample}} \approx 100 \times 10\thinspace\mu\mathrm{m} = 1\thinspace\mathrm{mm}
+D_{\mathrm{stop}} \approx M \cdot D_{\mathrm{sample}} \approx 100 \times 10\,\mu\mathrm{m} = 1\,\mathrm{mm}
 ```
 in each dimension, **if** that plane sees ~100× magnification from the sample.
 You *can* skip the physical stop and define an ROI digitally, but then you illuminate (and bleach) outside the ROI.
@@ -419,7 +419,7 @@ In a multimode fiber, different guided modes have different **group velocities**
 Over a length $L$, two modes can arrive with a relative delay
 
 ```math
-\Delta\tau_g \approx \frac{\Delta\mathrm{OPL}}{c} \approx \frac{n_g\thinspace\Delta L}{c}.
+\Delta\tau_g \approx \frac{\Delta\mathrm{OPL}}{c} \approx \frac{n_g\,\Delta L}{c}.
 ```
 
 People sometimes call $\Delta\tau_g$ the *modal group delay difference* (or *intermodal group delay*).

@@ -20,9 +20,10 @@ Checks performed
 - Notebooks:
   - forbid fenced ```math blocks (GitHub-only feature)
   - forbid LaTeX delimiters \(...\) and \[...\] (GitHub shows backslashes literally)
+  - forbid `\thinspace` (use `\,` for thin spaces)
 - Markdown:
-  - forbid the TeX thin-space macro written as backslash-comma in math (some Markdown parsers
-    treat it as an escaped comma). Prefer the word macro `\thinspace` instead.
+  - forbid the TeX thin-space word macro `\thinspace` (GitHub renders it as an unknown macro).
+    Prefer `\,` instead.
 
 The Markdown check ignores inline code spans and non-math fenced code blocks.
 """
@@ -113,6 +114,7 @@ def check_no_tabs(path: Path, text: str, errors: list[str]) -> None:
 def check_notebook_math_syntax(path: Path, text: str, errors: list[str]) -> None:
     forbidden = [
         ("```math", "Use $...$ / $$...$$ in notebooks; fenced ```math is GitHub-only."),
+        ("\\thinspace", "Avoid \\thinspace; use \\, for thin spaces (GitHub/Jupyter/VS Code)."),
         ("\\(", "Do not use \\( ... \\) in this repo; GitHub shows backslashes literally."),
         ("\\)", "Do not use \\( ... \\) in this repo; GitHub shows backslashes literally."),
         ("\\[", "Do not use \\[ ... \\] in this repo; GitHub shows backslashes literally."),
@@ -123,8 +125,8 @@ def check_notebook_math_syntax(path: Path, text: str, errors: list[str]) -> None
             errors.append(f"{path.as_posix()}: forbidden notebook token '{token}'. {msg}")
 
 
-def check_markdown_no_backslash_comma(path: Path, text: str, errors: list[str]) -> None:
-    """Flag '\\,' in Markdown math contexts. Ignores inline code and non-math fences."""
+def check_markdown_no_thinspace(path: Path, text: str, errors: list[str]) -> None:
+    """Flag '\\thinspace' in Markdown math contexts. Ignores inline code and non-math fences."""
     in_fence = False
     fence_delim = ""
     fence_lang = ""
@@ -152,9 +154,9 @@ def check_markdown_no_backslash_comma(path: Path, text: str, errors: list[str]) 
                 continue
 
         line = INLINE_CODE_RE.sub("", raw)
-        if "\\," in line:
+        if "\\thinspace" in line:
             errors.append(
-                f"{path.as_posix()}:{lineno}: found '\\,' in Markdown. Prefer '\\thinspace'."
+                f"{path.as_posix()}:{lineno}: found '\\thinspace' in Markdown. Prefer '\\,'."
             )
 
 
@@ -173,7 +175,7 @@ def main() -> int:
         text = path.read_text(encoding="utf-8", errors="replace")
         check_no_control_chars(path, text, errors)
         check_no_tabs(path, text, errors)
-        check_markdown_no_backslash_comma(path, text, errors)
+        check_markdown_no_thinspace(path, text, errors)
 
     if errors:
         print("\n".join(errors), file=sys.stderr)

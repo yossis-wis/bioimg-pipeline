@@ -9,12 +9,12 @@
 # ---
 
 # %% [markdown]
-# # Linewidth → speckle averaging at $500\thinspace\mu\mathrm{s}$
+# # Linewidth → speckle averaging at $500\,\mu\mathrm{s}$
 #
 # This notebook focuses on a single question:
 #
 # > How does **spectral linewidth** (or an intentional wavelength sweep) reduce
-# > the **speckle level** for a **$500\thinspace\mu\mathrm{s}$** exposure?
+# > the **speckle level** for a **$500\,\mu\mathrm{s}$** exposure?
 #
 # We treat two regions separately:
 #
@@ -83,9 +83,9 @@ from src.speckle_diversity_models import (  # noqa: E402
 #
 # We keep the geometry simple and representative:
 #
-# - excitation wavelength: $\lambda_0 = 640\thinspace\mathrm{nm}$
-# - exposure: $\tau = 500\thinspace\mu\mathrm{s}$
-# - square ROI: $10\thinspace\mu\mathrm{m}\times10\thinspace\mu\mathrm{m}$
+# - excitation wavelength: $\lambda_0 = 640\,\mathrm{nm}$
+# - exposure: $\tau = 500\,\mu\mathrm{s}$
+# - square ROI: $10\,\mu\mathrm{m}\times10\,\mu\mathrm{m}$
 # - illumination NA: $\mathrm{NA}_{\mathrm{illum}}\approx0.3\,\mathrm{NA}_{\mathrm{obj}}$ (edit directly)
 #
 # We sweep the *effective source span* $\Delta\lambda_{\mathrm{src}}$.
@@ -222,7 +222,7 @@ plt.show()
 # N_{\lambda} \approx \left\lceil \frac{\Delta\lambda_{\mathrm{src}}}{\Delta\lambda_c} \right\rceil.
 # $$
 #
-# Then, keeping the time diversity fixed ($f_{\mathrm{scr}}\approx10\thinspace\mathrm{kHz}$),
+# Then, keeping the time diversity fixed ($f_{\mathrm{scr}}\approx10\,\mathrm{kHz}$),
 # we simulate fields with $N_{\mathrm{src}}=N_{\lambda}$ and measure:
 #
 # - $C_{\mathrm{inner}} = \sigma/\mu$ in the inner ROI.
@@ -286,7 +286,7 @@ ax.semilogx(df_mean["span_nm"], df_mean["C_edge_in_mean"], marker="o", label="ed
 
 ax.set_xlabel(r"effective source span $\Delta\lambda_{\mathrm{src}}$ [nm]")
 ax.set_ylabel(r"measured contrast $C=\sigma/\mu$")
-ax.set_title(r"Simulated contrast vs linewidth (fixed $\tau=500\thinspace\mu\mathrm{s}$, $f_{\mathrm{scr}}=10\thinspace\mathrm{kHz}$)")
+ax.set_title(r"Simulated contrast vs linewidth (fixed $\tau=500\,\mu\mathrm{s}$, $f_{\mathrm{scr}}=10\,\mathrm{kHz}$)")
 ax.grid(True, which="both", alpha=0.3)
 ax.legend()
 plt.show()
@@ -378,7 +378,7 @@ plt.show()
 # ## 5) Interpretation checklist
 #
 # - If $C_{\mathrm{inner}}$ decreases strongly with $\Delta\lambda_{\mathrm{src}}$ in your measurements,
-#   then linewidth (or a small wavelength sweep) is a powerful way to make $500\thinspace\mu\mathrm{s}$ viable.
+#   then linewidth (or a small wavelength sweep) is a powerful way to make $500\,\mu\mathrm{s}$ viable.
 #
 # - If the **edge** contrast decreases much less than the **inner** contrast, the edge is probably dominated
 #   by the deterministic roll-off from the finite illumination NA and relay aberrations rather than speckle.
