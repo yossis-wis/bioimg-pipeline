@@ -16,6 +16,7 @@ The canonical notebooks live in `notebooks/`:
 - `05_excitation_speckle_fpfn_proxy.py`: simulate excitation (speckle + field stop) and quantify Slice0 TP/FP/FN risk.
 - `06_mmf_illumination_500us_design.py`: 500 µs design sweeps for MMF widefield illumination (power budget, stop sizing, pupil fill, and speckle-averaging strategies).
 - `07_linewidth_speckle_mechanism_500us.py`: visualize how spectral linewidth reduces speckle at 500 µs (inner ROI vs edge metrics + Fourier-optics mechanism).
+- `08_cni_laser_system_diagrams.py`: generate block diagrams + quote-request checklists for two laser delivery concepts (single-mode fibers vs common multimode fiber) to communicate with CNI Laser.
 
 ## Running notebooks
 

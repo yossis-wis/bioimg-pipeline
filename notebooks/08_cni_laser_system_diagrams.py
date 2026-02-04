@@ -1,0 +1,422 @@
+# ---
+# jupyter:
+#   jupytext:
+#     formats: py:percent
+#   kernelspec:
+#     display_name: Python 3
+#     language: python
+#     name: python3
+# ---
+
+# %% [markdown]
+# # CNI Laser inquiry: two illumination laser + delivery system concepts
+#
+# This notebook generates **two block diagrams** and **quote-request tables** intended for
+# vendor communication (CNI Laser engineers).
+#
+# The two concepts:
+#
+# 1. **A) Single-mode fiber approach**
+#    - Each wavelength is a **single-transverse-mode (near TEM00)** source
+#    - Each laser is **fiber-coupled to its own FC/APC single-mode fiber**
+#    - Each fiber has its own **collimator**
+#    - The separately collimated beams are **combined in free space** into a common path
+#    - Illumination at the sample is a **time-constant Gaussian field**
+#
+# 2. **B) Multimode fiber approach**
+#    - Lasers are **free-space** sources with **wide linewidth** (roughly **2–20 nm**, by design)
+#    - Free-space beams are combined into **one common multimode fiber (MMF)**
+#    - The MMF passes through a **~10 kHz scrambler**
+#    - The MMF output is collimated, passed through a **square field stop**, and relayed to the
+#      objective **back focal plane (BFP)** with a target pupil fill of **~0.3**
+#    - Illumination is intended to be **time-constant** and **flatter** (reduced speckle)
+#
+# The config file driving the content is:
+#
+# - `configs/cni_laser_inquiry.yaml`
+#
+# You can edit that YAML (wavelengths, powers, constraints) without touching code.
+
+# %% [markdown]
+# ## 0) Imports + repo plumbing
+
+# %%
+from __future__ import annotations
+
+import math
+import sys
+from pathlib import Path
+
+import matplotlib
+import matplotlib.pyplot as plt
+import pandas as pd
+import yaml
+
+if "ipykernel" in sys.modules:
+    # Ensure inline backend in notebooks even if something forced Agg earlier.
+    try:
+        if matplotlib.get_backend().lower() == "agg":
+            matplotlib.use("module://matplotlib_inline.backend_inline", force=True)
+    except Exception:
+        pass
+
+
+def find_repo_root(start: Path) -> Path:
+    """Find repo root by walking upward until we see (src/, environment.yml)."""
+
+    p = start.resolve()
+    for parent in [p, *p.parents]:
+        if (parent / "src").is_dir() and (parent / "environment.yml").exists():
+            return parent
+    return p
+
+
+REPO_ROOT = find_repo_root(Path.cwd())
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from src.illumination_design_params import PowerBudget, required_fiber_exit_power_mw, required_sample_power_mw  # noqa: E402
+from src.laser_system_diagrams import (  # noqa: E402
+    LaserChannel,
+    draw_multimode_fiber_system_diagram,
+    draw_single_mode_fiber_system_diagram,
+)
+
+# %% [markdown]
+# ## 1) Load inquiry config
+
+# %%
+CONFIG_PATH = REPO_ROOT / "configs" / "cni_laser_inquiry.yaml"
+config = yaml.safe_load(CONFIG_PATH.read_text(encoding="utf-8"))
+
+meta = config.get("meta", {})
+req = config.get("requirements", {})
+a = config.get("approach_a_single_mode_fiber", {})
+b = config.get("approach_b_multimode_fiber", {})
+
+print(f"Config: {CONFIG_PATH}")
+print(f"Created: {meta.get('created_utc', '(unknown)')}")
+print(f"Purpose: {meta.get('purpose', '(unknown)')}")
+
+# %% [markdown]
+# ## 2) Power + irradiance sanity checks (back-of-the-envelope)
+#
+# These estimates are **not** meant to be perfectly accurate optical modeling.
+# They exist to make sure the requested ROI/irradiance numbers correspond to plausible
+# mW-scale power at the sample.
+#
+# Notes:
+# - The repo helper `required_sample_power_mw()` assumes a **square ROI**.
+# - For your constraints you often think in **disc ROIs** (e.g. 30 µm diameter).
+#   We compute disc-area power explicitly.
+
+# %%
+UM_TO_CM = 1e-4
+
+
+def disc_area_cm2(diameter_um: float) -> float:
+    """Area of a disc ROI (cm^2), given its diameter in µm."""
+
+    r_cm = (float(diameter_um) / 2.0) * UM_TO_CM
+    return math.pi * r_cm**2
+
+
+def required_sample_power_mw_disc(irradiance_kw_per_cm2: float, diameter_um: float) -> float:
+    """Required sample power (mW) for a disc ROI."""
+
+    # 1 kW/cm^2 = 1e3 W/cm^2 = 1e6 mW/cm^2
+    return float(irradiance_kw_per_cm2) * 1e6 * disc_area_cm2(diameter_um)
+
+
+def _format_roi(roi: dict) -> str:
+    shape = roi.get("shape", "")
+    if shape == "disc":
+        return f"disc Ø{roi.get('diameter_um')} µm"
+    if shape == "square":
+        return f"square {roi.get('width_um')}×{roi.get('height_um')} µm"
+    return str(roi)
+
+
+rows = []
+for exp in req.get("exposures", []):
+    exp_name = exp.get("name", "")
+    exp_us = exp.get("exposure_us", None)
+    for target in exp.get("targets", []):
+        roi = target.get("roi", {})
+        priority = target.get("priority", "")
+
+        if "irradiance_kw_per_cm2" in target:
+            irr_list = [float(target["irradiance_kw_per_cm2"])]
+        else:
+            irr_list = [float(x) for x in target.get("irradiance_kw_per_cm2_range", [])]
+
+        for irr in irr_list:
+            if roi.get("shape") == "disc":
+                p_mw = required_sample_power_mw_disc(irr, float(roi["diameter_um"]))
+            else:
+                # Fallback: treat as square ROI using repo helper.
+                # (You can extend the config if you prefer explicit square ROIs.)
+                roi_um = (float(roi.get("width_um", 10.0)), float(roi.get("height_um", 10.0)))
+                p_mw = required_sample_power_mw(irr, roi_um)
+
+            rows.append(
+                {
+                    "exposure": exp_name,
+                    "exposure_us": exp_us,
+                    "priority": priority,
+                    "ROI": _format_roi(roi),
+                    "irradiance_kW/cm^2": irr,
+                    "required_sample_power_mW": p_mw,
+                }
+            )
+
+pd.DataFrame(rows).sort_values(["exposure_us", "priority", "ROI", "irradiance_kW/cm^2"])  # type: ignore[call-arg]
+
+# %% [markdown]
+# ### Power at the fiber / laser output (rough)
+#
+# The power you need *at the laser* depends on overall optical throughput.
+# Below we show a few throughput scenarios.
+#
+# - If you are delivering via **fiber** + multiple relays + a field stop, it is easy to end up in the
+#   0.1–0.5 total-throughput range.
+# - This is intentionally conservative: the goal is to sanity-check whether 500 mW vs 2 W class lasers
+#   are in the right ballpark.
+
+# %%
+example_budget = PowerBudget(
+    coupling_into_fiber=0.6,
+    fiber_to_collimator=0.95,
+    stop_and_relays=0.7,
+    objective_and_misc=0.8,
+)
+t_example = example_budget.total_throughput()
+print(f"Example throughput (editable): {t_example:.3f} from {example_budget}")
+
+throughputs = [0.1, 0.2, 0.3, 0.5]
+
+power_rows = []
+for r in rows:
+    p_sample = float(r["required_sample_power_mW"])
+    for t in throughputs:
+        power_rows.append(
+            {
+                "exposure": r["exposure"],
+                "ROI": r["ROI"],
+                "irradiance_kW/cm^2": r["irradiance_kW/cm^2"],
+                "throughput": t,
+                "required_fiber_exit_mW": required_fiber_exit_power_mw(p_sample, throughput=t),
+            }
+        )
+
+pd.DataFrame(power_rows).sort_values(["exposure", "ROI", "irradiance_kW/cm^2", "throughput"])  # type: ignore[call-arg]
+
+# %% [markdown]
+# ## 3) Approach A: single-mode fiber system diagram + quote checklist
+
+# %%
+# Build LaserChannel labels from YAML.
+lasers_a = []
+for spec in a.get("lasers", []):
+    wl = float(spec["wavelength_nm"])
+    status = str(spec.get("status", "need_now"))
+
+    if "power_mw" in spec:
+        p_label = f"{float(spec['power_mw']):.0f} mW"
+    else:
+        p_label = str(spec.get("power", ""))
+
+    extra = spec.get("output", None)
+    label = "\n".join([f"{wl:.0f} nm", p_label, str(extra)]) if extra else "\n".join([f"{wl:.0f} nm", p_label])
+    lasers_a.append(LaserChannel(label=label, status=status))
+
+fig_a = draw_single_mode_fiber_system_diagram(lasers_a, title=f"{a.get('short_name')}: {a.get('concept')}")
+fig_a
+
+# %% [markdown]
+# ### A) Checklist / questions to include in a quote request
+
+# %%
+rows_a = []
+for spec in a.get("lasers", []):
+    wl = spec.get("wavelength_nm")
+    status = spec.get("status", "need_now")
+    p = spec.get("power_mw", "")
+    out = spec.get("output", "")
+    bq = spec.get("beam_quality", "")
+    notes = spec.get("notes", "")
+
+    rows_a.append(
+        {
+            "item": f"Laser {wl} nm",
+            "need": status,
+            "power": f"{p} mW" if p != "" else "(see notes)",
+            "output": out,
+            "beam/linewidth": bq,
+            "questions": (
+                "Model options, price, lead time; modulation rise/fall (TTL/analog); "
+                "fiber output power spec; polarization; stability. " + str(notes)
+            ).strip(),
+        }
+    )
+
+rows_a.append(
+    {
+        "item": "FC/APC SM patch cords",
+        "need": "need_now",
+        "power": "",
+        "output": "FC/APC",
+        "beam/linewidth": "",
+        "questions": "Do you supply the SM fiber patch cords? What fiber type (MFD) and length options?",
+    }
+)
+
+rows_a.append(
+    {
+        "item": "Fiber collimators",
+        "need": "need_now",
+        "power": "",
+        "output": "FC/APC",
+        "beam/linewidth": "",
+        "questions": "Do you supply matching FC/APC collimators? What focal length / beam diameter options?",
+    }
+)
+
+rows_a.append(
+    {
+        "item": "AOM + RF driver (optional)",
+        "need": "future",
+        "power": "",
+        "output": "",
+        "beam/linewidth": "",
+        "questions": "If you offer AOMs: recommended model(s) for 640/561 and expected switching time.",
+    }
+)
+
+pd.DataFrame(rows_a)
+
+# %% [markdown]
+# ## 4) Approach B: multimode fiber system diagram + quote checklist
+
+# %%
+lasers_b = []
+for spec in b.get("lasers", []):
+    wl = float(spec["wavelength_nm"])
+    status = str(spec.get("status", "need_now"))
+
+    if "power_w_range" in spec:
+        lo, hi = spec["power_w_range"]
+        p_label = f"{lo:g}–{hi:g} W"
+    elif "power_mw" in spec:
+        p_label = f"{float(spec['power_mw']):.0f} mW"
+    else:
+        p_label = str(spec.get("power", ""))
+
+    lw = ""
+    if "linewidth_nm_range" in spec:
+        lo, hi = spec["linewidth_nm_range"]
+        lw = f"Δλ~{lo:g}–{hi:g} nm"
+    elif "linewidth_nm_min" in spec:
+        lw = f"Δλ≥{spec['linewidth_nm_min']} nm"
+
+    label_lines = [f"{wl:.0f} nm", p_label]
+    if lw:
+        label_lines.append(lw)
+    lasers_b.append(LaserChannel(label="\n".join(label_lines), status=status))
+
+fig_b = draw_multimode_fiber_system_diagram(lasers_b, title=f"{b.get('short_name')}: {b.get('concept')}")
+fig_b
+
+# %% [markdown]
+# ### B) Checklist / questions to include in a quote request
+
+# %%
+rows_b = []
+for spec in b.get("lasers", []):
+    wl = spec.get("wavelength_nm")
+    status = spec.get("status", "need_now")
+
+    if "power_w_range" in spec:
+        lo, hi = spec["power_w_range"]
+        p = f"{lo:g}–{hi:g} W"
+    else:
+        p = f"{spec.get('power_mw', '')} mW".strip()
+
+    notes = str(spec.get("notes", "")).strip()
+
+    if "linewidth_nm_range" in spec:
+        l0, l1 = spec["linewidth_nm_range"]
+        lw = f"{l0}–{l1} nm"
+    else:
+        lw = str(spec.get("linewidth_nm_min", ""))
+
+    rows_b.append(
+        {
+            "item": f"Laser {wl} nm",
+            "need": status,
+            "power": p,
+            "linewidth": lw,
+            "questions": (
+                "Confirm linewidth spec (nm) and how measured; price/lead time; "
+                "modulation bandwidth (TTL/analog). " + notes
+            ).strip(),
+        }
+    )
+
+rows_b.append(
+    {
+        "item": "MMF coupling package",
+        "need": "need_now",
+        "power": "",
+        "linewidth": "",
+        "questions": (
+            "Do you offer a coupling package into MMF? Recommended MMF core/NA and connector "
+            f"(config currently: {b.get('fiber', {}).get('connector', 'TBD')})."
+        ),
+    }
+)
+
+rows_b.append(
+    {
+        "item": "Fiber scrambler",
+        "need": "need_now",
+        "power": "",
+        "linewidth": "",
+        "questions": f"Any recommended MMF scrambler compatible with your MMF launch? Target ~{b.get('fiber', {}).get('scrambler_hz', 10000)} Hz.",
+    }
+)
+
+rows_b.append(
+    {
+        "item": "AOM + RF driver (optional)",
+        "need": "future",
+        "power": "",
+        "linewidth": "",
+        "questions": "If you offer AOMs: recommended model(s) for 640 and for DPSS 561; switching time for 500 µs gating.",
+    }
+)
+
+pd.DataFrame(rows_b)
+
+# %% [markdown]
+# ## 5) (Optional) Export figures for email
+#
+# By default we do **not** write files. If you want PNGs, flip `EXPORT = True`.
+#
+# Output goes to `reports/` which is gitignored by this repo.
+
+# %%
+EXPORT = False
+
+if EXPORT:
+    export_dir = REPO_ROOT / "reports" / "cni_laser_inquiry"
+    export_dir.mkdir(parents=True, exist_ok=True)
+
+    fig_a_path = export_dir / "approach_A_single_mode_fiber.png"
+    fig_b_path = export_dir / "approach_B_multimode_fiber.png"
+
+    fig_a.savefig(fig_a_path, dpi=300, bbox_inches="tight")
+    fig_b.savefig(fig_b_path, dpi=300, bbox_inches="tight")
+
+    print(f"Wrote: {fig_a_path}")
+    print(f"Wrote: {fig_b_path}")

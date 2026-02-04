@@ -1,0 +1,130 @@
+# CNI laser quote + feasibility inquiry
+#
+# This config is consumed by:
+#   notebooks/08_cni_laser_system_diagrams.py
+#
+# It exists so you can tweak wavelengths/powers/constraints without editing code.
+
+meta:
+  created_utc: "2026-02-04"
+  purpose: "Generate diagrams and a quote-request checklist for CNI Laser"
+
+requirements:
+  # What “time constant field” means in this context:
+  time_constant_field:
+    - "Intensity stable over each exposure (no slow warmup/ramping within exposure)"
+    - "Repeatable output over days (alignment/power stability)"
+
+  # Exposure and irradiance targets that drive power + modulation requirements.
+  # NOTE: Irradiance is stated for the *inner ROI* you care about.
+  exposures:
+    - name: "5ms"
+      exposure_us: 5000
+      targets:
+        - roi:
+            shape: "disc"
+            diameter_um: 30
+          irradiance_kw_per_cm2: 3
+          priority: "need_now"
+
+    - name: "500us"
+      exposure_us: 500
+      targets:
+        # Nice-to-have: 10–30 kW/cm^2 over a ~30 µm ROI.
+        - roi:
+            shape: "disc"
+            diameter_um: 30
+          irradiance_kw_per_cm2_range: [10, 30]
+          priority: "nice_to_have"
+
+        # Acceptable: 10–30 kW/cm^2 over a ~10 µm ROI.
+        - roi:
+            shape: "disc"
+            diameter_um: 10
+          irradiance_kw_per_cm2_range: [10, 30]
+          priority: "acceptable"
+
+  # Delivery geometry target (applies mainly to MMF approach, but useful generally)
+  delivery_to_objective:
+    bfp_underfill_fraction: 0.30
+
+approach_a_single_mode_fiber:
+  short_name: "A. Single-mode fiber"
+  concept: "Each wavelength has its own TEM00 (or near) fiber-coupled output (FC/APC SM) and its own collimator; beams are combined in free space; Gaussian illumination field."
+
+  lasers:
+    - wavelength_nm: 640
+      power_mw: 500
+      status: "need_now"
+      beam_quality: "single transverse mode / near TEM00"
+      output: "fiber-coupled, FC/APC, SM"
+
+    - wavelength_nm: 488
+      power_mw: 50
+      status: "need_now"
+      beam_quality: "single transverse mode / near TEM00"
+      output: "fiber-coupled, FC/APC, SM"
+
+    - wavelength_nm: 561
+      power_mw: 200
+      status: "future"
+      beam_quality: "TEM00 preferred"
+      output: "fiber-coupled preferred"
+      notes: "Likely DPSS; may require AOM for fast modulation and stable power control."
+
+    - wavelength_nm: 405
+      power_mw: 50
+      status: "future"
+      beam_quality: "TEM00 preferred"
+      output: "fiber-coupled preferred"
+
+  modulation:
+    # Desired behaviour, not a hard requirement on vendor implementation.
+    need_now: "Fast TTL/analog modulation suitable for ~5 ms exposures (on/off + power setpoint changes)."
+    future: "For <=500 µs exposures (and for DPSS 561), plan to add AOM(s) + RF drivers."
+
+approach_b_multimode_fiber:
+  short_name: "B. Multimode fiber"
+  concept: "Wide-linewidth free-space lasers combined into a single MMF; the MMF passes through a ~10 kHz scrambler; output is collimated, square-field-stopped, and relayed to the objective BFP (underfill ~0.3) for a time-constant, flatter field."
+
+  lasers:
+    - wavelength_nm: 640
+      power_w_range: [1.0, 2.0]
+      status: "need_now"
+      beam_quality: "free-space"
+      linewidth_nm_range: [2, 20]
+      notes: "Wide linewidth is intentional (speckle averaging at short exposures)."
+
+    - wavelength_nm: 488
+      power_mw: 100
+      status: "need_now"
+      beam_quality: "free-space"
+      linewidth_nm_min: 2
+
+    - wavelength_nm: 405
+      power_mw: 100
+      status: "future"
+      beam_quality: "free-space"
+
+    - wavelength_nm: 561
+      power_mw: 200
+      status: "future"
+      beam_quality: "free-space (DPSS likely)"
+      notes: "May require AOM for fast modulation."
+
+  fiber:
+    type: "MMF"
+    scrambler_hz: 10000
+    connector: "TBD (FC/PC, SMA, etc.)"
+
+  modulation:
+    need_now: "Use native diode TTL/analog where possible for ~5 ms exposures."
+    future: "Optional per-laser AOMs (especially 640 and DPSS 561) for <=500 µs exposures."
+
+vendor_questions:
+  - "Which CNI laser models match these wavelengths and powers?"
+  - "For each model: linewidth (nm), beam quality (M^2 / TEM00), polarization, and long-term power stability."
+  - "Modulation: TTL/analog bandwidth and rise/fall times; is external AOM recommended for <=500 µs?"
+  - "Fiber coupling options: FC/APC single-mode outputs (Approach A) and MMF coupling packages (Approach B)."
+  - "Recommended fiber specs (core/NA/connector) if CNI supplies the fiber patch cable."
+  - "Pricing per item and lead time; typical shipping time to my location."
