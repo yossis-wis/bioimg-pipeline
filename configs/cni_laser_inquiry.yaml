@@ -68,15 +68,15 @@ approach_a_single_mode_fiber:
     - wavelength_nm: 561
       power_mw: 200
       status: "future"
-      beam_quality: "TEM00 preferred"
-      output: "fiber-coupled preferred"
+      beam_quality: "single transverse mode / near TEM00"
+      output: "fiber-coupled, FC/APC, SM"
       notes: "Likely DPSS; may require AOM for fast modulation and stable power control."
 
     - wavelength_nm: 405
       power_mw: 50
       status: "future"
-      beam_quality: "TEM00 preferred"
-      output: "fiber-coupled preferred"
+      beam_quality: "single transverse mode / near TEM00"
+      output: "fiber-coupled, FC/APC, SM"
 
   modulation:
     # Desired behaviour, not a hard requirement on vendor implementation.
@@ -92,24 +92,26 @@ approach_b_multimode_fiber:
       power_w_range: [1.0, 2.0]
       status: "need_now"
       beam_quality: "free-space"
-      linewidth_nm_range: [2, 20]
+      linewidth_nm_range: [2, 10]
       notes: "Wide linewidth is intentional (speckle averaging at short exposures)."
 
     - wavelength_nm: 488
       power_mw: 100
       status: "need_now"
       beam_quality: "free-space"
-      linewidth_nm_min: 2
+      linewidth_nm_range: [2, 10]
 
     - wavelength_nm: 405
       power_mw: 100
       status: "future"
       beam_quality: "free-space"
+      linewidth_nm_range: [2, 10]
 
     - wavelength_nm: 561
       power_mw: 200
       status: "future"
       beam_quality: "free-space (DPSS likely)"
+      linewidth_nm_range: [2, 10]
       notes: "May require AOM for fast modulation."
 
   fiber:
