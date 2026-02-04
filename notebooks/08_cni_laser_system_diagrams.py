@@ -31,6 +31,15 @@
 #      objective **back focal plane (BFP)** with a target pupil fill of **~0.3**
 #    - Illumination is intended to be **time-constant** and **flatter** (reduced speckle)
 #
+#
+# **Notation used in the diagrams below:**
+#
+# - **Solid boxes** = items I want to buy/configure **now**.
+# - **Dashed boxes** = **future optional, user-upgradable add-ons** (customer-installed later; no factory return or part replacement assumed).
+# - The per-laser **Optional AOM** column indicates add-on AOM(+RF) modules; it is especially important for **640 nm** fast gating and effectively required for a **DPSS 561 nm** channel.
+#
+# I want CNI to quote both the "need now" items and these "future optional (user-upgradable)" modules separately.
+#
 # The config file driving the content is:
 #
 # - `configs/cni_laser_inquiry.yaml`
@@ -51,6 +60,24 @@ import matplotlib
 import matplotlib.pyplot as plt
 import pandas as pd
 import yaml
+
+# Pandas display settings: avoid truncating long text in the right-most 'questions' column.
+pd.set_option("display.max_colwidth", None)
+pd.set_option("display.max_columns", None)
+
+
+def display_table(df: pd.DataFrame):
+    """Pretty HTML table for notebooks (wrap long text instead of truncating)."""
+
+    try:
+        return (
+            df.style
+            .set_properties(**{"text-align": "left", "white-space": "pre-wrap"})
+            .set_table_styles([{"selector": "th", "props": [("text-align", "left")]}])
+        )
+    except Exception:
+        # Fallback for non-notebook contexts.
+        return df
 
 if "ipykernel" in sys.modules:
     # Ensure inline backend in notebooks even if something forced Agg earlier.
@@ -293,7 +320,8 @@ rows_a.append(
     }
 )
 
-pd.DataFrame(rows_a)
+df_rows_a = pd.DataFrame(rows_a)
+display_table(df_rows_a)
 
 # %% [markdown]
 # ## 4) Approach B: multimode fiber system diagram + quote checklist
@@ -396,7 +424,8 @@ rows_b.append(
     }
 )
 
-pd.DataFrame(rows_b)
+df_rows_b = pd.DataFrame(rows_b)
+display_table(df_rows_b)
 
 # %% [markdown]
 # ## 5) (Optional) Export figures for email

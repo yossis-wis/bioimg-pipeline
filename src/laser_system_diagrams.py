@@ -25,7 +25,6 @@ from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 from matplotlib.patches import FancyBboxPatch
 
-
 LaserStatus = Literal["need_now", "future"]
 
 
@@ -123,7 +122,12 @@ def _add_arrow(
         ax.text(xm, ym, text, ha="center", va="center", fontsize=float(fontsize))
 
 
-def _y_positions(n: int, *, top: float = 0.78, bottom: float = 0.22) -> list[float]:
+def _y_positions(n: int, *, top: float = 0.80, bottom: float = 0.35) -> list[float]:
+    """Evenly spaced y-centers for row blocks.
+
+    Defaults leave bottom space for legend + explanatory boxes.
+    """
+
     if n <= 0:
         return []
     if n == 1:
@@ -136,7 +140,32 @@ def _legend(ax: Axes, *, x: float = 0.02, y: float = 0.04) -> None:
     """Add a small legend explaining solid vs dashed boxes."""
 
     _add_box(ax, x=x, y=y, w=0.16, h=0.06, text="Need now", dashed=False, fontsize=8.5)
-    _add_box(ax, x=x + 0.18, y=y, w=0.16, h=0.06, text="Future / optional", dashed=True, fontsize=8.5)
+    _add_box(
+        ax,
+        x=x + 0.18,
+        y=y,
+        w=0.22,
+        h=0.06,
+        text="Future / user-upgradable",
+        dashed=True,
+        fontsize=8.5,
+    )
+
+
+def _bottom_notes_common(
+    ax: Axes,
+    *,
+    y: float = 0.11,
+    h: float = 0.18,
+    need_now_text: str,
+    future_text: str,
+    field_text: str,
+) -> None:
+    """Shared bottom-note layout (3 boxes) used by both diagrams."""
+
+    _add_box(ax, x=0.02, y=y, w=0.30, h=h, text=need_now_text, dashed=False, fontsize=9.0)
+    _add_box(ax, x=0.35, y=y, w=0.30, h=h, text=future_text, dashed=True, fontsize=9.0)
+    _add_box(ax, x=0.68, y=y, w=0.30, h=h, text=field_text, dashed=False, fontsize=9.0)
 
 
 def draw_single_mode_fiber_system_diagram(
@@ -158,59 +187,48 @@ def draw_single_mode_fiber_system_diagram(
     matplotlib.figure.Figure
     """
 
-    fig, ax = _setup_canvas(figsize=(15.0, 6.2))
+    fig, ax = _setup_canvas(figsize=(15.5, 6.4))
     ax.set_title(title, fontsize=13, pad=12)
 
     n = len(lasers)
     ys = _y_positions(n)
 
     # Column positions and sizes
-    box_w = 0.14
+    box_w = 0.13
     box_h = 0.11
 
     x_laser = 0.02
-    x_fiber = 0.18
-    x_coll = 0.34
-    x_comb = 0.50
-    x_aom = 0.66
-    x_relay = 0.81
+    x_aom = 0.17
+    x_fiber = 0.32
+    x_coll = 0.47
+    x_comb = 0.62
+    x_relay = 0.79
 
     # Per-channel blocks
+    aom_text = "Optional\nAOM\n(+ driver)"
     fiber_text = "SM fiber\nFC/APC"
     coll_text = "Fiber\ncollimator"
 
-    laser_boxes = []
-    fiber_boxes = []
-    coll_boxes = []
-
     for y_center, ch in zip(ys, lasers, strict=True):
         y0 = y_center - box_h / 2
-        laser_box = _add_box(ax, x=x_laser, y=y0, w=box_w, h=box_h, text=ch.label, dashed=(ch.status == "future"))
-        fiber_box = _add_box(ax, x=x_fiber, y=y0, w=box_w, h=box_h, text=fiber_text, dashed=(ch.status == "future"))
-        coll_box = _add_box(ax, x=x_coll, y=y0, w=box_w, h=box_h, text=coll_text, dashed=(ch.status == "future"))
 
-        laser_boxes.append(laser_box)
-        fiber_boxes.append(fiber_box)
-        coll_boxes.append(coll_box)
+        _add_box(ax, x=x_laser, y=y0, w=box_w, h=box_h, text=ch.label, dashed=(ch.status == "future"))
+        _add_box(ax, x=x_aom, y=y0, w=box_w, h=box_h, text=aom_text, dashed=True, fontsize=8.7)
+        _add_box(ax, x=x_fiber, y=y0, w=box_w, h=box_h, text=fiber_text, dashed=(ch.status == "future"))
+        _add_box(ax, x=x_coll, y=y0, w=box_w, h=box_h, text=coll_text, dashed=(ch.status == "future"))
 
         # Arrows within row
-        _add_arrow(
-            ax,
-            start=(x_laser + box_w, y_center),
-            end=(x_fiber, y_center),
-        )
-        _add_arrow(
-            ax,
-            start=(x_fiber + box_w, y_center),
-            end=(x_coll, y_center),
-        )
+        _add_arrow(ax, start=(x_laser + box_w, y_center), end=(x_aom, y_center))
+        _add_arrow(ax, start=(x_aom + box_w, y_center), end=(x_fiber, y_center))
+        _add_arrow(ax, start=(x_fiber + box_w, y_center), end=(x_coll, y_center))
 
     # Combiner block (common)
-    comb_box = _add_box(
+    comb_w = 0.14
+    _add_box(
         ax,
         x=x_comb,
         y=0.41,
-        w=0.14,
+        w=comb_w,
         h=0.18,
         text="Dichroic /\nbeam combiner(s)",
         dashed=False,
@@ -219,33 +237,15 @@ def draw_single_mode_fiber_system_diagram(
 
     # Merge arrows from each collimator into combiner
     for y_center in ys:
-        _add_arrow(
-            ax,
-            start=(x_coll + box_w, y_center),
-            end=(x_comb, 0.50),
-        )
-
-    # Optional AOM block
-    aom_box = _add_box(
-        ax,
-        x=x_aom,
-        y=0.44,
-        w=0.12,
-        h=0.12,
-        text="Optional\nAOM(s)\n(future)",
-        dashed=True,
-        fontsize=9.0,
-    )
-
-    _add_arrow(ax, start=(x_comb + 0.14, 0.50), end=(x_aom, 0.50))
-    _add_arrow(ax, start=(x_aom + 0.12, 0.50), end=(x_relay, 0.50))
+        _add_arrow(ax, start=(x_coll + box_w, y_center), end=(x_comb, 0.50))
 
     # Relay / BFP / sample block
+    relay_w = 0.19
     _add_box(
         ax,
         x=x_relay,
         y=0.38,
-        w=0.17,
+        w=relay_w,
         h=0.24,
         text=(
             "Relay / focus\n"
@@ -257,21 +257,33 @@ def draw_single_mode_fiber_system_diagram(
         dashed=False,
         fontsize=9.0,
     )
+    _add_arrow(ax, start=(x_comb + comb_w, 0.50), end=(x_relay, 0.50))
 
-    # Control notes
-    _add_box(
+    # Bottom explanatory boxes
+    _bottom_notes_common(
         ax,
-        x=0.50,
-        y=0.14,
-        w=0.48,
-        h=0.16,
-        text=(
-            "Control requirements:\n"
-            "• Need now: diode TTL + analog modulation fast enough for ~5 ms exposures\n"
-            "• Future: <=500 µs exposures likely require AOM(s); DPSS 561 typically needs an AOM for fast control"
+        need_now_text=(
+            "Need now control:\n"
+            "• native diode TTL + analog\n"
+            "• ~5 ms exposures (on/off +\n"
+            "  power setpoint changes)"
         ),
-        dashed=False,
-        fontsize=9.0,
+        future_text=(
+            "Future (user-upgradable):\n"
+            "• add per-laser AOM(s) +\n"
+            "  RF driver(s)\n"
+            "• for ≤500 µs gating\n"
+            "  (esp. 640)\n"
+            "• DPSS 561 (if added)\n"
+            "  likely needs an AOM"
+        ),
+        field_text=(
+            "Field goal:\n"
+            "• time-constant Gaussian\n"
+            "• stable over exposure + days\n"
+            "• focus to objective BFP\n"
+            "  sets field size"
+        ),
     )
 
     _legend(ax)
@@ -286,75 +298,81 @@ def draw_multimode_fiber_system_diagram(
 ) -> Figure:
     """Diagram for the multimode fiber concept."""
 
-    fig, ax = _setup_canvas(figsize=(15.0, 6.2))
+    fig, ax = _setup_canvas(figsize=(15.5, 6.4))
     ax.set_title(title, fontsize=13, pad=12)
 
     n = len(lasers)
     ys = _y_positions(n)
 
-    box_w = 0.16
+    # Row blocks
+    laser_w = 0.14
+    aom_w = 0.12
     box_h = 0.11
 
     x_laser = 0.02
-    x_comb = 0.22
-    x_couple = 0.40
-    x_mmf = 0.58
-    x_out = 0.76
+    x_aom = 0.18
+    x_comb = 0.32
+    x_couple = 0.47
+    x_mmf = 0.62
+    x_out = 0.77
 
-    # Laser blocks
+    # Laser blocks (+ optional AOM column)
     for y_center, ch in zip(ys, lasers, strict=True):
         y0 = y_center - box_h / 2
-        _add_box(ax, x=x_laser, y=y0, w=box_w, h=box_h, text=ch.label, dashed=(ch.status == "future"))
-        _add_arrow(ax, start=(x_laser + box_w, y_center), end=(x_comb, 0.50))
+        _add_box(ax, x=x_laser, y=y0, w=laser_w, h=box_h, text=ch.label, dashed=(ch.status == "future"))
+        _add_box(ax, x=x_aom, y=y0, w=aom_w, h=box_h, text="Optional\nAOM", dashed=True, fontsize=8.8)
+
+        _add_arrow(ax, start=(x_laser + laser_w, y_center), end=(x_aom, y_center))
+        _add_arrow(ax, start=(x_aom + aom_w, y_center), end=(x_comb, 0.50))
 
     # Combiner
+    comb_w = 0.13
     _add_box(
         ax,
         x=x_comb,
         y=0.41,
-        w=0.15,
+        w=comb_w,
         h=0.18,
         text="Dichroic /\nbeam combiner(s)",
         dashed=False,
         fontsize=9.5,
     )
-
-    _add_arrow(ax, start=(x_comb + 0.15, 0.50), end=(x_couple, 0.50))
+    _add_arrow(ax, start=(x_comb + comb_w, 0.50), end=(x_couple, 0.50))
 
     # Coupling into MMF
+    mid_w = 0.13
     _add_box(
         ax,
         x=x_couple,
         y=0.41,
-        w=0.16,
+        w=mid_w,
         h=0.18,
         text="Couple\ninto MMF\n(TBD connector)",
         dashed=False,
         fontsize=9.5,
     )
-
-    _add_arrow(ax, start=(x_couple + 0.16, 0.50), end=(x_mmf, 0.50))
+    _add_arrow(ax, start=(x_couple + mid_w, 0.50), end=(x_mmf, 0.50))
 
     # MMF + scrambler
     _add_box(
         ax,
         x=x_mmf,
         y=0.41,
-        w=0.16,
+        w=mid_w,
         h=0.18,
         text="MMF +\n~10 kHz\nscrambler",
         dashed=False,
         fontsize=9.5,
     )
-
-    _add_arrow(ax, start=(x_mmf + 0.16, 0.50), end=(x_out, 0.50))
+    _add_arrow(ax, start=(x_mmf + mid_w, 0.50), end=(x_out, 0.50))
 
     # Output / field shaping
+    out_w = 0.21
     _add_box(
         ax,
         x=x_out,
         y=0.34,
-        w=0.22,
+        w=out_w,
         h=0.32,
         text=(
             "MMF output\ncollimator\n\n"
@@ -366,35 +384,32 @@ def draw_multimode_fiber_system_diagram(
         fontsize=9.0,
     )
 
-    # Optional AOM note
-    _add_box(
+    # Bottom explanatory boxes
+    _bottom_notes_common(
         ax,
-        x=0.02,
-        y=0.10,
-        w=0.46,
-        h=0.18,
-        text=(
-            "Control options:\n"
-            "• Need now: diode TTL + analog for ~5 ms exposures\n"
-            "• Future: optional per-laser AOMs (especially 640 and DPSS 561) for <=500 µs gating"
+        need_now_text=(
+            "Need now control:\n"
+            "• native diode TTL + analog\n"
+            "• ~5 ms exposures (on/off +\n"
+            "  power setpoint changes)"
         ),
-        dashed=False,
-        fontsize=9.0,
-    )
-
-    _add_box(
-        ax,
-        x=0.52,
-        y=0.10,
-        w=0.46,
-        h=0.18,
-        text=(
-            "Illumination field goal:\n"
-            "• Time-constant field over each exposure and stable day-to-day\n"
-            "• Wide linewidth + scrambling intended to reduce speckle for short exposures"
+        future_text=(
+            "Future (user-upgradable):\n"
+            "• add per-laser AOM(s) +\n"
+            "  RF driver(s)\n"
+            "• for ≤500 µs gating\n"
+            "  (esp. 640)\n"
+            "• DPSS 561 (if added)\n"
+            "  likely needs an AOM"
         ),
-        dashed=False,
-        fontsize=9.0,
+        field_text=(
+            "Field goal:\n"
+            "• time-constant field over\n"
+            "  exposure + stable day-to-day\n"
+            "• wide linewidth + scrambling\n"
+            "  to reduce speckle\n"
+            "• square stop defines ROI"
+        ),
     )
 
     _legend(ax)
