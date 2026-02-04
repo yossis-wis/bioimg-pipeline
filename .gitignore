@@ -39,3 +39,24 @@ desktop.ini
 configs/local/
 configs/*.local.yaml
 /reports/
+
+# --- Binary assets (keep repo text-only) ---
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.bmp
+*.tif
+*.tiff
+*.pdf
+*.pptx
+*.docx
+*.xlsx
+*.zip
+*.7z
+*.tar
+*.gz
+
+# Email diagrams (kept locally; do not track)
+docs/emails/assets/*
+!docs/emails/assets/.gitignore
