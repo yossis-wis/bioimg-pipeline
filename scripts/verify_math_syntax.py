@@ -20,10 +20,11 @@ Checks performed
 - Notebooks:
   - forbid fenced ```math blocks (GitHub-only feature)
   - forbid LaTeX delimiters \(...\) and \[...\] (GitHub shows backslashes literally)
-  - forbid `\thinspace` (use `\,` for thin spaces)
 - Markdown:
-  - forbid the TeX thin-space word macro `\thinspace` (GitHub renders it as an unknown macro).
-    Prefer `\,` instead.
+  - forbid the TeX thin-space macro written as backslash-comma (`\,`) in math (some Markdown parsers
+    treat it as an escaped comma). Prefer the word macro `\thinspace` instead.
+  - forbid `\thinspace` accidentally glued to the next symbol (e.g. `\thinspacep`); add a space.
+  - for inline math that contains `_` (subscripts), require the safer GitHub form: `$`\`...\`$`.
 
 The Markdown check ignores inline code spans and non-math fenced code blocks.
 """
@@ -54,6 +55,14 @@ EXCLUDE_DIRS = {
 INLINE_CODE_RE = re.compile(r"`[^`]*`")  # simple + sufficient for this repo
 FENCE_OPEN_RE = re.compile(r"^\s*(```+)\s*([A-Za-z0-9_-]+)?\s*$")
 FENCE_CLOSE_RE_TEMPLATE = r"^\s*{delim}\s*$"
+
+# GitHub-safe inline math uses math delimiters around an inline code span: $`...`$
+SAFE_GH_INLINE_MATH_RE = re.compile(r"\$`[^`]*`\$")
+# Plain $...$ inline math containing '_' is fragile on GitHub; require the safe form instead.
+UNSAFE_INLINE_MATH_UNDERSCORE_RE = re.compile(r"(?<!\$)\$(?!\$|`)(?P<body>[^$]*?_[^$]*?)\$(?!\$)")
+# TeX control word: \thinspace must be separated from following letters/digits (avoid '\thinspacep').
+THINSPACE_GLUE_RE = re.compile(r"\\thinspace(?=[0-9A-Za-z])")
+
 
 
 def is_excluded(path: Path) -> bool:
@@ -114,7 +123,6 @@ def check_no_tabs(path: Path, text: str, errors: list[str]) -> None:
 def check_notebook_math_syntax(path: Path, text: str, errors: list[str]) -> None:
     forbidden = [
         ("```math", "Use $...$ / $$...$$ in notebooks; fenced ```math is GitHub-only."),
-        ("\\thinspace", "Avoid \\thinspace; use \\, for thin spaces (GitHub/Jupyter/VS Code)."),
         ("\\(", "Do not use \\( ... \\) in this repo; GitHub shows backslashes literally."),
         ("\\)", "Do not use \\( ... \\) in this repo; GitHub shows backslashes literally."),
         ("\\[", "Do not use \\[ ... \\] in this repo; GitHub shows backslashes literally."),
@@ -125,22 +133,32 @@ def check_notebook_math_syntax(path: Path, text: str, errors: list[str]) -> None
             errors.append(f"{path.as_posix()}: forbidden notebook token '{token}'. {msg}")
 
 
-def check_markdown_no_thinspace(path: Path, text: str, errors: list[str]) -> None:
-    """Flag '\\thinspace' in Markdown math contexts. Ignores inline code and non-math fences."""
+def check_markdown_no_backslash_comma(markdown_path: Path) -> list[str]:
+    """Markdown math hygiene checks.
+
+    Enforces GitHub-facing rules that avoid known Markdown edge cases:
+
+    - Prefer `\thinspace` over `\,` (some Markdown parsers treat backslash-comma as an escaped comma).
+    - Ensure `\thinspace` is not accidentally glued to the next symbol (e.g. `\thinspacep`).
+    - For inline math that contains `_` (subscripts), require the safer GitHub form: `$`\`...\`$`.
+
+    This check ignores inline code spans and skips non-math fenced code blocks.
+    """
+
+    text = markdown_path.read_text(encoding="utf-8", errors="replace")
+    errors: list[str] = []
+
     in_fence = False
     fence_delim = ""
     fence_lang = ""
 
-    lines = text.splitlines()
-    for lineno, raw in enumerate(lines, start=1):
-        m_open = None
+    for lineno, raw in enumerate(text.splitlines(), start=1):
         if not in_fence:
             m_open = FENCE_OPEN_RE.match(raw)
             if m_open:
                 in_fence = True
                 fence_delim = m_open.group(1)
                 fence_lang = (m_open.group(2) or "").lower()
-                # opening fence line itself contains no LaTeX; skip
                 continue
         else:
             close_re = re.compile(FENCE_CLOSE_RE_TEMPLATE.format(delim=re.escape(fence_delim)))
@@ -153,12 +171,31 @@ def check_markdown_no_thinspace(path: Path, text: str, errors: list[str]) -> Non
                 # Skip content in non-math fenced blocks
                 continue
 
-        line = INLINE_CODE_RE.sub("", raw)
-        if "\\thinspace" in line:
+        # Checks that should ignore inline code spans (including GitHub's $`...`$ form).
+        line_no_code = INLINE_CODE_RE.sub("", raw)
+
+        if "\," in line_no_code:
             errors.append(
-                f"{path.as_posix()}:{lineno}: found '\\thinspace' in Markdown. Prefer '\\,'."
+                f"{markdown_path.as_posix()}:{lineno}: found '\,' in Markdown. Prefer '\thinspace'."
             )
 
+        if THINSPACE_GLUE_RE.search(line_no_code):
+            errors.append(
+                f"{markdown_path.as_posix()}:{lineno}: found '\thinspace' immediately followed by a letter/digit. "
+                "Write '\thinspace p' (or '\thinspace{}p'), not '\thinspacep'."
+            )
+
+        # Inline-math robustness: outside fenced blocks, require the safe GitHub form for subscripts.
+        if not in_fence:
+            masked = SAFE_GH_INLINE_MATH_RE.sub("", raw)
+            masked = INLINE_CODE_RE.sub("", masked)
+            if UNSAFE_INLINE_MATH_UNDERSCORE_RE.search(masked):
+                errors.append(
+                    f"{markdown_path.as_posix()}:{lineno}: inline math contains '_' (subscript) but is not in the "
+                    "GitHub-safe $`...`$ form. Use $`...`$ for inline math with subscripts."
+                )
+
+    return errors
 
 def main() -> int:
     errors: list[str] = []
@@ -175,7 +212,7 @@ def main() -> int:
         text = path.read_text(encoding="utf-8", errors="replace")
         check_no_control_chars(path, text, errors)
         check_no_tabs(path, text, errors)
-        check_markdown_no_thinspace(path, text, errors)
+        check_markdown_no_backslash_comma(path, text, errors)
 
     if errors:
         print("\n".join(errors), file=sys.stderr)

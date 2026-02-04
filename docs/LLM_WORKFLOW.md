@@ -283,17 +283,19 @@ Use either:
 - **Standard:** `$...$`
 - **Safer (GitHub-only):** `$`\`...\`$` (useful when the expression contains characters that overlap with Markdown syntax)
 
+In this repo, treat the safer form as **required** for any inline expression that contains `_` (subscripts), and strongly prefer it inside lists/tables/headings.
+
 Examples:
 
-- `... effective illumination NA, $\mathrm{NA}_{\mathrm{illum}}$.`
-- `... speckle grain size $\Delta x_{\mathrm{speckle}} \approx \lambda/(2\,\mathrm{NA}_{\mathrm{illum}})$.`
+- ``... effective illumination NA, $`\mathrm{NA}_{\mathrm{illum}}`$.``
+- ``... speckle grain size $`\Delta x_{\mathrm{speckle}} \approx \lambda/(2\thinspace\mathrm{NA}_{\mathrm{illum}})`$.``
 
 ##### Display (block) math
 
 Prefer fenced **math blocks** (most robust on GitHub):
 
 ```math
-\Delta x_{\mathrm{speckle}} \approx \frac{\lambda}{2\,\mathrm{NA}_{\mathrm{illum}}}
+\Delta x_{\mathrm{speckle}} \approx \frac{\lambda}{2\thinspace\mathrm{NA}_{\mathrm{illum}}}
 ```
 
 If you use `$$...$$`, it must start on a **new line** (not mid-sentence). For multi-line blocks, keep `$$` on their own lines.
@@ -322,6 +324,7 @@ Style guidance (optics-journal style):
 
 - Use italic variables (default in math mode), and roman for units/operators: `$\mu\mathrm{m}$`, `$\mathrm{NA}$`, `$\exp(i\phi)$`.
 - Prefer `\mathrm{}` for labels/subscripts that are not variables (e.g. `$\mathrm{NA}_{\mathrm{obj}}$`, `$\mathrm{NA}_{\mathrm{illum}}$`).
+- If you use `\thinspace`, ensure it is not accidentally glued to the next symbol (write `\thinspace p`, not `\thinspacep`).
 - For multi-line equations:
   - in `.md` files: prefer `\begin{aligned}...\end{aligned}` inside a fenced ```math block.
   - in notebooks: prefer `\begin{aligned}...\end{aligned}` inside `$$ ... $$`.

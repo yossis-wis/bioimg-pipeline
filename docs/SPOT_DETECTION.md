@@ -43,7 +43,7 @@ In this repo:
   **legacy optics-inspired parameterization**:
 
 ```math
-r \equiv \sqrt{\frac{\lambda z_R}{\pi}}\,.
+r \equiv \sqrt{\frac{\lambda z_R}{\pi}}\thinspace.
 ```
 
 We then use
@@ -62,10 +62,10 @@ TrackMate uses an internal Gaussian scale
 \sigma_{\mathrm{px}} = \frac{\sigma}{p},
 ```
 
-so in 2D ($n_{\mathrm{dims}} = 2$):
+so in 2D ($`n_{\mathrm{dims}} = 2`$):
 
 ```math
-\sigma_{\mathrm{px}} = \frac{r}{\sqrt{2}\,p},
+\sigma_{\mathrm{px}} = \frac{r}{\sqrt{2}\thinspace p},
 ```
 
 where $p$ is the pixel size (same length unit as $r$).
@@ -73,14 +73,14 @@ where $p$ is the pixel size (same length unit as $r$).
 **Optics note (optional).** If you model the in-focus PSF intensity as a Gaussian beam
 
 ```math
-I(r) = I_0\,\exp\!\left(-\frac{2r^2}{w_0^2}\right),
+I(r) = I_0\thinspace\exp\!\left(-\frac{2r^2}{w_0^2}\right),
 ```
 
-then the equivalent Gaussian standard deviation is $\sigma = w_0/2$. Matching this to TrackMate's
-$\sigma = r/\sqrt{2}$ (2D) implies $r = w_0/\sqrt{2}$ and therefore
+then the equivalent Gaussian standard deviation is $`\sigma = w_0/2`$. Matching this to TrackMate's
+$\sigma = r/\sqrt{2}$ (2D) implies $`r = w_0/\sqrt{2}`$ and therefore
 
 ```math
-d_{\mathrm{TM}} = \sqrt{2}\,w_0
+d_{\mathrm{TM}} = \sqrt{2}\thinspace w_0
 ```
 
 in 2D. (This repo does **not** enforce a particular optics convention; the quantity that matters for
@@ -111,7 +111,7 @@ q \ge q_{\min}.
 Here:
 
 - `quality` in `spots.parquet` is the **LoG response at the candidate maximum**.
-- `spot_q_min` is the candidate threshold $q_{\min}$ (TrackMate's "threshold").
+- `spot_q_min` is the candidate threshold $`q_{\min}`$ (TrackMate's "threshold").
 
 ### Masks
 
@@ -159,8 +159,8 @@ If you want to reproduce the same candidate stage in Fiji/TrackMate for QC:
 
 1. Ensure Fiji's image calibration (pixel size) matches your dataset.
 2. In TrackMate → LoG detector, set:
-   - **Estimated blob diameter** $d_{\mathrm{TM}} = 2r$
-   - **Threshold** $= \mathtt{spot\_{q\_{min}}}$
+   - **Estimated blob diameter** $`d_{\mathrm{TM}} = 2r`$
+   - **Threshold** $`= \mathtt{spot\_{q\_{min}}}`$
 
 The notebooks `01_step_by_step_integrated_qc.py` and `04_babysit_spot_detection.py`
 print the TrackMate-equivalent **blob diameter** implied by the current config.

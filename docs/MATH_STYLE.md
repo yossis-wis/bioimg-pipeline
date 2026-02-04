@@ -14,13 +14,24 @@ This document is the **canonical contract** for how to write math in this repo.
 
 ### Inline math
 
-Use:
+GitHub's Markdown parser can be fragile when inline math contains characters that overlap with Markdown
+syntax (most commonly **subscripts** with `_`, but also `*`, `|`, etc.), especially inside **lists**, **tables**,
+and **headings**.
 
-- `$...$`
+In this repo:
 
-If Markdown punctuation makes inline math fragile (underscores, asterisks, etc.), you can use the safer GitHub pattern:
+- Use plain `$...$` only for **simple** expressions that do **not** contain `_` (e.g. `$M^2$`, `$p$`).
+- For anything with subscripts / Markdown-sensitive characters, treat the safer GitHub-only form as **required**:
 
-- `$`\`...\`$`  (math delimiters around a code span)
+  - `$`\`...\`$` (math delimiters around a code span)
+
+Examples:
+
+- `$`\`\mathrm{NA}_{\mathrm{illum}}\`$`
+- `$`\`\Delta x_{\mathrm{speckle}} \approx \lambda/(2\thinspace\mathrm{NA}_{\mathrm{illum}})\`$`
+
+**Note on spacing macros:** `\thinspace` is a control word. If the next token is a letter/digit, you must
+separate it (e.g. write `\thinspace p`, not `\thinspacep`).
 
 ### Display (block) math
 
@@ -93,8 +104,8 @@ $$
 Use the conventions typical of optics journals (e.g. *Optics Express*, *Applied Optics*):
 
 - **Variables** italic by default (math mode default).
-- **Units** in roman with a thin space: `10\,\mu\mathrm{m}`, `500\,\mu\mathrm{s}`, `30\,\mathrm{kW}/\mathrm{cm}^2`.
-- **GitHub note**: In `.md` math, use `\,` for thin spaces. Avoid `\thinspace` (GitHub renders it as an unknown macro).
+- **Units** in roman with a thin space: `10\thinspace\mu\mathrm{m}`, `500\thinspace\mu\mathrm{s}`, `30\thinspace\mathrm{kW}/\mathrm{cm}^2`.
+- **Markdown note**: In `.md`, prefer `\thinspace` (word macro) for thin spaces in math; some Markdown parsers can treat the backslash-comma thinspace macro as an escaped comma.
 - **Named quantities / labels** in roman: `\mathrm{NA}`, `\mathrm{PSF}`, `\mathrm{SNR}`, `\mathrm{LoG}`.
 - Prefer `\exp(\cdot)` and roman differential `\mathrm{d}x` when relevant.
 - Vectors in bold: `\mathbf{r}`.
