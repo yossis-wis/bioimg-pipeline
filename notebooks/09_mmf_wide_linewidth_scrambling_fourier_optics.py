@@ -338,6 +338,43 @@ plt.show()
 # - spectral correlation width $\Delta\lambda_c$
 # - implied spectral diversity $N_{\lambda}$ for several linewidths
 
+# %% [markdown]
+# ### 5.0 A concrete vendor-spec example: CNI FC-640 default fiber length (1 m)
+#
+# The CNI FC-640 spec sheet lists (among other parameters):
+#
+# - core diameter: 400 µm
+# - NA: 0.22
+# - default fiber length: 1 m
+#
+# Your email quote discussed a 3 m homogenizing fiber. Since the intermodal optical-path spread
+# scales linearly with length, it is helpful to see both side-by-side.
+
+# %%
+rows = []
+for L in [1.0, 3.0]:
+    fib = MultimodeFiber(
+        core_diameter_um=400.0,
+        na=0.22,
+        length_m=L,
+        n_core=1.46,
+        modal_delay_scale=1.0,  # step-index-like upper bound
+    )
+    dt = intermodal_group_delay_spread_s(fib)
+    dopl = optical_path_spread_m(fib)
+    dlam_c = speckle_spectral_corr_width_nm_for_fiber(lambda0_nm=640.0, fiber=fib)
+    rows.append(
+        {
+            "length_m": L,
+            "OPL=nL (m)": fib.n_core * fib.length_m,
+            "Δτ (ps)": dt * 1e12,
+            "ΔOPL (cm)": dopl * 100.0,
+            "Δλ_c (nm)": dlam_c,
+        }
+    )
+
+pd.DataFrame(rows)
+
 # %%
 # Fiber dispersions to consider:
 # - 1.0: step-index-like (maximal modal dispersion)
@@ -560,11 +597,15 @@ pd.DataFrame(rows)
 #
 # ### "The fiber would need to be longer than practical"
 #
-# Using the CNI-like quoted fiber (400 µm core, NA≈0.22, 3 m, silica $n\approx 1.46$):
+# Using the CNI FC-640 style spec (400 µm core, NA≈0.22, silica $n\approx 1.46$):
 #
-# - The absolute path length is $\mathrm{OPL}=nL\approx 4.38\,\mathrm{m}$.
-# - The **intermodal spread** is about $\Delta\mathrm{OPL}\sim 5\,\mathrm{cm}$ for step-index-like behavior,
-#   and scales down by the graded-index factor $s$.
+# - At **1 m** (the FC-640 default length), $\mathrm{OPL}=nL\approx 1.46\,\mathrm{m}$ and
+#   $\Delta\mathrm{OPL}\sim 1.7\,\mathrm{cm}$ (step-index-like upper bound).
+# - At **3 m** (the quote fiber), $\mathrm{OPL}\approx 4.38\,\mathrm{m}$ and
+#   $\Delta\mathrm{OPL}\sim 5\,\mathrm{cm}$.
+#
+# In both cases, GI behavior can reduce $\Delta\mathrm{OPL}$ by a scale factor $s$, but the step-index numbers
+# set a useful upper bound.
 #
 # That implies a spectral correlation width on the order of
 # $\Delta\lambda_c\sim \lambda^2/\Delta\mathrm{OPL}$, which is typically **much smaller than 1 nm** for meter-scale MMF.

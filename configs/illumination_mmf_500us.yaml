@@ -23,7 +23,12 @@ fiber:
   f_coll_mm: 3.0
   # Effective optical-path-length spread used for speckle spectral decorrelation.
   # If you do not know this, sweep it (1e-3 .. 1e-1) in the script.
-  optical_path_spread_m: 3.0e-2
+  # Rule-of-thumb (step-index upper bound): ΔOPL ≈ (NA^2/(2 n_core))·L.
+  # For NA=0.22, n_core≈1.46:
+  #   L=1 m  -> ΔOPL≈1.7 cm
+  #   L=3 m  -> ΔOPL≈5.0 cm
+  # Graded-index behavior can reduce this by a scale factor s<<1.
+  optical_path_spread_m: 5.0e-2
 
 power_budget:
   coupling_into_fiber: 0.6
