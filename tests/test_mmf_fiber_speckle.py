@@ -6,6 +6,9 @@ from src.mmf_fiber_speckle import (
     MultimodeFiber,
     approx_num_guided_modes_step_index,
     intermodal_group_delay_spread_s,
+    optical_path_length_m,
+    optical_path_spread_geometric_m,
+    optical_path_spread_m,
     required_fiber_length_m_for_target_n_lambda,
     speckle_spectral_corr_width_nm_for_fiber,
     v_number,
@@ -58,3 +61,21 @@ def test_required_length_for_target_n_lambda_scales_reasonably() -> None:
         modal_delay_scale=0.1,
     )
     assert math.isclose(L_gi / L, 10.0, rel_tol=0.15, abs_tol=0.0)
+
+
+def test_optical_path_length_and_geometric_spread_consistency() -> None:
+    fiber = MultimodeFiber(core_diameter_um=400.0, na=0.22, length_m=3.0, n_core=1.46, modal_delay_scale=1.0)
+
+    opl = optical_path_length_m(fiber)
+    # OPL = n * L -> ~4.38 m
+    assert math.isclose(opl, 4.38, rel_tol=0, abs_tol=1e-12)
+
+    # Geometric and group-delay based ΔOPL should agree within a few percent for small angles.
+    d_opl_geom = optical_path_spread_geometric_m(fiber)
+    d_opl_delay = optical_path_spread_m(fiber)
+
+    # Both should be ~5 cm for these parameters.
+    assert 0.03 < d_opl_geom < 0.08
+    assert 0.03 < d_opl_delay < 0.08
+
+    assert math.isclose(d_opl_geom, d_opl_delay, rel_tol=0.05, abs_tol=0.0)

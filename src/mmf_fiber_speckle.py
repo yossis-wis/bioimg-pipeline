@@ -215,6 +215,92 @@ def optical_path_spread_m(fiber: MultimodeFiber) -> float:
     return optical_path_spread_m_from_delay(intermodal_group_delay_spread_s(fiber))
 
 
+def optical_path_length_m(fiber: MultimodeFiber) -> float:
+    """Return the on-axis optical path length ``OPL = n_core * L`` (meters).
+
+    Notes
+    -----
+    This is **not** the same as the intermodal optical-path spread ``ΔOPL``.
+
+    - ``OPL`` sets the *absolute* phase delay through the fiber.
+    - ``ΔOPL`` sets how quickly the **relative phases between modes** decorrelate
+      with wavelength, and therefore how quickly the output speckle pattern changes
+      across a finite spectrum.
+
+    Keeping both quantities explicit helps avoid common confusions in discussions
+    about “is a few nm of linewidth enough?”.
+    """
+
+    return float(fiber.n_core * fiber.length_m)
+
+
+def max_guided_meridional_ray_angle_rad(*, na: float, n_core: float) -> float:
+    """Maximum meridional ray angle inside the core (radians), step-index estimate.
+
+    For a weakly guiding fiber in air, a standard approximation is:
+
+    .. math::
+
+        \sin\theta_{\max} \approx \mathrm{NA}/n_{\mathrm{core}}.
+
+    This is the geometric-optics picture underlying the common step-index modal
+    delay bound used elsewhere in this module.
+    """
+
+    if na <= 0 or n_core <= 0:
+        raise ValueError("na and n_core must be > 0")
+    if na >= n_core:
+        raise ValueError("na must be < n_core for this approximation")
+
+    return float(math.asin(na / n_core))
+
+
+def optical_path_spread_geometric_step_index_m(*, length_m: float, na: float, n_core: float) -> float:
+    """Geometric-optics estimate of step-index intermodal optical path spread ``ΔOPL`` (m).
+
+    Consider two limiting meridional rays in a step-index MMF:
+
+    - An axial ray (\(\theta=0\)) with optical path length
+      \(\mathrm{OPL}_0 = n\,L\).
+    - The highest-angle guided meridional ray (\(\theta=\theta_{\max}\)) with
+      \(\mathrm{OPL}_{\max} = n\,L/\cos\theta_{\max}\).
+
+    The resulting spread is:
+
+    .. math::
+
+        \Delta\mathrm{OPL} = \mathrm{OPL}_{\max} - \mathrm{OPL}_0
+        = nL\left(\frac{1}{\cos\theta_{\max}} - 1\right).
+
+    For small angles this reduces to the familiar step-index scaling:
+
+    .. math::
+
+        \Delta\mathrm{OPL} \approx \frac{\mathrm{NA}^2}{2 n}\,L.
+
+    This function is provided mainly for **intuition building**: it makes it clear
+    which parts of the spec-sheet matter (\(L\), NA, and \(n\)).
+    """
+
+    if length_m <= 0 or na <= 0 or n_core <= 0:
+        raise ValueError("length_m, na, and n_core must be > 0")
+
+    theta = max_guided_meridional_ray_angle_rad(na=na, n_core=n_core)
+    return float(n_core * length_m * (1.0 / math.cos(theta) - 1.0))
+
+
+def optical_path_spread_geometric_m(fiber: MultimodeFiber) -> float:
+    """Geometric-optics ``ΔOPL`` estimate with the same ``modal_delay_scale`` convention.
+
+    - If ``modal_delay_scale=1``: step-index-like upper bound.
+    - If ``modal_delay_scale<<1``: graded-index-like reduced dispersion proxy.
+    """
+
+    base = optical_path_spread_geometric_step_index_m(length_m=fiber.length_m, na=fiber.na, n_core=fiber.n_core)
+    return float(fiber.modal_delay_scale) * base
+
+
+
 def speckle_spectral_corr_width_nm(*, lambda0_nm: float, delta_opl_m: float) -> float:
     """Estimate speckle spectral correlation width ``Δλ_c`` (nm).
 

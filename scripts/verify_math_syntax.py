@@ -21,12 +21,18 @@ Checks performed
   - forbid fenced ```math blocks (GitHub-only feature)
   - forbid LaTeX delimiters \(...\) and \[...\] (GitHub shows backslashes literally)
 - Markdown:
-  - forbid the TeX thin-space macro written as backslash-comma (`\,`) in math (some Markdown parsers
-    treat it as an escaped comma). Prefer the word macro `\thinspace` instead.
-  - forbid `\thinspace` accidentally glued to the next symbol (e.g. `\thinspacep`); add a space.
+  - forbid the TeX thin-space macro written as backslash-comma (`\\,`) in math (some Markdown parsers
+    treat it as an escaped comma). Prefer the word macro `\\thinspace` instead.
+  - forbid `\\thinspace` accidentally glued to the next symbol (e.g. `\\thinspacep`); add a space.
   - for inline math that contains `_` (subscripts), require the safer GitHub form: `$`\`...\`$`.
 
 The Markdown check ignores inline code spans and non-math fenced code blocks.
+
+Note
+----
+The exclude list is evaluated **relative to the repo root**.
+This avoids accidental exclusions when the repo lives inside a directory whose
+name happens to match an excluded folder (e.g. `.../data/...`).
 """
 
 from __future__ import annotations
@@ -34,7 +40,6 @@ from __future__ import annotations
 import re
 import sys
 from pathlib import Path
-from typing import Iterable
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -66,7 +71,14 @@ THINSPACE_GLUE_RE = re.compile(r"\\thinspace(?=[0-9A-Za-z])")
 
 
 def is_excluded(path: Path) -> bool:
-    return any(part in EXCLUDE_DIRS for part in path.parts)
+    """Return True if *repo-relative* path crosses any excluded directory."""
+
+    try:
+        rel = path.relative_to(REPO_ROOT)
+    except ValueError:
+        # Defensive: should not happen for rglob results, but keeps the function pure.
+        rel = path
+    return any(part in EXCLUDE_DIRS for part in rel.parts)
 
 
 def iter_markdown_files() -> list[Path]:
@@ -82,6 +94,7 @@ def iter_notebook_files() -> list[Path]:
 
 def find_control_chars(text: str) -> list[tuple[int, str]]:
     """Return (index, char) for ASCII control characters excluding \n and \r."""
+
     bad: list[tuple[int, str]] = []
     for i, ch in enumerate(text):
         o = ord(ch)
@@ -99,9 +112,7 @@ def check_no_control_chars(path: Path, text: str, errors: list[str]) -> None:
     for idx, ch in bad[:10]:
         line_no = text.count("\n", 0, idx) + 1
         col_no = idx - (text.rfind("\n", 0, idx) + 1) + 1
-        errors.append(
-            f"{path.as_posix()}:{line_no}:{col_no}: control char U+{ord(ch):04X}"
-        )
+        errors.append(f"{path.as_posix()}:{line_no}:{col_no}: control char U+{ord(ch):04X}")
 
     remaining = len(bad) - 10
     if remaining > 0:
@@ -133,20 +144,17 @@ def check_notebook_math_syntax(path: Path, text: str, errors: list[str]) -> None
             errors.append(f"{path.as_posix()}: forbidden notebook token '{token}'. {msg}")
 
 
-def check_markdown_no_backslash_comma(markdown_path: Path) -> list[str]:
+def check_markdown_no_backslash_comma(path: Path, text: str, errors: list[str]) -> None:
     """Markdown math hygiene checks.
 
     Enforces GitHub-facing rules that avoid known Markdown edge cases:
 
-    - Prefer `\thinspace` over `\,` (some Markdown parsers treat backslash-comma as an escaped comma).
-    - Ensure `\thinspace` is not accidentally glued to the next symbol (e.g. `\thinspacep`).
+    - Prefer `\\thinspace` over `\\,` (some Markdown parsers treat backslash-comma as an escaped comma).
+    - Ensure `\\thinspace` is not accidentally glued to the next symbol (e.g. `\\thinspacep`).
     - For inline math that contains `_` (subscripts), require the safer GitHub form: `$`\`...\`$`.
 
     This check ignores inline code spans and skips non-math fenced code blocks.
     """
-
-    text = markdown_path.read_text(encoding="utf-8", errors="replace")
-    errors: list[str] = []
 
     in_fence = False
     fence_delim = ""
@@ -174,15 +182,13 @@ def check_markdown_no_backslash_comma(markdown_path: Path) -> list[str]:
         # Checks that should ignore inline code spans (including GitHub's $`...`$ form).
         line_no_code = INLINE_CODE_RE.sub("", raw)
 
-        if "\," in line_no_code:
-            errors.append(
-                f"{markdown_path.as_posix()}:{lineno}: found '\,' in Markdown. Prefer '\thinspace'."
-            )
+        if "\\," in line_no_code:
+            errors.append(f"{path.as_posix()}:{lineno}: found '\\,' in Markdown. Prefer '\\thinspace'.")
 
         if THINSPACE_GLUE_RE.search(line_no_code):
             errors.append(
-                f"{markdown_path.as_posix()}:{lineno}: found '\thinspace' immediately followed by a letter/digit. "
-                "Write '\thinspace p' (or '\thinspace{}p'), not '\thinspacep'."
+                f"{path.as_posix()}:{lineno}: found '\\thinspace' immediately followed by a letter/digit. "
+                "Write '\\thinspace p' (or '\\thinspace{}p'), not '\\thinspacep'."
             )
 
         # Inline-math robustness: outside fenced blocks, require the safe GitHub form for subscripts.
@@ -191,11 +197,10 @@ def check_markdown_no_backslash_comma(markdown_path: Path) -> list[str]:
             masked = INLINE_CODE_RE.sub("", masked)
             if UNSAFE_INLINE_MATH_UNDERSCORE_RE.search(masked):
                 errors.append(
-                    f"{markdown_path.as_posix()}:{lineno}: inline math contains '_' (subscript) but is not in the "
+                    f"{path.as_posix()}:{lineno}: inline math contains '_' (subscript) but is not in the "
                     "GitHub-safe $`...`$ form. Use $`...`$ for inline math with subscripts."
                 )
 
-    return errors
 
 def main() -> int:
     errors: list[str] = []

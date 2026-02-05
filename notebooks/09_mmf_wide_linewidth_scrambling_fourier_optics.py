@@ -532,46 +532,97 @@ pd.DataFrame(rows)
 # In other words: "fiber must be impractically long" is not a universal truth—it is a conditional claim.
 
 # %% [markdown]
-# ## 9) Addressing the professor's bullets, explicitly
+# ## 9) Addressing the professor's bullets, explicitly (plus your follow-up questions)
 #
-# Below is a compact "response sheet" you can take back to the conversation.
-# It is written to be falsifiable (you can measure each term).
+# Below is a compact response sheet you can use in a meeting.
 #
-# 1) **"MMF homogeneous field is not practical"**
-#    - Practicality depends on whether the *mean* near-field / Köhler source is uniform.
-#      Speckle contrast is a separate issue and can be made small with averaging.
+# ### "A multimode fiber approach for achieving a homogeneous field is not practical"
 #
-# 2) **"Speckling would be an issue"**
-#    - True for narrow-line, no-averaging illumination ($N_{\mathrm{eff}}\approx1$).
-#    - False if you can defend $N_{\mathrm{eff}}\gtrsim100$; then $C\lesssim0.1$.
+# Whether MMF is "practical" depends strongly on *illumination geometry*:
 #
-# 3) **"Fiber would need to be longer than practical"**
-#    - For step-index-like MMF with NA≈0.22, 3 m already gives $\Delta\lambda_c\sim10^{-2}$ nm.
-#      A 2 nm source spans hundreds of correlation widths.
-#    - If the fiber is strongly GI (modal dispersion reduced), required length grows as $1/s$.
-#      That is why sweeping the dispersion scale $s$ is the right way to argue quantitatively.
+# - In **critical illumination**, the source (fiber near-field) is imaged onto the sample.
+#   Any stable structure at the fiber output becomes a stable **mean-envelope nonuniformity** at the sample.
 #
-# 4) **"Not enough uncorrelated modes"**
-#    - A 400 µm, NA≈0.22 fiber supports on the order of $10^5$ guided modes at visible wavelengths.
-#      "Mode count" is not the bottleneck.
-#    - The bottleneck is $N_{\mathrm{eff}}$ during one exposure.
+# - In a **Köhler-like relay**, the source is imaged to the **pupil** and the **field stop** is imaged to the sample.
+#   Then the sample field uniformity is governed mainly by the field stop image and pupil fill.
+#   The fiber near-field structure is largely averaged and does **not** map directly to the sample.
 #
-# 5) **"A couple of nm linewidth is not enough"**
-#    - Under step-index-like dispersion, 2 nm is *massively* larger than $\Delta\lambda_c$.
-#    - Under strong GI dispersion reduction, 2 nm may or may not be enough; 20 nm is much safer.
+# In other words: MMF can be very practical, but you have to avoid unintentionally operating in a critical-illumination regime.
 #
-# 6) **"~1% of wavelength"**
-#    - 1% is ~6.4 nm at 640 nm. In this bookkeeping it is a *heuristic safety margin*,
-#      not a fundamental threshold.
+# ### "Speckling would be an issue"
 #
-# ---
+# Yes, if the light is highly coherent and the illumination is static. But speckle is a *coherence / averaging* problem:
 #
-# ## What to measure (fast, decisive)
+# - For a single realization: $C\sim 1$ is common.
+# - For $N_{\rm eff}$ independent realizations: $C\approx 1/\sqrt{N_{\rm eff}}$.
 #
-# If you want to settle this experimentally in a day:
+# The notebook above shows both the bookkeeping and a Fourier-optics simulation confirming the trend.
 #
-# - Measure speckle contrast $C$ in the inner ROI for several exposures.
-# - If possible, insert a narrowband filter to reduce linewidth and watch C increase.
-# - Compare: scrambler off vs on (or fiber gently agitated vs not).
+# ### "The fiber would need to be longer than practical"
 #
-# Then compute $N_{\mathrm{eff}} \approx 1/C^2$ and compare to the budget in this notebook.
+# Using the CNI-like quoted fiber (400 µm core, NA≈0.22, 3 m, silica $n\approx 1.46$):
+#
+# - The absolute path length is $\mathrm{OPL}=nL\approx 4.38\,\mathrm{m}$.
+# - The **intermodal spread** is about $\Delta\mathrm{OPL}\sim 5\,\mathrm{cm}$ for step-index-like behavior,
+#   and scales down by the graded-index factor $s$.
+#
+# That implies a spectral correlation width on the order of
+# $\Delta\lambda_c\sim \lambda^2/\Delta\mathrm{OPL}$, which is typically **much smaller than 1 nm** for meter-scale MMF.
+# So a fiber does *not* have to be tens of meters long for linewidth averaging to matter.
+#
+# ### "There are not enough uncorrelated modes"
+#
+# For a 400 µm, NA=0.22 fiber at 640 nm, the step-index mode count estimate is huge (order $10^5$).
+# The more subtle question is **effective** diversity:
+#
+# - If power is very unevenly distributed across realizations (modes / wavelength bins), the effective number is
+#   $N_{\rm eff} = (\sum w)^2/(\sum w^2)$.
+# - If successive scrambler states are correlated, time diversity is reduced:
+#   $N_{t,\rm eff}=1+(N_t-1)(1-\rho)$.
+#
+# Those effects are shown explicitly in Sections 6.1–7.2.
+#
+# ### "A couple of nanometers linewidth is not enough" / "1% of the wavelength"
+#
+# There is no special "percent" threshold. What matters is the ratio:
+#
+# $$
+# N_{\lambda} \sim \frac{\Delta\lambda_{\rm src}}{\Delta\lambda_c}.
+# $$
+#
+# If $\Delta\lambda_c$ is ~0.01–0.1 nm (typical for meter-scale MMF depending on GI behavior), then even a few nm can
+# provide tens to hundreds of effectively independent patterns. A 20 nm source is usually very strong on this axis.
+#
+# The notebook quantifies this for pessimistic GI scaling factors as well.
+#
+# ### "Do I really need a >>100 kHz fiber shaker?"
+#
+# Sometimes no, sometimes maybe — it depends on how much $N_{\lambda}$ you have.
+#
+# - If $N_{\lambda}$ is already large (wide linewidth and/or step-index-like delay), then the required $N_t$
+#   per 500 µs exposure can be small, corresponding to **kHz**-range equivalent rates.
+# - If $N_{\lambda}$ is small (very good GI homogenizer *and* narrow linewidth), the time-diversity burden increases
+#   and the equivalent rate can climb toward **tens of kHz**.
+#
+# Also note that real scramblers (bending/perturbing the fiber) change mode coupling, not just global phase,
+# so they can decorrelate patterns more efficiently than a naive stretcher-only picture.
+#
+# ### Interference vs modal power distribution (your "two issues" confusion)
+#
+# You were right to separate them:
+#
+# - **Interference speckle**: granular, high-frequency structure. Reduced by linewidth and scrambling.
+# - **Mean-envelope nonuniformity**: smooth gradients/roll-off/vignetting. Not automatically fixed by linewidth/scrambling.
+#
+# If you still see nonuniformity after heavy averaging, it's often the mean envelope, and the fix is usually:
+#
+# - make the relay more Köhler-like (field stop to sample, source to pupil),
+# - add a homogenizer (integrating rod / diffuser / additional MMF),
+# - or apply a flat-field correction if the envelope is stable.
+#
+# ### Practical measurements to de-risk the approach
+#
+# 1) **Measure speckle contrast** $C$ in the ROI and back out $N_{\rm eff}\approx 1/C^2$.
+# 2) **Average many frames** (or long exposures) to separate mean-envelope nonuniformity from speckle.
+# 3) **Image the pupil plane** (back focal plane) and the fiber near-field to diagnose whether you're closer to Köhler or critical.
+# 4) Change one knob at a time (linewidth / fiber length / scrambler) and verify that contrast scales as predicted.
