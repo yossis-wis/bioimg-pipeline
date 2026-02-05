@@ -20,6 +20,9 @@ dependencies:
   - scipy=1.10.*
   - pandas=2.0.*
 
+  # StarDist runtime acceleration (required by StarDist; compiled -> conda-forge)
+  - numba=0.59.*
+
   # I/O + configs
   - pyyaml=6.*
   - tifffile=2023.7.*
@@ -50,3 +53,4 @@ dependencies:
       - csbdeep==0.8.1
       - tensorflow==2.13.0
       - keras==2.13.1
+

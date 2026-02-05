@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import sys
+import platform
 import subprocess
 from pathlib import Path
 
@@ -17,6 +18,7 @@ REQUIRED_IMPORTS = [
     "matplotlib",
     "h5py",  # needed for reading Imaris .ims
     "pptx",  # python-pptx (spot atlas QC)
+    "numba",  # required by StarDist
     "stardist",
     "csbdeep",
     "tensorflow",
@@ -61,17 +63,29 @@ def main() -> int:
     print(f"python: {sys.executable}")
     print(f"python_version: {sys.version.split()[0]}")
     print(f"conda_env: {os.environ.get('CONDA_DEFAULT_ENV', '(not set)')}")
+    print(f"platform: {platform.platform()}")
+    print(f"machine: {platform.machine()}")
 
     # 1) Env var
     data_root = os.environ.get("BIOIMG_DATA_ROOT")
     if not data_root:
         print("ERROR: BIOIMG_DATA_ROOT is not set.")
-        print(
-            r"Fix (PowerShell): [Environment]::SetEnvironmentVariable('BIOIMG_DATA_ROOT','D:\bioimg-data','User')"
-        )
+        print()
+        if sys.platform.startswith("win"):
+            print(
+                r'Fix (PowerShell): [Environment]::SetEnvironmentVariable("BIOIMG_DATA_ROOT","D:\\bioimg-data","User")'
+            )
+            print("Then close/reopen terminals (and VS Code) so the variable is visible.")
+        elif sys.platform == "darwin":
+            print("Fix (macOS zsh): add this line to ~/.zshrc:")
+            print('  export BIOIMG_DATA_ROOT="$HOME/bioimg-data"')
+            print("Then run:  source ~/.zshrc")
+        else:
+            print("Fix (bash): set and export BIOIMG_DATA_ROOT, e.g.:")
+            print('  export BIOIMG_DATA_ROOT="$HOME/bioimg-data"')
         return 2
 
-    data_root = Path(data_root)
+    data_root = Path(data_root).expanduser().resolve()
     print(f"BIOIMG_DATA_ROOT: {data_root}")
     if not data_root.exists():
         print(f"ERROR: BIOIMG_DATA_ROOT path does not exist: {data_root}")
@@ -107,6 +121,13 @@ def main() -> int:
             print(f"import {mod}: OK")
         except Exception as e:
             print(f"ERROR: import {mod} failed: {e}")
+            msg = str(e)
+            if mod in ("stardist", "numba") and ("no module named" in msg.lower()) and ("numba" in msg.lower()):
+                print()
+                print("Hint: StarDist requires numba. Fix:")
+                print("  conda activate bioimg-pipeline")
+                print("  conda env update -f environment.yml --prune")
+                print("  python scripts/verify_setup.py")
             return 2
 
     # 4b) typing_extensions sanity check (VS Code Jupyter / Spyder)
@@ -128,7 +149,8 @@ def main() -> int:
         print()
         print("After fixing:")
         print("  - Re-run: python scripts/verify_setup.py")
-        print("  - Reload VS Code: Ctrl+Shift+P -> Developer: Reload Window")
+        reload_keys = "Cmd+Shift+P" if sys.platform == "darwin" else "Ctrl+Shift+P"
+        print(f"  - Reload VS Code: {reload_keys} -> Developer: Reload Window")
         return 2
 
     # 5) Write test to runs/
@@ -150,3 +172,4 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+

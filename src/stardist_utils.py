@@ -58,10 +58,28 @@ def load_stardist2d(model_ref: StardistModelRef) -> Any:
     try:
         from stardist.models import StarDist2D  # type: ignore
     except Exception as e:
+        msg = str(e)
+
+        # Common failure mode: StarDist is installed, but numba is missing.
+        # (StarDist uses numba-accelerated geometry ops.)
+        if "no module named" in msg.lower() and "numba" in msg.lower():
+            raise ImportError(
+                "StarDist imported but its dependency 'numba' is missing.\n\n"
+                "Fix (recommended):\n"
+                "  conda activate bioimg-pipeline\n"
+                "  conda env update -f environment.yml --prune\n\n"
+                "If you need a one-liner:\n"
+                "  conda install -c conda-forge numba\n\n"
+                "Then re-run:\n"
+                "  python scripts/verify_setup.py"
+            ) from e
+
         raise ImportError(
-            "StarDist is not installed. Install Slice1 dependencies, e.g.:\n\n"
-            "  pip install stardist csbdeep tensorflow\n"
-            "\nOr with conda-forge where applicable."
+            "StarDist is not usable (import failed).\n\n"
+            "Fix (recommended):\n"
+            "  conda activate bioimg-pipeline\n"
+            "  conda env update -f environment.yml --prune\n\n"
+            f"Original import error:\n  {type(e).__name__}: {e}"
         ) from e
 
     assert_stardist_model_dir(model_ref.model_dir)
@@ -83,3 +101,4 @@ def get_model_thresholds(model: Any) -> Dict[str, float]:
             except Exception:
                 continue
     return out
+

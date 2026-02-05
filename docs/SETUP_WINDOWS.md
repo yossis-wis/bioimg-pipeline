@@ -231,3 +231,30 @@ After the fix, reload VS Code:
 
 - `Ctrl+Shift+P` → **Developer: Reload Window**
 
+### verify_setup.py fails with: "No module named 'numba'" (StarDist)
+
+**Symptom**
+
+- `python scripts/verify_setup.py` prints an error like:
+  - `ERROR: import stardist failed: No module named 'numba'`
+  - (or `ERROR: import numba failed: No module named 'numba'`)
+
+**Cause**
+
+`stardist` relies on `numba`. On some machines (or if the environment was created before `environment.yml` included `numba`), that dependency may be missing.
+
+**Fix**
+
+```bat
+conda activate bioimg-pipeline
+conda env update -f environment.yml --prune
+python scripts/verify_setup.py
+```
+
+If it still fails, install `numba` directly from conda-forge:
+
+```bat
+conda activate bioimg-pipeline
+conda install -c conda-forge numba
+python scripts/verify_setup.py
+```
