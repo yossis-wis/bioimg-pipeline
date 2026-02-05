@@ -3,6 +3,7 @@
 This folder contains copy/paste-ready drafts for vendor communication.
 
 - `cni_modular_laser_inquiry_email.md`: modular laser inquiry email (Approach A vs B)
+- `cni_quote_summary_2026-02-05.md`: text-only summary of the quote reply received on 2026-02-05 (for design notes)
 - `assets/`: **local-only** diagram images referenced by the draft (intentionally **gitignored**)
 
 ## Notes on diagrams / assets

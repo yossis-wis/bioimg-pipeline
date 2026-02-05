@@ -20,6 +20,7 @@ The companion notebooks are:
 
 - `notebooks/05_excitation_speckle_fpfn_proxy.py`
 - `notebooks/06_mmf_illumination_500us_design.py` (short-exposure / 500 µs design sweeps)
+- `notebooks/09_mmf_wide_linewidth_scrambling_fourier_optics.py` (step-by-step fiber-dispersion + Fourier-optics analysis of “MMF + wide-linewidth + scrambler”)
 
 It produces:
 
