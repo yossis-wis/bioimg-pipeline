@@ -1,59 +1,48 @@
-# Guided-wave primer for this repo: single-mode vs multimode fiber (SMF vs MMF)
+# Guided-wave primer for this repo
+## Single‑mode vs multimode fiber (SMF vs MMF), with an MMF‑speckle focus
 
-> **Scope (why you are reading this):**
-> This is a **chapter-like, equation-first** explanation of *guided waves in fibers* aimed at the two
-> illumination-delivery approaches used throughout this repo:
->
-> - **Approach A:** separate **single-mode fiber** outputs per wavelength, combined in free space.
-> - **Approach B:** **wide-linewidth** free-space lasers combined into a **single multimode fiber** (MMF)
->   + scrambler for speckle averaging.
->
-> **Sources (provided in this project):**
-> - Agrawal, *Fiber-Optic Communication Systems* (5th ed., 2021) — see `Fiber‐Optic Communication Systems - 2021 - Agrawal.pdf` in this project’s files.
-> - Dan Oron course notes: *Guided wave optics* — see `guided waves.pdf` in this project’s files.
->
-> **Printing note:** designed to print cleanly on a **black-and-white laser printer**.
-> All diagrams are ASCII; no dependence on color.
+**Draft 3 (2026‑02‑06)**
+
+This is a guided‑wave / fiber‑optics “chapter‑style” primer written specifically to support the two
+illumination‑delivery approaches in this repo:
+
+- **Approach A (SMF per wavelength):** stable spatial mode (near‑Gaussian), then combine in free space.
+- **Approach B (MMF for multiple wavelengths):** many spatial modes (speckle) + **averaging** (linewidth, scrambler, etc.).
+
+Printing note: everything is intended to print cleanly on a black‑and‑white laser printer.
+Figures are **original** (drawn for this repo) and use only black strokes.
 
 ---
 
-## 0) What you should get out of this
+## 0) How to use this document
 
-After reading, you should be able to do the following *without hand-waving*:
+If you only read 3 pages, read:
 
-1. Given a fiber core radius $a$, wavelength $\lambda$, and numerical aperture $\mathrm{NA}$, compute the
-   **V-number** $V$ and decide if the fiber is **single-mode** or **multimode**.
-2. For a multimode fiber, estimate how many modes exist (order of magnitude), and understand why that
-   immediately implies **speckle** unless something makes the modes add **incoherently**.
-3. Given an MMF length $L$, $\mathrm{NA}$ and core index $`n_1`$, estimate an **optical-path-length spread**
-   $`\Delta\mathrm{OPL}`$ and from it estimate:
-   - the **spectral decorrelation width** $`\Delta\lambda_c`$,
-   - the number of independent spectral “looks” $`N_\lambda`$ inside one exposure.
-4. Combine time/spectral/polarization/angle diversity into an **effective** number of averages
-   $`N_{\mathrm{eff}}`$ and estimate speckle contrast $`C \sim 1/\sqrt{N_{\mathrm{eff}}}`$.
+1) **Section 1:** the two approaches and what problem we’re actually solving.  
+2) **Section 5:** the **V‑number** and “single‑mode cutoff”.  
+3) **Section 10–13:** why MMF speckle depends on **coherence length** and **path‑length spread**.
 
-Throughout, we use representative values from this repo’s configs, especially:
+If you want one “mental model” to keep in your head:
 
-- `configs/cni_laser_inquiry.yaml` (defines Approach A vs B concepts)
-- `configs/illumination_mmf_500us.yaml` (defines 500 µs MMF design sweep assumptions)
+> **MMF speckle exists because the MMF output field is a coherent sum of many modes.  
+> Anything that destroys the *mutual coherence* between many modal contributions (spectral width, fast scrambling, polarization diversity, angle diversity) reduces speckle contrast in the camera exposure.**
 
 ---
 
-## 1) The two approaches in this repo (in one picture)
+## 1) The two fiber approaches in this repo (one picture + one sentence each)
 
-The repo is exploring two **delivery** concepts (not “two lasers”):
-
-### Approach A: single-mode fiber per wavelength (stable spatial mode)
+### Approach A: single‑mode fiber per wavelength
 
 ```
 [Laser 640]--(SMF)->(collimator)--\
-                                 +--> [combine in free space] --> [relay to objective]
+                                  +--> [combine in free space] --> [relay to objective]
 [Laser 488]--(SMF)->(collimator)--/
 ```
 
-Key feature: each wavelength emerges in essentially one spatial mode (a smooth, near-Gaussian field).
+One sentence: **the output spatial mode is predictable** (approximately Gaussian), so the illumination is
+smooth and stable.
 
-### Approach B: wide-linewidth lasers into one multimode fiber (many modes + averaging)
+### Approach B: wide‑linewidth sources into one multimode fiber
 
 ```
 [Laser 640 free-space]--\
@@ -61,21 +50,100 @@ Key feature: each wavelength emerges in essentially one spatial mode (a smooth, 
 [Laser 488 free-space]--/
 ```
 
-Key feature: the MMF supports **many guided modes**, which (if coherent) interfere at the output to form speckle.
-The whole point of the wide linewidth + scrambler is to make the observed intensity behave more like an
-**incoherent sum/average** of many independent patterns, which reduces speckle contrast during short exposures.
+One sentence: **the MMF supports many modes**, so the output is speckle unless the camera integrates an
+average over many *effectively independent* speckle realizations.
 
 ---
 
-## 2) Step-index waveguide geometry and the three core parameters
+## 2) Symbol legend (keep nearby)
 
-Both Agrawal and the Oron notes use the same physical model for an ordinary step-index fiber:
+This is a “cheat sheet” for symbols used repeatedly.
 
-- **core index:** $`n_1`$
-- **cladding index:** $`n_2`$ with $`n_1 > n_2`$
-- **core radius:** $a$
+### Geometry and indices
 
-A “step-index” profile means the refractive index jumps at $r=a$:
+- $`a`$ : **core radius** (m).  
+  Example: $`a=1.5\thinspace \mu\mathrm{m}`$ (SMF), or $`a=200\thinspace \mu\mathrm{m}`$ (400‑µm‑core MMF).
+
+- $`n_1`$ : **core refractive index** (unitless).  
+  Representative visible silica: $`n_1\approx 1.46`$.
+
+- $`n_2`$ : **cladding refractive index** (unitless), with $`n_2 < n_1`$.
+
+- $`\Delta`$ : **fractional index contrast** (unitless). A common weak‑guidance definition is
+  ```math
+  \Delta \equiv \frac{n_1^2-n_2^2}{2n_1^2}.
+  ```
+
+### Wavelength, frequency, wavenumbers
+
+- $`\lambda`$ : **vacuum wavelength** (m). (We use vacuum wavelength unless stated.)
+- $`k_0`$ : **vacuum wavenumber** (rad/m):
+  ```math
+  k_0 \equiv \frac{2\pi}{\lambda}.
+  ```
+- $`\omega`$ : **angular frequency** (rad/s), $`\omega = 2\pi f`$.
+
+### Fiber acceptance and “how many modes?”
+
+- $`\mathrm{NA}`$ : numerical aperture (unitless). For step‑index in air,
+  ```math
+  \mathrm{NA} = \sqrt{n_1^2-n_2^2} \approx n_1\sqrt{2\Delta}.
+  ```
+
+- $`V`$ : **V‑number** (a dimensionless “how many modes?” predictor):
+  ```math
+  V \equiv \frac{2\pi a}{\lambda}\thinspace \mathrm{NA}.
+  ```
+
+- $`M`$ : approximate number of guided spatial modes (unitless count).
+
+### MMF speckle + coherence
+
+- $`\Delta\mathrm{OPL}`$ : **optical path‑length spread** across guided contributions (m).
+- $`\Delta\tau`$ : corresponding **group‑delay spread** (s), approximately $`\Delta\tau \approx \Delta\mathrm{OPL}/c`$.
+- $`L_c`$ : coherence length (m).
+- $`\Delta\lambda_c`$ : spectral decorrelation width (nm or m, context).
+- $`N_{\mathrm{eff}}`$ : effective number of independent “looks” averaged in one exposure.
+
+---
+
+## 3) What is a “guided mode” (wave view, not ray view)
+
+Ray optics can tell you whether light is trapped by total internal reflection.
+Wave optics tells you what the *field* looks like.
+
+A standard guided‑mode ansatz is:
+
+```math
+\mathbf{E}(x,y,z,t) = \Re\Big\{\mathbf{e}(x,y)\thinspace \exp\big(i\beta z - i\omega t\big)\Big\}.
+```
+
+Read it slowly:
+
+- $`\mathbf{E}`$ is the **real** electric field (what nature has).
+- $`\mathbf{e}(x,y)`$ is the **transverse mode profile** (complex amplitude across the cross‑section).
+- $`\exp(i\beta z)`$ means “as you go forward in $z$, the phase advances at rate $`\beta`$”.
+- $`\beta`$ is the **propagation constant** (units rad/m).
+- $`\exp(-i\omega t)`$ is the usual time oscillation.
+
+A **guided mode** is a specific transverse pattern $`\mathbf{e}_m(x,y)`$ that satisfies Maxwell’s equations
+*and* boundary conditions at the core–cladding interface. Each guided mode has its own $`\beta_m`$.
+
+### Why do only certain modes exist?
+
+The Oron guided‑waves notes develop this first for a **slab waveguide**:
+a plane wave bouncing between interfaces must reproduce itself after a round trip.
+That “self‑consistency” forces certain transverse phase conditions → **discrete allowed angles** → discrete $`\beta`$.
+
+The same physical idea survives in a cylindrical fiber, but the math involves Bessel functions.
+
+---
+
+## 4) Step‑index vs graded‑index profiles (this matters for Approach B)
+
+### 4.1 Step‑index profile
+
+A step‑index fiber has:
 
 ```math
 n(r) =
@@ -85,794 +153,774 @@ n(r) =
 \end{cases}
 ```
 
-Everything that matters for “single-mode vs multimode” at a given wavelength can be boiled down to:
+So the index jumps at $`r=a`$.
 
-1. the **index contrast** (often written as $\Delta$),
-2. the **core radius** $a$, and
-3. the **vacuum wavelength** $\lambda$.
+### 4.2 Graded‑index (GI) profile (common in “homogenizing” fibers)
+
+A commonly used graded‑index model is a power‑law:
+
+```math
+n(r) = n_1\sqrt{1-2\Delta\left(\frac{r}{a}\right)^\alpha}, \qquad r \le a,
+```
+
+with $`\alpha > 0`$:
+
+- $`\alpha \to \infty`$ (or “very large”) approaches the step‑index limit.
+- $`\alpha=2`$ gives a **parabolic index** profile (a classic GI design).
+
+**Key qualitative consequence (GI fiber):** rays that wander far from the axis see a *lower* refractive index,
+so they move faster; this can partially “equalize” arrival times and reduce intermodal dispersion.
+
+### 4.3 Illustration: why GI reduces intermodal delay (hard to feel from equations alone)
+
+![Ray paths in step-index vs graded-index fiber](figures/ray_paths_step_vs_grin.svg)
+
+If you print without SVG support, the same idea in ASCII:
+
+```
+Step-index (SI):           Graded-index (GI / parabolic):
+n = n1 inside core         n(r) decreases with r
+
+  |---------|                |---------|
+  |  /\  /\ |                |   ~~~   |
+  | /  \/  \|                |  ~   ~  |
+  |/        \                | ~     ~ |
+  |----------|                |---------|
+
+High-angle path is longer    High-angle path is longer,
+*and* speed is similar       but speed is higher near edge
+→ larger delay spread        → delay spread reduced
+```
+
+For Approach B this is not a footnote: GI can be “good” for telecom but “bad” for *spectral speckle averaging*,
+because reduced delay spread means fewer independent spectral looks (Section 13).
 
 ---
 
-## 3) Numerical aperture (NA): ray-optics meaning and wave-optics meaning
+## 5) Numerical aperture (NA): define it, then compute it once
 
-### 3.1 Ray-optics definition
+### 5.1 NA from acceptance angle (ray picture)
 
-The **numerical aperture** $\mathrm{NA}$ is (by definition) the sine of the maximum acceptance half-angle in air:
-
-```math
-\mathrm{NA} \equiv n_0\sin\theta_{\max}.
-```
-
-For air, $`n_0\approx 1`$, so $`\mathrm{NA} \approx \sin\theta_{\max}`$.
-
-For a step-index fiber, total internal reflection at the core–cladding interface leads to the well-known result:
+By definition:
 
 ```math
-\mathrm{NA} = \sqrt{n_1^2 - n_2^2}.
+\mathrm{NA} \equiv n_0\sin\theta_{\max},
 ```
 
-**What this means operationally:** if you inject a free-space beam whose half-angle cone is smaller than
-$`\theta_{\max}`$, the fiber can accept it (in the geometric-optics sense).
+where:
 
-### 3.2 Index-contrast parameter $\Delta$ (common in fiber theory)
+- $`n_0`$ is the external medium index (≈1 for air).
+- $`\theta_{\max}`$ is the maximum external half‑angle that can be accepted (in the ray sense).
 
-A very common dimensionless parameter is the (approximate) fractional index contrast $\Delta$.
-One typical definition is:
+So in air, $`\mathrm{NA}\approx \sin\theta_{\max}`$.
+
+### 5.2 NA from indices (step‑index fiber)
+
+For a step‑index fiber in air, a standard result is:
 
 ```math
-\Delta \equiv \frac{n_1^2 - n_2^2}{2n_1^2}.
+\mathrm{NA} = \sqrt{n_1^2-n_2^2}.
 ```
 
-If $\Delta \ll 1$ (true for most silica fibers), then you can show:
+**Toy numeric example (indices → NA):**
 
-```math
-\mathrm{NA} \approx n_1\sqrt{2\Delta}.
-```
+Take:
 
-#### Toy numeric example: compute NA from indices
+- $`n_1=1.460`$
+- $`n_2=1.455`$
 
-Take a “visible-ish SMF” index pair such as:
+Step by step:
 
-- $`n_1 = 1.460`$
-- $`n_2 = 1.455`$
+1) Square them  
+   $`n_1^2 = 1.460^2 \approx 2.1316`$  
+   $`n_2^2 = 1.455^2 \approx 2.1170`$
 
-Compute:
+2) Subtract  
+   $`n_1^2-n_2^2 \approx 0.0146`$
 
-1) squares: $`n_1^2 = 1.460^2 \approx 2.1316`$, $`n_2^2 = 1.455^2 \approx 2.1170`$.
+3) Square‑root  
+   $`\mathrm{NA} \approx \sqrt{0.0146} \approx 0.121`$
 
-2) subtract: $`n_1^2-n_2^2 \approx 0.0146`$.
-
-3) sqrt: $\mathrm{NA} \approx \sqrt{0.0146} \approx 0.121$.
-
-So the acceptance half-angle in air is about:
+So:
 
 ```math
 \theta_{\max} \approx \arcsin(0.121) \approx 6.9^\circ.
 ```
 
-This “small angle” fact is why small-angle approximations show up everywhere.
+That “small acceptance angle” is why small‑angle approximations are everywhere in fiber estimates.
 
 ---
 
-## 4) Wave-optics view: what a “mode” is
+## 6) The V‑number: one dimensionless number that predicts “single‑mode vs multimode”
 
-Ray optics tells you whether light is trapped, but it does *not* tell you the full field.
-Wave optics tells you that inside a waveguide, the electromagnetic field can propagate in special patterns
-that reproduce after any distance $z$ up to a phase factor.
+### 6.1 Definition
 
-A standard separation-of-variables form for a single-frequency field is:
+Define:
 
 ```math
-\mathbf{E}(x,y,z,t) = \Re\Big\{\mathbf{e}(x,y)\,\exp\big(i\beta z - i\omega t\big)\Big\}.
+V \equiv \frac{2\pi a}{\lambda}\thinspace \mathrm{NA}.
 ```
 
-Every symbol here matters:
+Every factor is intuitive:
 
-- $\mathbf{E}$ is the **real** electric field.
-- $\mathbf{e}(x,y)$ is the **transverse mode profile** (complex in general).
-- $\omega = 2\pi f$ is the angular frequency.
-- $\beta$ is the **propagation constant** along $z$ (units: rad/m).
-  It plays the role of “axial wavenumber.”
+- $2\pi/\lambda$ sets a “spatial frequency scale” (how fine features can be).
+- $a$ sets the transverse size of the waveguide.
+- NA sets how strongly the guide can confine transverse components.
 
-A **guided mode** is one of the discrete solutions $\mathbf{e}(x,y)$ that satisfies Maxwell + boundary conditions.
-Each allowed mode comes with its own $`\beta_m`$.
+### 6.2 Single‑mode cutoff (step‑index cylindrical fiber)
 
-### Why “discrete” modes appear (the slab-waveguide analogy)
+A classic result (Agrawal; Hecht; most fiber texts) is:
 
-The Oron notes develop this first for a slab waveguide: a plane wave bounces between the interfaces.
-A mode exists only if the round-trip phase is self-consistent (phase matched), which forces **quantized** angles.
-In full wave optics, that quantization becomes quantized $\beta$.
+> A step‑index cylindrical fiber is strictly single‑mode if $V < 2.405$.
 
-You do not need the full derivation for this project, but you *do* need the consequence:
+The number 2.405 is the first zero of the Bessel function $`J_0`$.
 
-> **A waveguide supports only certain allowed transverse field patterns.**
-> Those patterns are the “modes,” and “single-mode” literally means only the lowest-order one exists.
+### 6.3 Toy calculation: “is my fiber single‑mode at 488 and 640?”
 
----
+Assume a “visible SMF” with:
 
-## 5) The V-number: one dimensionless number that predicts single-mode vs multimode
+- $`a = 1.5\thinspace \mu\mathrm{m} = 1.5\times 10^{-6}\thinspace \mathrm{m}`$
+- $`\mathrm{NA}=0.12`$
 
-### 5.1 Definition
+Compute for each wavelength.
 
-For a step-index **cylindrical** fiber, define the **vacuum** wavenumber:
+#### For $488\thinspace \mathrm{nm}`$
 
-```math
-k_0 \equiv \frac{2\pi}{\lambda}.
-```
+1) Convert  
+   $`\lambda = 488\thinspace \mathrm{nm} = 488\times 10^{-9}\thinspace \mathrm{m}`$
 
-Then define the **normalized frequency** (V-number):
+2) Insert into the formula  
+   ```math
+   \begin{aligned}
+   V_{488}
+   &= \frac{2\pi (1.5\times 10^{-6})}{488\times 10^{-9}}(0.12) \\
+   &= 2\pi\left(\frac{1.5}{488}\times 10^{3}\right)(0.12) \\
+   &\approx 2\pi(3.074)(0.12) \\
+   &\approx 2.32.
+   \end{aligned}
+   ```
 
-```math
-V \equiv k_0 a\,\sqrt{n_1^2-n_2^2} = \frac{2\pi a}{\lambda}\,\mathrm{NA}.
-```
+3) Compare to 2.405  
+   $`2.32 < 2.405`$ → **single‑mode** (barely).
 
-Interpretation:
+#### For $640\thinspace \mathrm{nm}`$
 
-- Bigger core ($a\uparrow$) → more room transversely → more modes.
-- Shorter wavelength ($\lambda\downarrow$) → finer transverse structure possible → more modes.
-- Larger NA (bigger index step) → tighter confinement possible → more modes.
-
-### 5.2 Single-mode cutoff (step-index fiber)
-
-A classic result (Agrawal + any fiber text) is:
-
-> A step-index fiber is strictly single-mode when $V < 2.405$.
-
-The number $2.405$ is the first zero of the Bessel function $`J_0`$.
-It appears because the exact solution in cylindrical coordinates uses Bessel functions in the core and
-modified Bessel functions in the cladding.
-
-### 5.3 Slab-waveguide cutoff (why Oron’s notes mention $\pi/2$)
-
-For a **slab** waveguide (1D confinement), the cutoff for the first higher-order mode occurs at a different number.
-In the Oron notes you see a condition equivalent to:
-
-```math
-V_{\mathrm{slab}} < \frac{\pi}{2}
-```
-
-for single-mode operation.
-
-**Do not mix these constants.** They refer to different geometries:
-
-- slab: one transverse dimension confined → cutoff $\sim \pi/2$.
-- fiber: two transverse dimensions confined → cutoff $\sim 2.405$.
-
-The take-home is the same: there is a geometry-dependent “order-unity” cutoff value.
-
----
-
-## 6) Toy calculations: “is my fiber single-mode at 488 and 640?”
-
-This is **the** practical question behind Approach A.
-
-### 6.1 Example A: a “visible SMF” that stays single-mode at 488 and 640
-
-Assume:
-
-- core radius $a = 1.5\thinspace\mu\mathrm{m}$
-- $\mathrm{NA} = 0.12$
-
-Compute $V$ at two wavelengths.
-
-#### Step 1: convert units
-
-- $1\thinspace\mu\mathrm{m} = 10^{-6}\thinspace\mathrm{m}$
-- $1\thinspace\mathrm{nm} = 10^{-9}\thinspace\mathrm{m}$
-
-So:
-
-- $a = 1.5\times 10^{-6}\thinspace\mathrm{m}$
-- $`\lambda_{488} = 488\times 10^{-9}\thinspace\mathrm{m}`$
-- $`\lambda_{640} = 640\times 10^{-9}\thinspace\mathrm{m}`$
-
-#### Step 2: apply $V = (2\pi a/\lambda)\,\mathrm{NA}$
-
-For $488\thinspace\mathrm{nm}$:
-
-```math
-\begin{aligned}
-V_{488}
-&= \frac{2\pi\,(1.5\times 10^{-6})}{488\times 10^{-9}}\,(0.12)\\
-&= 2\pi\,\Big(\frac{1.5}{488}\times 10^{3}\Big)\,(0.12)\\
-&\approx 2\pi\,(3.074)\,(0.12)\\
-&\approx 2.32.
-\end{aligned}
-```
-
-For $640\thinspace\mathrm{nm}$:
+Same steps:
 
 ```math
 \begin{aligned}
 V_{640}
-&= \frac{2\pi\,(1.5\times 10^{-6})}{640\times 10^{-9}}\,(0.12)\\
-&= 2\pi\,\Big(\frac{1.5}{640}\times 10^{3}\Big)\,(0.12)\\
-&\approx 2\pi\,(2.344)\,(0.12)\\
+&= \frac{2\pi (1.5\times 10^{-6})}{640\times 10^{-9}}(0.12) \\
+&= 2\pi\left(\frac{1.5}{640}\times 10^{3}\right)(0.12) \\
+&\approx 2\pi(2.344)(0.12) \\
 &\approx 1.77.
 \end{aligned}
 ```
 
-#### Step 3: compare to the single-mode cutoff 2.405
+$`1.77 < 2.405`$ → **single‑mode**.
 
-- $`V_{488} \approx 2.32 < 2.405`$ → **single-mode** (barely, but yes).
-- $`V_{640} \approx 1.77 < 2.405`$ → **single-mode**.
+### 6.4 Practical takeaway for Approach A
 
-This is why visible SMF cores are *small*: short wavelengths drive $V$ up.
-
-### 6.2 Example B: telecom “single-mode” fiber becomes multimode in the visible
-
-A telecom SMF might have roughly:
-
-- $a \approx 4.1\thinspace\mu\mathrm{m}$
-- $\mathrm{NA} \approx 0.14$
-
-At $\lambda=1550\thinspace\mathrm{nm}$ you get $V\sim 2.3$ (single-mode).
-But at $640\thinspace\mathrm{nm}$:
-
-```math
-V_{640} \approx \frac{2\pi (4.1\times 10^{-6})}{640\times 10^{-9}}\,(0.14) \approx 5.6,
-```
-
-which is strongly **multimode**.
-
-**Practical consequence for Approach A:** you generally cannot use one off-the-shelf telecom SMF patch cable
-for both $488\thinspace\mathrm{nm}$ and $640\thinspace\mathrm{nm}$ and still stay single-mode.
+- “Single‑mode” is always **wavelength‑dependent**.
+- A telecom SMF that is single‑mode at 1550 nm is often multimode at 488/640 nm.
 
 ---
 
-## 7) How many modes does an MMF support?
+## 7) How many modes does an MMF support? (this is why speckle exists)
 
-Once $V\gg 1$, the fiber supports a large number of guided modes.
-A widely used step-index estimate is:
+Once $V\gg 1$, the number of guided modes becomes huge.
 
-```math
-M \approx \frac{V^2}{2}
-```
+### 7.1 Step‑index estimate (large V)
 
-where $M$ is the number of guided modes (order-of-magnitude; counting conventions differ by factors near 2).
-For a graded-index MMF, an often-quoted estimate is smaller by about a factor of two:
+A widely used estimate is:
 
 ```math
-M_{\mathrm{GI}} \sim \frac{V^2}{4}.
+M_{\mathrm{SI}} \approx \frac{V^2}{2}.
 ```
 
-### Toy numeric example: 400 µm-core MMF at 640 nm
+Important nuance: different authors count polarization degeneracy differently; factors of 2 are common.
+For our use (showing that $M$ is *enormous*), that ambiguity does not matter.
+
+### 7.2 Graded‑index estimate (power‑law profile)
+
+For the power‑law GI model above, one result is:
+
+```math
+M_{\mathrm{GI}} \approx \left(\frac{\alpha}{\alpha+2}\right)\frac{V^2}{2}.
+```
+
+So for parabolic GI ($`\alpha=2`$):
+
+```math
+M_{\mathrm{GI}} \approx \frac{V^2}{4}.
+```
+
+### 7.3 Toy numeric example: 400‑µm‑core MMF at 640 nm (repo‑relevant)
 
 Use values consistent with `configs/illumination_mmf_500us.yaml`:
 
-- $\lambda = 640\thinspace\mathrm{nm}$
-- $\mathrm{NA} = 0.22$
-
-Suppose you consider a large-core MMF with diameter $400\thinspace\mu\mathrm{m}$, i.e. radius
-$a = 200\thinspace\mu\mathrm{m}$.
+- $`\lambda = 640\thinspace \mathrm{nm}`$
+- $`\mathrm{NA}=0.22`$
+- core diameter $400\thinspace \mu\mathrm{m}`$ → radius $`a=200\thinspace \mu\mathrm{m}`$
 
 Compute $V$:
 
 ```math
 \begin{aligned}
 V
-&= \frac{2\pi a}{\lambda}\,\mathrm{NA}\\
-&= \frac{2\pi (200\times 10^{-6})}{640\times 10^{-9}}\,(0.22)\\
-&= 2\pi\,\Big(\frac{200}{640}\times 10^{3}\Big)\,(0.22)\\
-&\approx 2\pi\,(312.5)\,(0.22)\\
+&= \frac{2\pi a}{\lambda}\mathrm{NA} \\
+&= \frac{2\pi (200\times 10^{-6})}{640\times 10^{-9}}(0.22) \\
+&= 2\pi\left(\frac{200}{640}\times 10^{3}\right)(0.22) \\
+&\approx 2\pi(312.5)(0.22) \\
 &\approx 432.
 \end{aligned}
 ```
 
-Then
+Then:
 
 ```math
-M \approx \frac{V^2}{2} \approx \frac{(432)^2}{2} \approx 9.3\times 10^4.
+M_{\mathrm{SI}} \approx \frac{432^2}{2} \approx 9.3\times 10^4.
 ```
 
-So: **tens of thousands** of spatial modes are supported.
+So: **tens of thousands** of spatial modes.
 
-This is the “MMF superpower” (many degrees of freedom), and also the “MMF curse” (lots of interference speckle).
+This is the “MMF superpower” (many degrees of freedom) and the “MMF curse” (lots of interference).
+
+### 7.4 Launch conditions: underfill vs overfill (why “M is huge” is not the whole story)
+
+Even if the fiber *supports* $M$ modes, you might not *excite* them all.
+
+Hecht describes this with “underfilled” vs “overfilled” launch:
+
+- **Underfilled:** input beam occupies a small part of the core and/or a narrow angular cone → mostly low‑order modes.
+- **Overfilled:** input beam fills the core and acceptance cone → many modes, including high‑order ones.
+
+For Approach B, this matters because:
+
+- the instantaneous speckle statistics depend on how many modes actually carry power,
+- the **time dynamics** of speckle under a scrambler depend on how strongly you excite high‑order modes.
 
 ---
 
-## 8) Why multimode fiber produces speckle (the key equation)
+## 8) A short Gaussian‑beam detour (because coupling is always about angles)
 
-At the MMF output plane, the complex field can be written as a coherent sum over guided modes:
-
-```math
-U(\mathbf{r}) = \sum_{m=1}^{M} a_m\,\psi_m(\mathbf{r})\,\exp(i\phi_m).
-```
-
-Interpret each factor:
-
-- $U(\mathbf{r})$ : complex field at transverse coordinate $\mathbf{r}=(x,y)$.
-- $`\psi_m(\mathbf{r})`$ : normalized transverse mode shape.
-- $`a_m`$ : (real, nonnegative) modal amplitude at the output.
-- $`\phi_m`$ : modal phase (depends on launch conditions, path length, bending, temperature, etc.).
-
-The measured intensity is:
+Chapter 11 of the Optics “f2f” text emphasizes a simple relation for a Gaussian beam:
 
 ```math
-I(\mathbf{r}) = |U(\mathbf{r})|^2.
+\Delta\theta \approx \frac{\lambda}{\pi w_0},
 ```
 
-Expanding $|\cdot|^2$ exposes the interference explicitly:
+where:
+
+- $`w_0`$ is the beam waist radius (m),
+- $`\Delta\theta`$ is the far‑field divergence half‑angle (radians).
+
+This is useful because fiber acceptance is also an angle constraint:
+
+- the fiber accepts rays up to roughly $`\theta_{\max}\approx \arcsin(\mathrm{NA})`$ in air.
+
+**Toy example (why focusing matters):**
+
+At $`\lambda=640\thinspace \mathrm{nm}`$:
+
+- if $`w_0 = 5\thinspace \mu\mathrm{m}`$,
+  ```math
+  \Delta\theta \approx \frac{640\times 10^{-9}}{\pi(5\times 10^{-6})}\approx 0.041 \ \mathrm{rad}\approx 2.3^\circ.
+  ```
+- if $`w_0 = 1\thinspace \mu\mathrm{m}`$,
+  ```math
+  \Delta\theta \approx 0.20\ \mathrm{rad}\approx 11^\circ.
+  ```
+
+So changing the waist by a few µm can move you from “comfortably within NA” to “hitting NA limits”.
+
+---
+
+## 9) Why MMF produces speckle: the one equation to memorize
+
+Write the (complex) output field as a coherent sum of modes:
 
 ```math
-I(\mathbf{r}) = \sum_m a_m^2|\psi_m(\mathbf{r})|^2
-+ \sum_{m\neq n} a_m a_n\,\psi_m(\mathbf{r})\psi_n^*(\mathbf{r})\,\exp\big(i(\phi_m-\phi_n)\big).
+U(\mathbf{r}) = \sum_{m=1}^{M} a_m\thinspace \psi_m(\mathbf{r})\thinspace e^{i\phi_m}.
 ```
 
-- The first term is a sum of modal **intensities**.
-- The second term is the sum of **cross terms** (interference).
+Interpret every piece:
 
-When many cross terms with effectively random phase differences contribute, $I(\mathbf{r})$ becomes a
-high-contrast granular pattern: speckle.
+- $`\mathbf{r}=(x,y)`$ : transverse coordinate at the output facet.
+- $`\psi_m(\mathbf{r})`$ : transverse field shape of mode $m$.
+- $`a_m \ge 0`$ : amplitude in mode $m$ at the output.
+- $`\phi_m`$ : phase accumulated by mode $m$ (depends on fiber bends, launch, temperature, etc.).
 
-### 8.1 Two-mode toy example (so the algebra is concrete)
+### 9.1 Turn field into intensity (and watch “cross terms” appear)
 
-Let the field be just two phasors:
+Intensity is magnitude‑squared:
 
 ```math
-U = a_1 e^{i\phi_1} + a_2 e^{i\phi_2}.
+I(\mathbf{r}) = |U(\mathbf{r})|^2 = U(\mathbf{r})\thinspace U^*(\mathbf{r}).
 ```
 
-Compute intensity:
+Now substitute the sum:
+
+```math
+\begin{aligned}
+I(\mathbf{r})
+&= \left(\sum_m a_m\psi_m e^{i\phi_m}\right)\left(\sum_n a_n\psi_n^* e^{-i\phi_n}\right) \\
+&= \sum_m a_m^2|\psi_m|^2 \;+\; \sum_{m\ne n} a_m a_n\thinspace \psi_m\psi_n^*\thinspace e^{i(\phi_m-\phi_n)}.
+\end{aligned}
+```
+
+Two important parts:
+
+- the $`\sum_m`$ term is a sum of modal **intensities** (always positive),
+- the $`\sum_{m\ne n}`$ term contains the **interference** (the speckle‑producing part).
+
+### 9.2 Two‑mode toy example (so the algebra feels real)
+
+Let:
+
+```math
+U = a_1e^{i\phi_1}+a_2e^{i\phi_2}.
+```
+
+Then:
 
 ```math
 \begin{aligned}
 I &= |U|^2 = U U^* \\
   &= (a_1 e^{i\phi_1} + a_2 e^{i\phi_2})(a_1 e^{-i\phi_1} + a_2 e^{-i\phi_2})\\
-  &= a_1^2 + a_2^2 + a_1 a_2\,\big(e^{i(\phi_1-\phi_2)} + e^{-i(\phi_1-\phi_2)}\big)\\
-  &= a_1^2 + a_2^2 + 2 a_1 a_2\cos(\Delta\phi),
+  &= a_1^2+a_2^2 + 2a_1a_2\cos(\phi_1-\phi_2).
 \end{aligned}
 ```
 
-where $`\Delta\phi \equiv \phi_1-\phi_2`$.
-
 If $`a_1=a_2=a`$:
 
-- max intensity when $\cos(\Delta\phi)=+1$: $`I_{\max}=4a^2`$
-- min intensity when $\cos(\Delta\phi)=-1$: $`I_{\min}=0`$
+- maximum when $`\cos(\Delta\phi)=+1`$: $`I_{\max}=4a^2`$
+- minimum when $`\cos(\Delta\phi)=-1`$: $`I_{\min}=0`$
 
-So just two coherent contributions can already produce huge fluctuations.
-An MMF has thousands of them.
+So even *two* coherent contributions can swing from zero to four‑times intensity.
+An MMF has **thousands**.
 
 ---
 
-## 9) Speckle contrast and “effective number of independent looks”
+## 10) “Speckle contrast” and why averaging helps
 
-A standard engineering approximation (used throughout this repo) is:
-
-> If you average $N$ **independent** speckle patterns (incoherent sum or time average),
-> speckle contrast scales like $C \sim 1/\sqrt{N}$.
-
-In this repo we factor $N$ into multiplicative diversity mechanisms:
+Speckle contrast is typically defined as:
 
 ```math
-N_{\mathrm{eff}} \approx N_t\,N_\lambda\,N_{\mathrm{pol}}\,N_{\mathrm{angle}}.
+C \equiv \frac{\sigma_I}{\langle I\rangle},
 ```
 
-Where:
+where:
 
-- $`N_t`$ : number of independent patterns during the exposure (time diversity).
-- $`N_\lambda`$ : number of independent spectral “looks” (spectral diversity).
-- $`N_{\mathrm{pol}}`$ : polarization diversity (often up to 2).
-- $`N_{\mathrm{angle}}`$ : angle diversity (e.g. scanning pupil angle).
+- $`\langle I\rangle`$ is mean intensity (spatial or ensemble mean),
+- $`\sigma_I`$ is standard deviation of intensity.
 
-Then a first-pass contrast estimate is:
+A common engineering approximation is:
+
+> If you average $N$ **independent** speckle patterns, contrast scales like $C\sim 1/\sqrt{N}$.
+
+In this repo we split:
 
 ```math
+N_{\mathrm{eff}} \approx N_t\thinspace N_\lambda\thinspace N_{\mathrm{pol}}\thinspace N_{\mathrm{angle}},
+\qquad
 C \approx \frac{1}{\sqrt{N_{\mathrm{eff}}}}.
 ```
 
-This is the conceptual bridge between **fiber mode theory** and your practical question:
+Interpret the factors:
 
-> “Will MMF illumination be smooth enough during a $500\thinspace\mu\mathrm{s}$ exposure?”
+- $`N_t`$ : time diversity (scrambler or fast mode coupling during exposure)
+- $`N_\lambda`$ : spectral diversity (finite linewidth; multiple wavelengths)
+- $`N_{\mathrm{pol}}`$ : polarization diversity (often up to 2)
+- $`N_{\mathrm{angle}}`$ : angle diversity (scan pupil / change launch angle)
+
+The rest of this document is mostly about estimating $`N_\lambda`$ and understanding why it depends on
+fiber type (SI vs GI), length, and NA.
 
 ---
 
-## 10) Temporal coherence: why linewidth matters for MMF speckle
+## 11) Temporal coherence: linewidth → coherence length (define every step)
 
-### 10.1 From linewidth $\Delta\lambda$ to coherence length $`L_c`$
+### 11.1 Coherence length from linewidth (order‑of‑magnitude)
 
-A useful order-of-magnitude estimate is:
+A widely used estimate is:
 
 ```math
 L_c \sim \frac{\lambda_0^2}{\Delta\lambda}.
 ```
 
-This is a vacuum coherence length. In a medium with refractive index $n$, an effective in-medium coherence
-length is reduced by about $n$:
+Interpretation:
+
+- wider spectrum ($`\Delta\lambda\uparrow`$) → shorter coherence length ($`L_c\downarrow`$).
+
+In a medium of index $n$, a “coherence length in the medium” is shorter by about $n$:
 
 ```math
-L_{c,\mathrm{med}} \sim \frac{\lambda_0^2}{n\,\Delta\lambda}.
+L_{c,\mathrm{med}} \sim \frac{\lambda_0^2}{n\thinspace \Delta\lambda}.
 ```
 
-**What this means physically:** if two contributions to the field arrive with an optical path difference
-much larger than $`L_c`$, they do not maintain a stable phase relationship and their interference washes out.
+### 11.2 Toy numeric example at 640 nm
 
-### 10.2 Toy numeric example at 640 nm
+Take $`\lambda_0 = 640\thinspace \mathrm{nm}`$ so $`\lambda_0^2 = (640\thinspace \mathrm{nm})^2 = 409600\thinspace \mathrm{nm}^2`$.
 
-Take $`\lambda_0 = 640\thinspace\mathrm{nm}`$.
+Now divide by linewidth:
 
-Compute $`L_c`$ for a few linewidths:
+- $`\Delta\lambda = 1\thinspace \mathrm{nm}`$  
+  $`L_c \sim 409600\thinspace \mathrm{nm} \approx 0.41\thinspace \mathrm{mm}`$
 
-- $\Delta\lambda = 0.001\thinspace\mathrm{nm}$ → $`L_c \sim 0.41\thinspace\mathrm{m}`$ (very coherent)
-- $\Delta\lambda = 0.01\thinspace\mathrm{nm}$ → $`L_c \sim 4.1\thinspace\mathrm{cm}`$
-- $\Delta\lambda = 1\thinspace\mathrm{nm}$ → $`L_c \sim 0.41\thinspace\mathrm{mm}`$
-- $\Delta\lambda = 2\thinspace\mathrm{nm}$ → $`L_c \sim 0.20\thinspace\mathrm{mm}`$
-- $\Delta\lambda = 10\thinspace\mathrm{nm}$ → $`L_c \sim 41\thinspace\mu\mathrm{m}`$
+- $`\Delta\lambda = 2\thinspace \mathrm{nm}`$  
+  $`L_c \sim 0.20\thinspace \mathrm{mm}`$
 
-So “wide linewidth” (nm-scale) implies **sub-mm** coherence length.
+- $`\Delta\lambda = 10\thinspace \mathrm{nm}`$  
+  $`L_c \sim 0.041\thinspace \mathrm{mm} = 41\thinspace \mu\mathrm{m}`$
+
+So “nm‑scale linewidth” means **sub‑millimeter coherence length**.
+
+### 11.3 Illustration: coherence time vs intermodal delay (key to MMF speckle)
+
+![Coherence envelope vs modal delay](figures/coherence_vs_delay.svg)
+
+Interpretation:
+
+- If two modal contributions differ in optical path by $`\Delta\mathrm{OPL}`$,
+  the corresponding time delay is $`\Delta\tau \approx \Delta\mathrm{OPL}/c`$.
+- If $`\Delta\mathrm{OPL} \gg L_c`$ (equivalently $`\Delta\tau \gg \tau_c`$),
+  then the interference cross terms average out when you integrate over the spectrum.
+
+This is exactly why Agrawal notes that “modal noise” in MMF links disappears for broad sources:
+intermodal interference requires coherence time longer than intermodal delay.
 
 ---
 
-## 11) Optical-path-length spread in an MMF (the key bridge from waveguide to speckle)
+## 12) Step‑index upper bound on MMF optical‑path spread (derive it in slow motion)
 
-Your MMF output speckle depends strongly on whether different guided contributions are mutually coherent.
-A convenient way to quantify this is the optical path spread $`\Delta\mathrm{OPL}`$.
+We want an estimate for $`\Delta\mathrm{OPL}`$ across guided paths, because it controls spectral averaging.
 
-### 11.1 Derivation of a step-index upper bound (matches the repo config comment)
+Model (meridional rays, step‑index):
 
-Consider a ray propagating in the core at angle $\theta$ relative to the fiber axis.
+- Fiber physical length is $L$.
+- A ray inside the core makes an angle $`\theta`$ to the axis.
+- Geometric path length is $`L/\cos\theta`$.
+- Optical path length multiplies by $`n_1`$.
 
-- The fiber has physical (axial) length $L$.
-- The geometric path length of the angled ray is $L/\cos\theta$.
-- Optical path length multiplies by refractive index $`n_1`$:
+So:
 
 ```math
-\mathrm{OPL}(\theta) = n_1\,\frac{L}{\cos\theta}.
+\mathrm{OPL}(\theta) = n_1\thinspace \frac{L}{\cos\theta}.
 ```
 
-The axial ray has $\theta=0$:
+The axial ray has $`\theta=0`$:
 
 ```math
 \mathrm{OPL}(0) = n_1 L.
 ```
 
-So the optical path *excess* is:
+So the excess is:
 
 ```math
-\Delta\mathrm{OPL}(\theta) = n_1 L\left(\frac{1}{\cos\theta} - 1\right).
+\Delta\mathrm{OPL}(\theta) = n_1 L\left(\frac{1}{\cos\theta}-1\right).
 ```
 
-Now use a small-angle approximation.
-For small $\theta$ (in radians):
+### 12.1 Small‑angle approximation (show the exact algebra move)
+
+For small $`\theta`$ (radians):
 
 ```math
-\cos\theta \approx 1 - \frac{\theta^2}{2}
-\quad\Rightarrow\quad
-\frac{1}{\cos\theta} \approx 1 + \frac{\theta^2}{2}.
+\cos\theta \approx 1-\frac{\theta^2}{2}.
 ```
 
-Insert that:
+We also need $`1/\cos\theta`$. Use the approximation:
+
+```math
+\frac{1}{1-x} \approx 1+x \qquad \text{when } |x|\ll 1.
+```
+
+Here $`x=\theta^2/2`$, so:
+
+```math
+\frac{1}{\cos\theta} \approx 1+\frac{\theta^2}{2}.
+```
+
+Insert into $`\Delta\mathrm{OPL}`$:
 
 ```math
 \Delta\mathrm{OPL}(\theta) \approx n_1 L\left(\frac{\theta^2}{2}\right).
 ```
 
-What is $`\theta_{\max}`$ inside the core?
+### 12.2 What is the maximum internal angle?
 
-From Snell’s law at the input, the external acceptance is set by $\mathrm{NA}$.
-Inside the core, the maximum internal angle satisfies approximately:
+Externally, the fiber accepts up to $`\theta_{\max}`$ with $`\sin\theta_{\max}\approx\mathrm{NA}`$ (air).
+
+Inside the core, Snell’s law gives approximately:
 
 ```math
 \sin\theta_{\max,\mathrm{core}} \approx \frac{\mathrm{NA}}{n_1}.
 ```
 
-For small angles, $\sin\theta\approx\theta$, so:
+For small angles, $`\sin\theta\approx\theta`$, so:
 
 ```math
 \theta_{\max,\mathrm{core}} \approx \frac{\mathrm{NA}}{n_1}.
 ```
 
-Therefore, an upper-bound path spread across accepted rays is:
+### 12.3 Final step: plug the maximum angle into the formula
+
+Use $`\theta=\theta_{\max,\mathrm{core}}`$:
 
 ```math
-\Delta\mathrm{OPL} \approx n_1 L\left(\frac{1}{2}\frac{\mathrm{NA}^2}{n_1^2}\right)
-= \left(\frac{\mathrm{NA}^2}{2n_1}\right) L.
+\Delta\mathrm{OPL}
+\approx n_1 L\left(\frac{1}{2}\frac{\mathrm{NA}^2}{n_1^2}\right)
+= \left(\frac{\mathrm{NA}^2}{2n_1}\right)L.
 ```
 
-This is exactly the rule-of-thumb written in `configs/illumination_mmf_500us.yaml`.
+This is the exact rule‑of‑thumb written in `configs/illumination_mmf_500us.yaml`.
 
-### 11.2 Toy numeric example (again matching repo values)
+### 12.4 Toy numeric example (repo‑typical values)
 
 Use:
 
-- $\mathrm{NA}=0.22$
-- $`n_1\approx 1.46`$ (silica core)
-- $L=3\thinspace\mathrm{m}$
+- $`\mathrm{NA}=0.22`$
+- $`n_1=1.46`$
+- $`L=3\thinspace \mathrm{m}`$
 
-Compute:
+Compute step by step:
+
+1) square NA: $`0.22^2 = 0.0484`$
+
+2) divide by $`2n_1`$:  
+   $`2n_1 = 2.92`$  
+   $`0.0484/2.92 \approx 0.0166`$
+
+3) multiply by L:  
+   $`\Delta\mathrm{OPL} \approx 0.0166\times 3 \approx 0.050\thinspace \mathrm{m}`$
+
+So $`\Delta\mathrm{OPL}\approx 5\thinspace \mathrm{cm}`$.
+
+Convert to delay:
 
 ```math
-\Delta\mathrm{OPL} \approx \left(\frac{0.22^2}{2\cdot 1.46}\right)\,3
-\approx (0.0166)\,3
-\approx 0.050\thinspace\mathrm{m}.
+\Delta\tau \approx \frac{\Delta\mathrm{OPL}}{c}
+\approx \frac{0.05}{3\times 10^8}
+\approx 1.7\times 10^{-10}\thinspace \mathrm{s}
+= 170\thinspace \mathrm{ps}.
 ```
-
-So $`\Delta\mathrm{OPL}`$ is about $5\thinspace\mathrm{cm}$.
-
-Convert to an equivalent relative delay:
-
-```math
-\Delta\tau \approx \frac{\Delta\mathrm{OPL}}{c} \approx \frac{0.05}{3\times 10^8}\approx 1.7\times 10^{-10}\thinspace\mathrm{s} = 170\thinspace\mathrm{ps}.
-```
-
-This is a *huge* delay compared to the coherence time of a nm-linewidth source (ps-scale), which is why
-wide linewidth can kill intermode interference.
-
-### 11.3 Graded-index nuance
-
-Graded-index MMF is engineered to reduce intermodal delay (good for communications).
-For illumination speckle averaging, that means $`\Delta\mathrm{OPL}`$ can be **smaller**, which makes
-spectral decorrelation weaker (smaller $`N_\lambda`$ for a given linewidth).
-
-This is not “good” or “bad” universally—it is just a trade:
-
-- GI fiber: better pulse fidelity / less modal dispersion
-- SI fiber: larger path spread / easier spectral decorrelation
 
 ---
 
-## 12) Spectral decorrelation width $`\Delta\lambda_c`$ (the linewidth→speckle bridge)
+## 13) Spectral decorrelation width: the bridge from “fiber delay” to “speckle averaging”
 
-A standard estimate used in this repo is:
+The key idea:
 
-```math
-\Delta\lambda_c \sim \frac{\lambda^2}{\Delta\mathrm{OPL}}.
-```
+- two wavelengths separated by $`\Delta\lambda`$ have different wavenumbers $k$,
+- that changes the interference phases across paths differing by $`\Delta\mathrm{OPL}`$,
+- once those phases change by about $2\pi$, the speckle pattern decorrelates.
 
-Here is the derivation in slow motion.
+### 13.1 Convert wavelength change to wavenumber change (show the derivative)
 
-### 12.1 Derivation from phase sensitivity
-
-Interference depends on relative phase.
-For an optical path difference $`\Delta\mathrm{OPL}`$, the phase difference at wavelength $\lambda$ is:
+Wavenumber (vacuum):
 
 ```math
-\Delta\phi(\lambda) = 2\pi\,\frac{\Delta\mathrm{OPL}}{\lambda}.
+k(\lambda)=\frac{2\pi}{\lambda}.
 ```
 
-Now change wavelength by a small amount $\delta\lambda$.
-Use the first-order approximation:
+Differentiate:
 
 ```math
-\frac{1}{\lambda+\delta\lambda} \approx \frac{1}{\lambda} - \frac{\delta\lambda}{\lambda^2}.
+\frac{dk}{d\lambda} = -\frac{2\pi}{\lambda^2}.
 ```
 
-So the phase change is approximately:
+For a small change $`\Delta\lambda`$ around $`\lambda_0`$:
 
 ```math
-\delta(\Delta\phi) \approx 2\pi\,\Delta\mathrm{OPL}\left(\frac{\delta\lambda}{\lambda^2}\right).
+\Delta k \approx \left|\frac{dk}{d\lambda}\right|_{\lambda_0}\Delta\lambda
+= \frac{2\pi}{\lambda_0^2}\Delta\lambda.
 ```
 
-Speckle becomes effectively uncorrelated when this phase change is order $2\pi$.
-Set $\delta(\Delta\phi)\approx 2\pi$ and cancel $2\pi$:
+### 13.2 Set the “decorrelation condition”
+
+A common criterion is:
 
 ```math
-\Delta\mathrm{OPL}\left(\frac{\delta\lambda}{\lambda^2}\right) \approx 1
-\quad\Rightarrow\quad
-\delta\lambda \approx \frac{\lambda^2}{\Delta\mathrm{OPL}}.
+\Delta k \thinspace \Delta\mathrm{OPL} \sim 2\pi.
 ```
 
-That $\delta\lambda$ is the decorrelation width $`\Delta\lambda_c`$.
-
-### 12.2 Toy numeric example (640 nm, 5 cm spread)
-
-Use $\lambda=640\thinspace\mathrm{nm}$ and $`\Delta\mathrm{OPL}`=5\thinspace\mathrm{cm}$.
-
-Convert $\lambda$ to meters: $640\times 10^{-9}\thinspace\mathrm{m}$.
-
-Compute:
+Insert $`\Delta k`$:
 
 ```math
-\Delta\lambda_c \approx \frac{(640\times 10^{-9})^2}{0.05}
-= \frac{4.096\times 10^{-13}}{5\times 10^{-2}}
-\approx 8.2\times 10^{-12}\thinspace\mathrm{m}
-= 0.0082\thinspace\mathrm{nm}.
+\frac{2\pi}{\lambda_0^2}\Delta\lambda_c \thinspace \Delta\mathrm{OPL} \sim 2\pi.
 ```
 
-So a source with $1\thinspace\mathrm{nm}$ spectral span contains on the order of:
+Cancel $`2\pi`$ on both sides:
 
 ```math
-N_\lambda \approx \frac{\Delta\lambda_{\mathrm{src}}}{\Delta\lambda_c} \approx \frac{1}{0.0082} \approx 1.2\times 10^2
+\Delta\lambda_c \sim \frac{\lambda_0^2}{\Delta\mathrm{OPL}}.
 ```
 
-independent spectral “looks.”
+That’s the key formula used in the repo’s MMF linewidth estimates.
 
-This is why the repo’s MMF concept puts so much emphasis on **linewidth**.
+### 13.3 Toy numeric example (same fiber as Section 12)
 
----
+We found $`\Delta\mathrm{OPL}\approx 0.05\thinspace \mathrm{m}`$.
 
-## 13) Time averaging at 500 µs: why 10 kHz only gives 5 patterns
+Use $`\lambda_0=640\thinspace \mathrm{nm}`$:
 
-If a scrambler decorrelates the speckle pattern at a rate $`f_{\mathrm{scr}}`$ (Hz), and the exposure time is $\tau$,
-then the number of statistically independent patterns captured is roughly:
+1) square: $`\lambda_0^2 = 409600\thinspace \mathrm{nm}^2`$
+
+2) divide by $`\Delta\mathrm{OPL}`$ (convert $0.05\thinspace \mathrm{m}`$ to nm):  
+   $`0.05\thinspace \mathrm{m} = 5\times 10^{7}\thinspace \mathrm{nm}`$
+
+3) compute:
+   ```math
+   \Delta\lambda_c \sim \frac{4.096\times 10^{5}}{5\times 10^{7}}\ \mathrm{nm}
+   \approx 8.2\times 10^{-3}\ \mathrm{nm}.
+   ```
+
+So $`\Delta\lambda_c`$ is about $`0.008\thinspace \mathrm{nm}`$.
+
+### 13.4 Convert decorrelation width to “number of independent spectral looks”
+
+If your source has effective spectral span $`\Delta\lambda_{\mathrm{src}}`$, then:
 
 ```math
-N_t \approx f_{\mathrm{scr}}\,\tau.
+N_\lambda \sim \frac{\Delta\lambda_{\mathrm{src}}}{\Delta\lambda_c}.
 ```
 
-Toy example: $`f_{\mathrm{scr}} = 10\thinspace\mathrm{kHz}`$ and $\tau = 500\thinspace\mu\mathrm{s}$:
+Toy examples:
+
+- If $`\Delta\lambda_{\mathrm{src}} = 1\thinspace \mathrm{nm}`$ and $`\Delta\lambda_c=0.008\thinspace \mathrm{nm}`$  
+  $`N_\lambda \sim 125`$
+
+- If $`\Delta\lambda_{\mathrm{src}} = 2\thinspace \mathrm{nm}`$  
+  $`N_\lambda \sim 250`$
+
+This is why linewidth can be such a powerful knob for Approach B.
+
+### 13.5 The graded‑index “gotcha” (why your procurement questions matter)
+
+GI fibers reduce intermodal delay. Model that as:
 
 ```math
-N_t \approx (10^4)\,(5\times 10^{-4}) = 5.
+\Delta\mathrm{OPL}_{\mathrm{GI}} = s\thinspace \Delta\mathrm{OPL}_{\mathrm{SI}},
+\qquad 0<s<1.
 ```
-
-So time averaging alone gives only a small reduction: $C\to C/\sqrt{5}$.
-
-The *whole reason* the MMF concept remains plausible at 500 µs is that you can multiply by spectral diversity:
-$`N_{\mathrm{eff}} \approx N_t N_\lambda ...`$.
-
----
-
-## 14) Putting it together: a concrete $500\thinspace\mu\mathrm{s}$ MMF speckle-contrast estimate
-
-Use typical values from `configs/illumination_mmf_500us.yaml`:
-
-- $`f_{\mathrm{scr}} = 10\thinspace\mathrm{kHz}`$ → $`N_t\approx 5`$
-- $\Delta\mathrm{OPL}=5\thinspace\mathrm{cm}$ → $`\Delta\lambda_c\approx 0.0082\thinspace\mathrm{nm}`$
-- suppose $`\Delta\lambda_{\mathrm{src}}=1\thinspace\mathrm{nm}`$ → $`N_\lambda\approx 122`$
-- assume two polarizations effectively contribute: $`N_{\mathrm{pol}}\approx 2`$
-- no angle scanning: $`N_{\mathrm{angle}}=1`$
 
 Then:
 
 ```math
-N_{\mathrm{eff}} \approx 5\times 122\times 2\times 1 \approx 1220.
+\Delta\lambda_{c,\mathrm{GI}} \sim \frac{\lambda_0^2}{s\thinspace \Delta\mathrm{OPL}_{\mathrm{SI}}}
+= \frac{1}{s}\Delta\lambda_{c,\mathrm{SI}}.
 ```
 
-So a naive contrast estimate is:
+So if GI reduces delay by 10× ($s=0.1$), $`\Delta\lambda_c`$ becomes 10× larger and **$`N_\lambda`$ becomes 10× smaller**.
 
-```math
-C \approx \frac{1}{\sqrt{1220}} \approx 0.029.
-```
+That is why a fiber sold as a “homogenizer” might be GI:
+it is good at spatial mixing, but it may reduce the “free” spectral averaging you were counting on.
 
-That is “very smooth” by the standards of typical speckle.
-
-### The caution that matters
-
-The estimate above assumes:
-
-- those patterns are *independent* (often only approximately true), and
-- your illumination optics do not re-introduce coherent structure downstream.
-
-This is why the repo uses simulations and sanity checks (`notebooks/07`, `09`, `10`, `11`) rather than trusting
-this back-of-the-envelope alone.
+(Your code models this explicitly via `modal_delay_scale` in `src/illumination/mmf_speckle.py`.)
 
 ---
 
-## 15) Approach A vs Approach B in the language of equations
+## 14) Time averaging: why a scrambler alone often cannot save 500 µs
 
-### Approach A (SMF): one spatial mode, but not automatically “flat”
-
-In an ideal single-mode fiber, the field at the output is dominated by one transverse mode:
-
-```math
-U(\mathbf{r}) \approx a_0\,\psi_0(\mathbf{r})\,e^{i\phi_0}.
-```
-
-There are no intermode cross terms because there is only one mode.
-So you do **not** get MMF-style speckle from intermode interference.
-
-But you typically still get a **Gaussian** (or near-Gaussian) intensity envelope,
-so “flat-field” requires beam shaping / relays / stops.
-
-In other words:
-
-- SMF → spatial coherence is high, but spatial structure is simple.
-- uniformity is achieved by **imaging optics**, not by modal averaging.
-
-### Approach B (MMF): many spatial modes, but can be made effectively incoherent
-
-In an MMF, you start from:
+If a scrambler creates new (approximately independent) speckle realizations at rate $`f_{\mathrm{scr}}`$,
+then during an exposure of duration $`\tau`$:
 
 ```math
-U(\mathbf{r}) = \sum_{m=1}^{M} a_m\,\psi_m(\mathbf{r})\,e^{i\phi_m}.
+N_t \approx f_{\mathrm{scr}}\tau.
 ```
 
-To suppress speckle you want the intensity to behave like:
+Toy example:
+
+- $`f_{\mathrm{scr}}=10\thinspace \mathrm{kHz}`$
+- $`\tau=500\thinspace \mu\mathrm{s}=5\times 10^{-4}\thinspace \mathrm{s}`$
+
+Then:
 
 ```math
-I(\mathbf{r}) \approx \sum_{k=1}^{N_{\mathrm{eff}}} |U_k(\mathbf{r})|^2,
+N_t \approx 10^{4}\times 5\times 10^{-4} \approx 5.
 ```
 
-with many mutually incoherent $`U_k`$ contributing during the exposure.
-
-Operationally, that means forcing **decorrelation** by one (or more) of:
-
-- time: scrambler / vibration / fast bend modulation ($`N_t`$)
-- spectrum: wide linewidth or multi-line source ($`N_\lambda`$)
-- polarization mixing ($`N_{\mathrm{pol}}`$)
-- pupil-angle hopping ($`N_{\mathrm{angle}}`$)
-
-The decisive inequality is:
-
-```math
-\Delta\mathrm{OPL} \gg L_c
-```
-
-because that suppresses coherent cross terms between many paths.
+So **time averaging alone** gives only about a factor $`\sqrt{5}\approx 2.2`$ improvement in contrast.
+That’s why Approach B leans heavily on **spectral diversity** (and possibly polarization/angle).
 
 ---
 
-## 16) Practical checklist: what parameters you actually need to measure or bound
+## 15) A practical procurement/engineering checklist (SMF vs MMF)
 
-For the MMF concept, the “hard” unknowns are usually:
+### 15.1 If you pursue Approach A (SMF per wavelength)
 
-1. $`\Delta\mathrm{OPL}`$ (or equivalently $\Delta\tau$)
-2. the **source linewidth** $`\Delta\lambda_{\mathrm{src}}`$
-3. the **decorrelation rate** of your scrambler at the relevant mechanical mounting
-4. launch conditions (how many modes are actually excited)
+Ask / verify:
 
-This repo’s workflow makes those explicit:
+- Fiber is **single‑mode at your wavelength** (check $V<2.405$ using vendor’s MFD/core/NA spec).
+- Mode field diameter (MFD) at 488 and 640 nm (affects collimator choice and coupling).
 
-- Sweep $`\Delta\mathrm{OPL}`$ over plausible bounds (step-index upper bound vs graded-index reduction).
-- Use vendor linewidth specs to bracket $`\Delta\lambda_{\mathrm{src}}`$.
-- Translate scrambler frequency to $`N_t`$ at $500\thinspace\mu\mathrm{s}$.
+### 15.2 If you pursue Approach B (MMF)
 
-If you want “the fast lane”:
+Ask / verify:
 
-- start with `configs/illumination_mmf_500us.yaml`
-- run `scripts/run_mmf_500us_sweep.py`
-- explore the conceptual notebook `notebooks/11_fiber_modes_speckle_interactive_3d.py`
+1) **Step‑index or graded‑index?**  
+   If the vendor says “GI” or “parabolic”, treat it as a warning that $`N_\lambda`$ may be smaller.
 
----
+2) Core diameter and NA (sets $V$, $M$, and acceptance).
 
-## 17) Quick reference formulas (one page)
+3) Length (sets $`\Delta\mathrm{OPL}`$ linearly).
 
-### Geometry and modes
+4) Any integrated mode‑mixing / diffusion features (good for spatial stability, may affect temporal dynamics).
 
-```math
-\mathrm{NA} = \sqrt{n_1^2-n_2^2}
-```
+5) Whether the “specified NA” is for the core or includes cladding guidance (some specialty fibers are tricky).
 
-```math
-V = \frac{2\pi a}{\lambda}\,\mathrm{NA}
-```
+### 15.3 If your goal is: “smooth illumination within 500 µs”
 
-Single-mode (step-index fiber): $V<2.405$.
+Translate into a target:
 
-Mode count (step-index, large $V$): $M\approx V^2/2$.
+- Choose a contrast target (example: $`C\lesssim 0.1`$).
+- That implies $`N_{\mathrm{eff}}\gtrsim 100`$.
 
-### Coherence and MMF averaging
+Then check feasibility:
 
-Coherence length (order):
-
-```math
-L_c \sim \frac{\lambda^2}{\Delta\lambda}
-```
-
-Step-index path-spread upper bound:
-
-```math
-\Delta\mathrm{OPL} \approx \left(\frac{\mathrm{NA}^2}{2n_1}\right)L
-```
-
-Spectral decorrelation width:
-
-```math
-\Delta\lambda_c \sim \frac{\lambda^2}{\Delta\mathrm{OPL}}
-```
-
-Independent looks:
-
-```math
-N_{\mathrm{eff}} \approx N_t N_\lambda N_{\mathrm{pol}} N_{\mathrm{angle}}
-\quad\Rightarrow\quad
-C \approx \frac{1}{\sqrt{N_{\mathrm{eff}}}}.
-```
+- $`N_t`$ from your scrambler during 500 µs (often small).
+- $`N_\lambda`$ from your linewidth and fiber delay spread (can be large).
+- $`N_{\mathrm{pol}}`$ (up to 2 if polarization is randomized).
+- $`N_{\mathrm{angle}}`$ (if you scan/rotate pupil).
 
 ---
 
-## 18) Where this plugs into the rest of the repo
+## 16) Where this connects into the repo (so the primer becomes actionable)
 
-- **If you want the optics-side consequences of speckle on spot detection:**
-  see `docs/ILLUMINATION_SPECKLE.md`.
+- `configs/cni_laser_inquiry.yaml` encodes the **two approaches** and constraints.
+- `configs/illumination_mmf_500us.yaml` encodes the MMF “500 µs” design sweep assumptions.
+- `src/illumination/mmf_speckle.py` implements the same order‑of‑magnitude relations:
+  - $V$ number,
+  - $M\sim V^2/2$,
+  - $`\Delta\tau \sim \mathrm{NA}^2L/(2n_1c)`$,
+  - $`\Delta\lambda_c \sim \lambda^2/\Delta\mathrm{OPL}`$,
+  - $`N_\lambda \sim \Delta\lambda_{\mathrm{src}}/\Delta\lambda_c`$.
 
-- **If you want “modes as shapes” (visual intuition):**
-  see `notebooks/11_fiber_modes_speckle_interactive_3d.py`.
+---
 
-- **If you want “linewidth + OPL spread + Fourier optics” in a step-by-step derivation:**
-  see `notebooks/09_mmf_wide_linewidth_scrambling_fourier_optics.py`.
+## 17) Limitations (what this primer is *not* doing)
 
-- **If you want a practical “robust setup” Q&A:**
-  see `notebooks/10_mmf_robust_setup_linewidth_stepindex_kohler.py`.
+This is deliberately “engineering‑level”:
+
+- It does **not** derive the full LP mode solutions (Bessel functions, dispersion equations).
+- It does **not** model wavelength‑dependent material dispersion in detail.
+- It treats many results as order‑of‑magnitude (good enough to size $`N_\lambda`$, choose fiber type, and sanity‑check vendor claims).
+
+If you ever need higher accuracy for $`\Delta\mathrm{OPL}`$ in a specific GI fiber,
+you will want either:
+- vendor dispersion specs, or
+- an empirical measurement (e.g., speckle spectral correlation measurement).
+
+---
+
+## 18) Sources used (project files)
+
+This primer is based primarily on:
+
+- G.P. Agrawal, *Fiber‑Optic Communication Systems* (2021 PDF in this repo).
+- Dan Oron course notes, “guided waves” chapter PDF in this repo.
+- E. Hecht, *Optics* (5th ed.) section on fiber optics and V‑number.
+- Chapter 11 “Light propagation: beams and guides” from the Optics f2f book (PDF chapter).
+- J.W. Goodman, *Speckle Phenomena in Optics* (for GI profile intuition and modal speckle context).
+
+(See the project root for the corresponding PDF/HTML files.)

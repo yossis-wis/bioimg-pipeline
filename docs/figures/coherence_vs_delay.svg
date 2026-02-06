@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="260" viewBox="0 0 900 260">
+  <title>Coherence envelope vs modal delay</title>
+
+  <defs>
+    <style>
+      .axis { stroke: #000; stroke-width: 2; fill: none; }
+      .curve { stroke: #000; stroke-width: 2.5; fill: none; }
+      .dash { stroke-dasharray: 6 4; }
+      .label { font-family: sans-serif; font-size: 16px; fill: #000; }
+      .small { font-family: sans-serif; font-size: 13px; fill: #000; }
+    </style>
+  </defs>
+
+  <text class="label" x="60" y="28">Mutual coherence vs delay (why linewidth helps in an MMF)</text>
+
+  <!-- Axes -->
+  <line class="axis" x1="80" y1="210" x2="860" y2="210"/>
+  <polygon points="860,210 848,204 848,216" fill="#000"/>
+  <text class="small" x="868" y="215">delay τ</text>
+
+  <line class="axis" x1="80" y1="210" x2="80" y2="60"/>
+  <polygon points="80,60 74,72 86,72" fill="#000"/>
+  <text class="small" x="40" y="70">|g₁(τ)|</text>
+
+  <!-- Coherence envelope curve: schematic Gaussian-like decay -->
+  <path class="curve" d="M 80 90
+                         C 140 90, 180 110, 230 140
+                         C 300 180, 380 205, 470 210
+                         C 560 212, 650 212, 860 212"/>
+  <text class="small" x="100" y="100">coherence envelope</text>
+
+  <!-- Coherence time marker τ_c -->
+  <line class="axis dash" x1="230" y1="210" x2="230" y2="140"/>
+  <text class="small" x="210" y="232">τ_c</text>
+
+  <!-- Modal delay Δτ marker -->
+  <line class="axis dash" x1="520" y1="210" x2="520" y2="170"/>
+  <text class="small" x="500" y="232">Δτ</text>
+
+  <!-- Interpretation text -->
+  <text class="small" x="545" y="178">If Δτ ≫ τ_c, then |g₁(Δτ)| ≈ 0</text>
+  <text class="small" x="545" y="196">→ interference terms average out</text>
+
+  <!-- Optional note -->
+  <text class="small" x="80" y="250">Practical mapping: τ_c decreases as linewidth increases (Δλ↑ → τ_c↓).</text>
+</svg>

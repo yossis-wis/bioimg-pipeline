@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="280" viewBox="0 0 900 280">
+  <title>Ray paths in step-index vs graded-index fiber</title>
+
+  <!-- Global style: black & white, print friendly -->
+  <defs>
+    <style>
+      .axis { stroke: #000; stroke-width: 2; fill: none; }
+      .core { stroke: #000; stroke-width: 2; fill: none; }
+      .ray  { stroke: #000; stroke-width: 2; fill: none; }
+      .rayThin { stroke: #000; stroke-width: 1.5; fill: none; }
+      .dash { stroke-dasharray: 6 4; }
+      .label { font-family: sans-serif; font-size: 16px; fill: #000; }
+      .small { font-family: sans-serif; font-size: 13px; fill: #000; }
+    </style>
+  </defs>
+
+  <!-- Panel titles -->
+  <text class="label" x="160" y="28">Step-index (SI)</text>
+  <text class="label" x="600" y="28">Graded-index (GI / parabolic)</text>
+
+  <!-- Divider -->
+  <line class="axis dash" x1="450" y1="40" x2="450" y2="260"/>
+
+  <!-- Coordinate arrow (z to the right) -->
+  <line class="axis" x1="60" y1="250" x2="410" y2="250"/>
+  <polygon points="410,250 398,244 398,256" fill="#000"/>
+  <text class="small" x="418" y="255">z</text>
+
+  <line class="axis" x1="510" y1="250" x2="860" y2="250"/>
+  <polygon points="860,250 848,244 848,256" fill="#000"/>
+  <text class="small" x="868" y="255">z</text>
+
+  <!-- LEFT PANEL: step-index "core boundaries" -->
+  <line class="core" x1="60" y1="80" x2="410" y2="80"/>
+  <line class="core" x1="60" y1="200" x2="410" y2="200"/>
+  <line class="rayThin dash" x1="60" y1="140" x2="410" y2="140"/>
+  <text class="small" x="62" y="74">core boundary</text>
+  <text class="small" x="62" y="216">core boundary</text>
+  <text class="small" x="62" y="136">axis</text>
+
+  <!-- Step-index rays -->
+  <!-- Axial ray -->
+  <line class="ray" x1="80" y1="140" x2="390" y2="140"/>
+  <text class="small" x="85" y="60">n = n1 inside</text>
+
+  <!-- High-angle zig-zag ray -->
+  <polyline class="ray" points="80,140 140,90 200,190 260,90 320,190 380,140"/>
+  <text class="small" x="250" y="108">high-angle path</text>
+
+  <!-- RIGHT PANEL: graded-index "core boundaries" -->
+  <line class="core" x1="510" y1="80" x2="860" y2="80"/>
+  <line class="core" x1="510" y1="200" x2="860" y2="200"/>
+  <line class="rayThin dash" x1="510" y1="140" x2="860" y2="140"/>
+  <text class="small" x="512" y="74">core boundary</text>
+  <text class="small" x="512" y="216">core boundary</text>
+  <text class="small" x="512" y="136">axis</text>
+
+  <!-- Graded-index rays -->
+  <!-- Axial ray -->
+  <line class="ray" x1="530" y1="140" x2="840" y2="140"/>
+  <text class="small" x="535" y="60">n(r) decreases with r</text>
+
+  <!-- Sinusoidal (approx) ray -->
+  <path class="ray" d="M 530 140
+                       C 570 95, 610 95, 650 140
+                       C 690 185, 730 185, 770 140
+                       C 810 95, 830 105, 840 140"/>
+  <text class="small" x="675" y="108">curved path</text>
+
+  <!-- Bottom explanatory captions -->
+  <text class="small" x="60" y="268">SI: high-angle rays are longer and travel at similar index → larger delay spread</text>
+  <text class="small" x="510" y="268">GI: high-angle rays are longer but sample lower n(r) → optical delays partially equalized</text>
+</svg>
