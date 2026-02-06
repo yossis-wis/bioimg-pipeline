@@ -22,6 +22,7 @@ The companion notebooks are:
 - `notebooks/06_mmf_illumination_500us_design.py` (short-exposure / 500 µs design sweeps)
 - `notebooks/09_mmf_wide_linewidth_scrambling_fourier_optics.py` (step-by-step fiber-dispersion + Fourier-optics analysis of “MMF + wide-linewidth + scrambler”)
 - `notebooks/10_mmf_robust_setup_linewidth_stepindex_kohler.py` (practical robustness Q&A: step-index vs graded-index, OPL from specs, failure modes)
+- `notebooks/11_fiber_modes_speckle_interactive_3d.py` (interactive 3D intuition builder: “what are modes?”, why MMF speckle drifts, why averaging helps)
 
 It produces:
 

@@ -17,5 +17,8 @@ Illumination / Fourier-optics analysis:
 - `illumination_design_params.py` — first-order design calculations (power budget, stop sizing, pupil fill, beam diameters).
 - `speckle_diversity_models.py` — bookkeeping for speckle averaging (time, spectral, polarization, angle diversity).
 
+- `fiber_modes.py` — educational fiber-core surrogate modes + multimode-speckle primitives (for intuition/visualization).
+- `fiber_modes_plotly.py` — Plotly helpers to render interactive 3D HTML figures from the fiber-mode simulations.
+
 See `docs/SPOT_DETECTION.md` for the spot-detection algorithm details and TrackMate parameter mapping.
 

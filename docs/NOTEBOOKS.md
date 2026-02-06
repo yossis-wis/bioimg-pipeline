@@ -19,6 +19,7 @@ The canonical notebooks live in `notebooks/`:
 - `08_cni_laser_system_diagrams.py`: generate block diagrams + quote-request checklists for two laser delivery concepts (single-mode fibers vs common multimode fiber) to communicate with CNI Laser.
 - `09_mmf_wide_linewidth_scrambling_fourier_optics.py`: step-by-step Fourier-optics + fiber-dispersion analysis answering common objections to “MMF + wide-linewidth + scrambler” as a homogeneous illuminator.
 - `10_mmf_robust_setup_linewidth_stepindex_kohler.py`: practical design Q&A for a robust MMF illuminator (2 nm vs 20 nm, OPL from vendor specs, step-index vs graded-index, Köhler-like relay, and failure modes).
+- `11_fiber_modes_speckle_interactive_3d.py`: interactive 3D intuition builder for fiber modes + MMF speckle (mode shapes, speckle drift, and averaging).
 
 ## Running notebooks
 

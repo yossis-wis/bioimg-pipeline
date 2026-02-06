@@ -33,6 +33,9 @@ dependencies:
   - scikit-image=0.21.*
   - matplotlib=3.7.*
 
+  # Interactive 3D visualization (fiber modes + speckle)
+  - plotly=5.*
+
   # QC export
   - python-pptx=0.6.*
 
