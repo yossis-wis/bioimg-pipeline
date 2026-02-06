@@ -22,6 +22,7 @@ Follow the platform guide first:
 - [Data contracts](docs/CONTRACTS.md)
 - [Notebooks (QC workflows)](docs/NOTEBOOKS.md)
 - [Illumination design notes: speckle, stops, and FP/FN risk](docs/ILLUMINATION_SPECKLE.md)
+- [Guided-wave primer: single-mode vs multimode fiber (SMF vs MMF)](docs/GUIDED_WAVES_SMF_VS_MMF.md)
 - [LLM workflow (human-in-the-loop zip overlays)](docs/LLM_WORKFLOW.md)
 
 ### 1) Setup & Verification

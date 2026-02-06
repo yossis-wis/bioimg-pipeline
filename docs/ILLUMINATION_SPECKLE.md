@@ -24,6 +24,10 @@ The companion notebooks are:
 - `notebooks/10_mmf_robust_setup_linewidth_stepindex_kohler.py` (practical robustness Q&A: step-index vs graded-index, OPL from specs, failure modes)
 - `notebooks/11_fiber_modes_speckle_interactive_3d.py` (interactive 3D intuition builder: “what are modes?”, why MMF speckle drifts, why averaging helps)
 
+For guided-wave / fiber-mode background (equation-focused, print-friendly), see:
+
+- [Guided-wave primer: single-mode vs multimode fiber (SMF vs MMF)](GUIDED_WAVES_SMF_VS_MMF.md)
+
 It produces:
 
 1. excitation-only field views + distributions, and  
