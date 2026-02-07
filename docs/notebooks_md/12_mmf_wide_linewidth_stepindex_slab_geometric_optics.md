@@ -308,7 +308,9 @@ z_hi, x_hi = ray_polyline_in_slab(a=half_mm, theta_rad=theta_max_rad, z_max=z_se
 
 plt.figure()
 plt.plot(z_ax, x_ax, linewidth=2, label="axial")
-plt.plot(z_hi, x_hi, linewidth=2, label=r"$\\theta\\approx\\theta_{max}$")
+# NOTE: matplotlib's mathtext expects LaTeX-style commands with *single* backslashes.
+# Using "\\" here makes mathtext interpret it as an (unsupported) linebreak command.
+plt.plot(z_hi, x_hi, linewidth=2, label=r"$\theta\approx\theta_{max}$")
 plt.hlines([+half_mm, -half_mm], xmin=0, xmax=z_seg_mm, linestyles="--")
 plt.xlabel("z (mm)")
 plt.ylabel("x (mm)")
