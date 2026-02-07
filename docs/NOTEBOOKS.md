@@ -55,6 +55,28 @@ Do **not** use:
 
 Canonical reference: `docs/MATH_STYLE.md`.
 
+## GitHub-friendly Markdown mirrors (stable reading)
+
+GitHub does **not** render the Markdown cells inside Jupytext percent-format `notebooks/*.py` files.
+For the documentation-style optics notebooks (06–11), we keep a **generated** Markdown mirror (no cell outputs)
+in:
+
+- `docs/notebooks_md/`
+
+Regenerate the mirrors after editing a notebook:
+
+```bash
+python scripts/export_notebooks_markdown.py
+```
+
+CI/local verification (no writes):
+
+```bash
+python scripts/export_notebooks_markdown.py --check
+```
+
+These mirrors are intended for **stable, cross-platform reading** (including math) in the GitHub web UI.
+
 ## Exporting HTML/PDF
 
 One recommended workflow (with execution):
@@ -71,6 +93,12 @@ One recommended workflow (with execution):
    ```bash
    jupyter nbconvert --execute --to html --output-dir reports notebooks/01_step_by_step_integrated_qc.ipynb
    ```
+Tip: if you open an exported HTML report via `file://...` and math does not render reliably, serve the repo root
+with a local HTTP server and open the report via `http://localhost...` instead:
+
+```bash
+python -m http.server 8000
+```
 
 The generated `.ipynb` files are intentionally ignored by git.
 

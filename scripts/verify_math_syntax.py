@@ -54,6 +54,7 @@ EXCLUDE_DIRS = {
     "data",
     "data_bench",
     "reports",
+    "notebooks_md",
     ".virtual_documents",
 }
 
@@ -67,6 +68,17 @@ SAFE_GH_INLINE_MATH_RE = re.compile(r"\$`[^`]*`\$")
 UNSAFE_INLINE_MATH_UNDERSCORE_RE = re.compile(r"(?<!\$)\$(?!\$|`)(?P<body>[^$]*?_[^$]*?)\$(?!\$)")
 # TeX control word: \thinspace must be separated from following letters/digits (avoid '\thinspacep').
 THINSPACE_GLUE_RE = re.compile(r"\\thinspace(?=[0-9A-Za-z])")
+
+
+# Notebook markdown sometimes ends up with double-escaped LaTeX commands (e.g. '\\sqrt' instead of '\sqrt'),
+# which breaks MathJax rendering. We flag common cases.
+OVERESCAPED_NOTEBOOK_LATEX_RE = re.compile(
+    r"\\\\(?:Delta|approx|ell|frac|lambda|mathrm|phi|qquad|sigma|sim|sqrt)\\b"
+)
+OVERESCAPED_NOTEBOOK_THINSPACE_RE = re.compile(r"\\\\,")
+
+# Inline math that contains a backtick but is *not* the GitHub-safe $`...`$ form is almost always a typo.
+INLINE_MATH_WITH_BACKTICK_RE = re.compile(r"(?<!\$)\$(?!\$)(?P<body>[^$]*`[^$]*?)\$(?!\$)")
 
 
 
@@ -90,6 +102,31 @@ def iter_notebook_files() -> list[Path]:
     if not nb_dir.exists():
         return []
     return sorted(p for p in nb_dir.glob("*.py") if p.is_file())
+
+
+def iter_jupytext_markdown_lines(text: str) -> list[tuple[int, str]]:
+    """Return (lineno, markdown_line) from Jupytext percent-format notebook text.
+
+    Only yields lines inside '# %% [markdown]' cells, stripped of the leading '# ' comment prefix.
+    """
+    out: list[tuple[int, str]] = []
+    in_md = False
+    for lineno, raw in enumerate(text.splitlines(), start=1):
+        if raw.startswith("# %% [markdown]"):
+            in_md = True
+            continue
+        if raw.startswith("# %%") and not raw.startswith("# %% [markdown]"):
+            in_md = False
+            continue
+        if not in_md:
+            continue
+        if not raw.startswith("#"):
+            continue
+        s = raw[1:]
+        if s.startswith(" "):
+            s = s[1:]
+        out.append((lineno, s))
+    return out
 
 
 def find_control_chars(text: str) -> list[tuple[int, str]]:
@@ -143,6 +180,21 @@ def check_notebook_math_syntax(path: Path, text: str, errors: list[str]) -> None
         if token in text:
             errors.append(f"{path.as_posix()}: forbidden notebook token '{token}'. {msg}")
 
+    # Catch a common "it renders nowhere" failure mode:
+    # users writing notebook Markdown as if it were a Python string literal (double-escaping backslashes),
+    # e.g. '$C\\sim 1/\\sqrt{N}$' instead of '$C\sim 1/\sqrt{N}$'.
+    for lineno, line in iter_jupytext_markdown_lines(text):
+        m = OVERESCAPED_NOTEBOOK_LATEX_RE.search(line)
+        if not m:
+            m = OVERESCAPED_NOTEBOOK_THINSPACE_RE.search(line)
+
+        if m:
+            bad = m.group(0)  # e.g. '\\sqrt'
+            good = bad[1:] if bad.startswith("\\") else bad
+            errors.append(
+                f"{path.as_posix()}:{lineno}: found '{bad}' in notebook Markdown. "
+                f"This looks like a double-escaped LaTeX command; use '{good}'."
+            )
 
 def check_markdown_no_backslash_comma(path: Path, text: str, errors: list[str]) -> None:
     """Markdown math hygiene checks.
@@ -167,6 +219,12 @@ def check_markdown_no_backslash_comma(path: Path, text: str, errors: list[str]) 
                 in_fence = True
                 fence_delim = m_open.group(1)
                 fence_lang = (m_open.group(2) or "").lower()
+                # GitHub edge case: indented ```math fences (e.g. inside lists) can render as code blocks.
+                if fence_lang == "math" and raw.startswith(" "):
+                    errors.append(
+                        f"{path.as_posix()}:{lineno}: indented ```math block may render as code on GitHub. "
+                        "Prefer a $$...$$ block (with $$ on their own lines) or de-indent the fence."
+                    )
                 continue
         else:
             close_re = re.compile(FENCE_CLOSE_RE_TEMPLATE.format(delim=re.escape(fence_delim)))
@@ -199,6 +257,11 @@ def check_markdown_no_backslash_comma(path: Path, text: str, errors: list[str]) 
                 errors.append(
                     f"{path.as_posix()}:{lineno}: inline math contains '_' (subscript) but is not in the "
                     "GitHub-safe $`...`$ form. Use $`...`$ for inline math with subscripts."
+                )
+            if INLINE_MATH_WITH_BACKTICK_RE.search(masked):
+                errors.append(
+                    f"{path.as_posix()}:{lineno}: inline math contains a backtick but is not in the "
+                    "GitHub-safe $`...`$ form. This is usually a typo (missing opening/closing backtick)."
                 )
 
 

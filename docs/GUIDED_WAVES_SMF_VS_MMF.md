@@ -70,30 +70,30 @@ This is a “cheat sheet” for symbols used repeatedly.
 - $`n_2`$ : **cladding refractive index** (unitless), with $`n_2 < n_1`$.
 
 - $`\Delta`$ : **fractional index contrast** (unitless). A common weak‑guidance definition is
-  ```math
+  $$
   \Delta \equiv \frac{n_1^2-n_2^2}{2n_1^2}.
-  ```
+  $$
 
 ### Wavelength, frequency, wavenumbers
 
 - $`\lambda`$ : **vacuum wavelength** (m). (We use vacuum wavelength unless stated.)
 - $`k_0`$ : **vacuum wavenumber** (rad/m):
-  ```math
+  $$
   k_0 \equiv \frac{2\pi}{\lambda}.
-  ```
+  $$
 - $`\omega`$ : **angular frequency** (rad/s), $`\omega = 2\pi f`$.
 
 ### Fiber acceptance and “how many modes?”
 
 - $`\mathrm{NA}`$ : numerical aperture (unitless). For step‑index in air,
-  ```math
+  $$
   \mathrm{NA} = \sqrt{n_1^2-n_2^2} \approx n_1\sqrt{2\Delta}.
-  ```
+  $$
 
 - $`V`$ : **V‑number** (a dimensionless “how many modes?” predictor):
-  ```math
+  $$
   V \equiv \frac{2\pi a}{\lambda}\thinspace \mathrm{NA}.
-  ```
+  $$
 
 - $`M`$ : approximate number of guided spatial modes (unitless count).
 
@@ -284,13 +284,13 @@ Assume a “visible SMF” with:
 
 Compute for each wavelength.
 
-#### For $488\thinspace \mathrm{nm}`$
+#### For $`488\thinspace \mathrm{nm}`$
 
 1) Convert  
    $`\lambda = 488\thinspace \mathrm{nm} = 488\times 10^{-9}\thinspace \mathrm{m}`$
 
 2) Insert into the formula  
-   ```math
+   $$
    \begin{aligned}
    V_{488}
    &= \frac{2\pi (1.5\times 10^{-6})}{488\times 10^{-9}}(0.12) \\
@@ -298,12 +298,12 @@ Compute for each wavelength.
    &\approx 2\pi(3.074)(0.12) \\
    &\approx 2.32.
    \end{aligned}
-   ```
+   $$
 
 3) Compare to 2.405  
    $`2.32 < 2.405`$ → **single‑mode** (barely).
 
-#### For $640\thinspace \mathrm{nm}`$
+#### For $`640\thinspace \mathrm{nm}`$
 
 Same steps:
 
@@ -361,7 +361,7 @@ Use values consistent with `configs/illumination_mmf_500us.yaml`:
 
 - $`\lambda = 640\thinspace \mathrm{nm}`$
 - $`\mathrm{NA}=0.22`$
-- core diameter $400\thinspace \mu\mathrm{m}`$ → radius $`a=200\thinspace \mu\mathrm{m}`$
+- core diameter $`400\thinspace \mu\mathrm{m}`$ → radius $`a=200\thinspace \mu\mathrm{m}`$
 
 Compute $V$:
 
@@ -424,13 +424,13 @@ This is useful because fiber acceptance is also an angle constraint:
 At $`\lambda=640\thinspace \mathrm{nm}`$:
 
 - if $`w_0 = 5\thinspace \mu\mathrm{m}`$,
-  ```math
+  $$
   \Delta\theta \approx \frac{640\times 10^{-9}}{\pi(5\times 10^{-6})}\approx 0.041 \ \mathrm{rad}\approx 2.3^\circ.
-  ```
+  $$
 - if $`w_0 = 1\thinspace \mu\mathrm{m}`$,
-  ```math
+  $$
   \Delta\theta \approx 0.20\ \mathrm{rad}\approx 11^\circ.
-  ```
+  $$
 
 So changing the waist by a few µm can move you from “comfortably within NA” to “hitting NA limits”.
 
@@ -766,14 +766,14 @@ Use $`\lambda_0=640\thinspace \mathrm{nm}`$:
 
 1) square: $`\lambda_0^2 = 409600\thinspace \mathrm{nm}^2`$
 
-2) divide by $`\Delta\mathrm{OPL}`$ (convert $0.05\thinspace \mathrm{m}`$ to nm):  
+2) divide by $`\Delta\mathrm{OPL}`$ (convert $`0.05\thinspace \mathrm{m}`$ to nm):  
    $`0.05\thinspace \mathrm{m} = 5\times 10^{7}\thinspace \mathrm{nm}`$
 
 3) compute:
-   ```math
+   $$
    \Delta\lambda_c \sim \frac{4.096\times 10^{5}}{5\times 10^{7}}\ \mathrm{nm}
    \approx 8.2\times 10^{-3}\ \mathrm{nm}.
-   ```
+   $$
 
 So $`\Delta\lambda_c`$ is about $`0.008\thinspace \mathrm{nm}`$.
 

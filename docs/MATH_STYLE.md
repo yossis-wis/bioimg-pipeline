@@ -43,6 +43,12 @@ E = mc^2
 
 `$$...$$` also works on GitHub, but keep the `$$` on **their own lines** to avoid Markdown edge cases.
 
+**Important GitHub edge case:** if you indent a fenced ```math block (for example, because it lives inside a
+bulleted/numbered list), GitHub may render it as a **code block** instead of math.
+
+In those cases, prefer a `$$ ... $$` display block (with `$$` on their own lines) or restructure the Markdown
+so the math block is not indented.
+
 ### Never use in `.md`
 
 - `\(...\)` or `\[...\]` (GitHub will show backslashes literally)
