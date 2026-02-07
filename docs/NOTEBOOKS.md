@@ -20,6 +20,7 @@ The canonical notebooks live in `notebooks/`:
 - `09_mmf_wide_linewidth_scrambling_fourier_optics.py`: step-by-step Fourier-optics + fiber-dispersion analysis answering common objections to “MMF + wide-linewidth + scrambler” as a homogeneous illuminator.
 - `10_mmf_robust_setup_linewidth_stepindex_kohler.py`: practical design Q&A for a robust MMF illuminator (2 nm vs 20 nm, OPL from vendor specs, step-index vs graded-index, Köhler-like relay, and failure modes).
 - `11_fiber_modes_speckle_interactive_3d.py`: interactive 3D intuition builder for fiber modes + MMF speckle (mode shapes, speckle drift, and averaging).
+- `12_mmf_wide_linewidth_stepindex_slab_geometric_optics.py`: **multimode-only** wide-linewidth argument using a **slab + geometrical-optics** picture, with toy examples showing (1) mode superposition → speckle, (2) mode-weight effects, and (3) spectral diversity → speckle averaging.
 
 ## Running notebooks
 
@@ -58,7 +59,7 @@ Canonical reference: `docs/MATH_STYLE.md`.
 ## GitHub-friendly Markdown mirrors (stable reading)
 
 GitHub does **not** render the Markdown cells inside Jupytext percent-format `notebooks/*.py` files.
-For the documentation-style optics notebooks (06–11), we keep a **generated** Markdown mirror (no cell outputs)
+For the documentation-style optics notebooks (06–12), we keep a **generated** Markdown mirror (no cell outputs)
 in:
 
 - `docs/notebooks_md/`
@@ -76,37 +77,3 @@ python scripts/export_notebooks_markdown.py --check
 ```
 
 These mirrors are intended for **stable, cross-platform reading** (including math) in the GitHub web UI.
-
-## Exporting HTML/PDF
-
-One recommended workflow (with execution):
-
-1. Convert to `.ipynb` (temporary artifact):
-   ```bash
-   jupytext --to ipynb notebooks/01_step_by_step_integrated_qc.py
-   ```
-2. Create the reports output directory:
-   ```bash
-   mkdir -p reports
-   ```
-3. Execute and export HTML (or PDF) with `nbconvert` (writes to `reports/`):
-   ```bash
-   jupyter nbconvert --execute --to html --output-dir reports notebooks/01_step_by_step_integrated_qc.ipynb
-   ```
-Tip: if you open an exported HTML report via `file://...` and math does not render reliably, serve the repo root
-with a local HTTP server and open the report via `http://localhost...` instead:
-
-```bash
-python -m http.server 8000
-```
-
-The generated `.ipynb` files are intentionally ignored by git.
-
-
-
-## Interactive QC (matplotlib)
-
-- `drivers/interactive_spot_qc.py`: interactive spot-detection QC tool with sliders for `q_min`, `u0_min`, and optional nucleus-probability filtering.
-  - Click a candidate spot to open/update a 31×31 ROI view with in5/out0 mask outlines and nucleus outline.
-  - Designed to run in Spyder (Qt backend) or VS Code.
-

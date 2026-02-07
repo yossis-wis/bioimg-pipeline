@@ -21,7 +21,7 @@ Design goals
 
 Usage
 -----
-Write mirrors for the documentation-style optics notebooks (06–11):
+Write mirrors for the documentation-style optics notebooks (06–12):
 
     python scripts/export_notebooks_markdown.py
 
@@ -35,7 +35,7 @@ Verify mirrors are up to date (no writes, CI-friendly):
 
 Export specific notebooks:
 
-    python scripts/export_notebooks_markdown.py notebooks/11_fiber_modes_speckle_interactive_3d.py
+    python scripts/export_notebooks_markdown.py notebooks/12_mmf_wide_linewidth_stepindex_slab_geometric_optics.py
 """
 
 from __future__ import annotations
@@ -50,8 +50,8 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_OUT_DIR = REPO_ROOT / "docs" / "notebooks_md"
 
-# Default export set: the doc-style optics notebooks (06–11).
-DEFAULT_NOTEBOOK_RE = re.compile(r"^(0[6-9]|1[01])_.*\.py$")
+# Default export set: the doc-style optics notebooks (06–12).
+DEFAULT_NOTEBOOK_RE = re.compile(r"^(0[6-9]|1[0-2])_.*\.py$")
 
 MARKDOWN_CELL_MARKER_RE = re.compile(r"^# %%\s*\[markdown\]\s*$")
 
@@ -148,11 +148,7 @@ def render_cells_to_markdown(cells: list[Cell], *, src_rel: str) -> str:
 
 
 def iter_default_notebooks(nb_dir: Path) -> list[Path]:
-    return sorted(
-        p
-        for p in nb_dir.glob("*.py")
-        if p.is_file() and DEFAULT_NOTEBOOK_RE.match(p.name)
-    )
+    return sorted(p for p in nb_dir.glob("*.py") if p.is_file() and DEFAULT_NOTEBOOK_RE.match(p.name))
 
 
 def iter_all_notebooks(nb_dir: Path) -> list[Path]:
@@ -176,7 +172,7 @@ def main() -> int:
     ap.add_argument(
         "notebooks",
         nargs="*",
-        help="Optional notebook paths (defaults to optics notebooks 06–11).",
+        help="Optional notebook paths (defaults to optics notebooks 06–12).",
     )
     ap.add_argument(
         "--out-dir",

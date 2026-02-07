@@ -28,3 +28,4 @@ python scripts/export_notebooks_markdown.py --check
 - `09_mmf_wide_linewidth_scrambling_fourier_optics.md`
 - `10_mmf_robust_setup_linewidth_stepindex_kohler.md`
 - `11_fiber_modes_speckle_interactive_3d.md`
+- `12_mmf_wide_linewidth_stepindex_slab_geometric_optics.md`
