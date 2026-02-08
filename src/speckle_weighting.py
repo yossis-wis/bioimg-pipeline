@@ -1,3 +1,4 @@
+
 from __future__ import annotations
 
 """Weighted diversity models for speckle averaging.
@@ -115,36 +116,62 @@ class SpectralBins:
         return effective_n_from_weights(self.weights)
 
 
-def uniform_top_hat_spectrum_bins(*, span_nm: float, corr_width_nm: float) -> SpectralBins:
+def uniform_top_hat_spectrum_bins(
+    *,
+    lambda0_nm: float | None = None,
+    span_nm: float,
+    corr_width_nm: float,
+) -> SpectralBins:
     """Discretize a uniform (top-hat) spectrum into independent correlation bins.
 
-    This is a more numerically explicit version of::
+    Parameters
+    ----------
+    lambda0_nm:
+        Optional center wavelength. This does **not** affect the weights, but is
+        useful for plotting/labels. If provided, bin centers are placed around
+        ``lambda0_nm``; otherwise centers are returned relative to 0.
+    span_nm:
+        Total spectral span (e.g. an assumed "flat" bandwidth).
+    corr_width_nm:
+        Speckle spectral correlation width (the bin width that yields roughly
+        independent speckle realizations).
+
+    Returns
+    -------
+    SpectralBins
+        Bin centers and normalized weights (integrated spectral power per bin).
+
+    Notes
+    -----
+    This is a numerically explicit version of::
 
         N_lambda = ceil(span_nm / corr_width_nm)
 
-    that also handles a partial final bin and produces weights for
-    :func:`effective_n_from_weights`.
+    that also handles a partial final bin.
     """
 
     if span_nm <= 0 or corr_width_nm <= 0:
         raise ValueError("span_nm and corr_width_nm must be > 0")
 
+    # Partition the span into full bins of width corr_width_nm, plus an optional remainder.
     n_full = int(span_nm // corr_width_nm)
     rem = float(span_nm - n_full * corr_width_nm)
 
-    widths = [corr_width_nm] * n_full
+    widths = [float(corr_width_nm)] * n_full
     if rem > 1e-12:
         widths.append(rem)
 
     w = np.asarray(widths, dtype=float)
     w /= float(w.sum())
 
-    # Centers are arbitrary for a top-hat; we place them on [-(span/2), +(span/2)].
-    # The absolute λ0 is irrelevant for the weight-only calculation.
-    edges = np.concatenate([[0.0], np.cumsum(np.asarray(widths, dtype=float))])
-    centers = 0.5 * (edges[:-1] + edges[1:]) - 0.5 * span_nm
+    # Place centers on [-(span/2), +(span/2)] and optionally offset by lambda0_nm.
+    edges_rel = np.concatenate([[0.0], np.cumsum(np.asarray(widths, dtype=float))])
+    centers_rel = 0.5 * (edges_rel[:-1] + edges_rel[1:]) - 0.5 * float(span_nm)
+    centers = centers_rel + float(lambda0_nm) if lambda0_nm is not None else centers_rel
 
     return SpectralBins(centers_nm=centers, weights=w, bin_width_nm=float(corr_width_nm))
+
+
 
 
 def gaussian_spectrum_bins(
@@ -153,6 +180,7 @@ def gaussian_spectrum_bins(
     fwhm_nm: float,
     corr_width_nm: float,
     n_sigma: float = 4.0,
+    n_std: float | None = None,
 ) -> SpectralBins:
     """Discretize a Gaussian spectrum into bins of width ``corr_width_nm``.
 
@@ -166,6 +194,8 @@ def gaussian_spectrum_bins(
         Speckle spectral correlation width (bin width).
     n_sigma:
         Truncation radius in standard deviations (default ±4σ).
+    n_std:
+        Alias for ``n_sigma`` (use either ``n_sigma`` or ``n_std``, not both).
 
     Returns
     -------
@@ -180,6 +210,10 @@ def gaussian_spectrum_bins(
 
     if fwhm_nm <= 0 or corr_width_nm <= 0:
         raise ValueError("fwhm_nm and corr_width_nm must be > 0")
+    if n_std is not None:
+        if n_sigma != 4.0:
+            raise ValueError("Provide only one of n_sigma or n_std")
+        n_sigma = float(n_std)
     if n_sigma <= 0:
         raise ValueError("n_sigma must be > 0")
 
