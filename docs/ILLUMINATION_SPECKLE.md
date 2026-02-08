@@ -20,9 +20,13 @@ The companion notebooks are:
 
 - `notebooks/05_excitation_speckle_fpfn_proxy.py`
 - `notebooks/06_mmf_illumination_500us_design.py` (short-exposure / 500 µs design sweeps)
+- `notebooks/07_linewidth_speckle_mechanism_500us.py` (spectral linewidth → speckle reduction at 500 µs)
+- `notebooks/08_cni_laser_system_diagrams.py` (laser delivery concepts + quote-request checklists for CNI)
 - `notebooks/09_mmf_wide_linewidth_scrambling_fourier_optics.py` (step-by-step fiber-dispersion + Fourier-optics analysis of “MMF + wide-linewidth + scrambler”)
 - `notebooks/10_mmf_robust_setup_linewidth_stepindex_kohler.py` (practical robustness Q&A: step-index vs graded-index, OPL from specs, failure modes)
 - `notebooks/11_fiber_modes_speckle_interactive_3d.py` (interactive 3D intuition builder: “what are modes?”, why MMF speckle drifts, why averaging helps)
+- `notebooks/12_mmf_wide_linewidth_stepindex_slab_geometric_optics.py` (multimode-only slab + geometric-optics intuition + toy mode/wavelength sums)
+- `notebooks/13_cni_2nm_stepindex_spectral_diversity_500us.py` (CNI FC-640-class 2–3 nm linewidth + 3 m step-index MMF: spectral scenarios → (speckle contrast, Slice0 confusion-matrix proxy) for 500 µs)
 
 For guided-wave / fiber-mode background (equation-focused, print-friendly), see:
 

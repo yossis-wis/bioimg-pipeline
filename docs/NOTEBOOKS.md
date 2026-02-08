@@ -21,6 +21,7 @@ The canonical notebooks live in `notebooks/`:
 - `10_mmf_robust_setup_linewidth_stepindex_kohler.py`: practical design Q&A for a robust MMF illuminator (2 nm vs 20 nm, OPL from vendor specs, step-index vs graded-index, Köhler-like relay, and failure modes).
 - `11_fiber_modes_speckle_interactive_3d.py`: interactive 3D intuition builder for fiber modes + MMF speckle (mode shapes, speckle drift, and averaging).
 - `12_mmf_wide_linewidth_stepindex_slab_geometric_optics.py`: **multimode-only** wide-linewidth argument using a **slab + geometrical-optics** picture, with toy examples showing (1) mode superposition → speckle, (2) mode-weight effects, and (3) spectral diversity → speckle averaging.
+- `13_cni_2nm_stepindex_spectral_diversity_500us.py`: evaluate a **CNI FC-640-class** (2–3 nm linewidth) laser + **3 m step-index MMF** for **500 µs** exposures, focusing on **spectral diversity only** and mapping spectral scenarios → (speckle contrast C, Slice0 confusion-matrix proxy).
 
 ## Running notebooks
 
@@ -59,7 +60,7 @@ Canonical reference: `docs/MATH_STYLE.md`.
 ## GitHub-friendly Markdown mirrors (stable reading)
 
 GitHub does **not** render the Markdown cells inside Jupytext percent-format `notebooks/*.py` files.
-For the documentation-style optics notebooks (06–12), we keep a **generated** Markdown mirror (no cell outputs)
+For the documentation-style optics notebooks (06–13), we keep a **generated** Markdown mirror (no cell outputs)
 in:
 
 - `docs/notebooks_md/`
@@ -77,3 +78,39 @@ python scripts/export_notebooks_markdown.py --check
 ```
 
 These mirrors are intended for **stable, cross-platform reading** (including math) in the GitHub web UI.
+
+## Exporting to `.ipynb` and HTML (local-only)
+
+This repo intentionally does **not** commit `.ipynb` files (they are ignored in `.gitignore`).
+But sometimes you want an `.ipynb` for sharing, or an HTML export for printing.
+
+Convert a percent-format notebook to an `.ipynb` (writes next to the `.py`):
+
+```bash
+# Single notebook
+jupytext --to ipynb notebooks/13_cni_2nm_stepindex_spectral_diversity_500us.py
+
+# All notebooks (writes adjacent .ipynb files)
+jupytext --to ipynb notebooks/*.py
+```
+
+Convert that `.ipynb` to HTML:
+
+```bash
+jupyter nbconvert --to html notebooks/13_cni_2nm_stepindex_spectral_diversity_500us.ipynb
+```
+
+If you want nbconvert to **execute** the notebook first (so the HTML includes figures), add `--execute`:
+
+```bash
+jupyter nbconvert --to html --execute notebooks/13_cni_2nm_stepindex_spectral_diversity_500us.ipynb
+```
+
+Tip: keep exports out of git by putting them under a build folder:
+
+```bash
+mkdir -p notebooks/_build/html
+jupyter nbconvert --to html --execute \
+  --output-dir notebooks/_build/html \
+  notebooks/13_cni_2nm_stepindex_spectral_diversity_500us.ipynb
+```

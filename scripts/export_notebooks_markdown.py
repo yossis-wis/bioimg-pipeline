@@ -50,8 +50,8 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_OUT_DIR = REPO_ROOT / "docs" / "notebooks_md"
 
-# Default export set: the doc-style optics notebooks (06–12).
-DEFAULT_NOTEBOOK_RE = re.compile(r"^(0[6-9]|1[0-2])_.*\.py$")
+# Default export set: the doc-style optics notebooks (06–13).
+DEFAULT_NOTEBOOK_RE = re.compile(r"^(0[6-9]|1[0-3])_.*\.py$")
 
 MARKDOWN_CELL_MARKER_RE = re.compile(r"^# %%\s*\[markdown\]\s*$")
 
