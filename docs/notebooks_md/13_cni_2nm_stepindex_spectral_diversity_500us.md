@@ -1018,6 +1018,8 @@ def run_monte_carlo_for_field(
 # Run a modest Monte Carlo for each scenario (use fewer trials if this is slow on your machine)
 mc_trials = 20
 
+scenario_exc_fields: dict[str, np.ndarray] = {}
+
 rows = []
 for sc in scenarios:
     # Build (or reuse) a representative excitation field for the scenario.
@@ -1050,6 +1052,9 @@ for sc in scenarios:
                 lambda_um=lambda0_nm * 1e-3,
                 na_illum=NA_illum,
             )
+
+    # Keep the representative excitation field for later visual QC.
+    scenario_exc_fields[sc.name] = I_exc
 
     # Metrics
     C_inner = speckle_contrast_inner(I_exc)
@@ -1111,6 +1116,474 @@ plt.show()
 
 </details>
 
+### 6.2 Visual QC: representative **raw pixel** frames per scenario
+
+The Monte Carlo table above is an aggregate. As a sanity check / intuition builder, we render **one
+deterministic synthetic raw frame per scenario** and show:
+
+- a **full-field** view (raw counts, colorbar, GT emitters + detections), and
+- multiple **zoom-ins** spanning dim → bright emitters, with the **pixel values written directly over the pixels**
+  (plus an outline of the Slice0 in5 aperture).
+
+This makes it visually obvious what the detector is operating on, and lets you sanity-check that the
+aggregate confusion-matrix behavior matches what you see in representative frames.
+
+<details>
+<summary>Code cell 11</summary>
+
+```python
+import matplotlib.patheffects as pe
+from matplotlib.collections import LineCollection
+from matplotlib.patches import Rectangle
+
+# --- Deterministic emitter set shared across scenarios (so only illumination changes) ---
+qc_seed_emitters = 424242
+_rng_emit = np.random.default_rng(qc_seed_emitters)
+gt_yx_qc = place_emitters_nonoverlap(
+    n_emitters=cfg.n_emitters,
+    roi_mask=inner_mask,
+    min_sep_px=cfg.min_separation_px,
+    rng=_rng_emit,
+)
+photons_qc = cfg.photons_per_emitter_mean * (
+    1.0 + cfg.photons_per_emitter_sigma_frac * _rng_emit.standard_normal(cfg.n_emitters)
+)
+photons_qc = np.clip(
+    photons_qc,
+    0.2 * cfg.photons_per_emitter_mean,
+    5.0 * cfg.photons_per_emitter_mean,
+).astype(np.float64)
+
+
+def _mask_edge_segments(mask: np.ndarray) -> np.ndarray:
+    """External pixel-edge segments for a binary mask.
+
+    This draws *between* pixels (at half-integer coordinates) so overlays don't obscure pixel-value text.
+    Coordinate convention matches imshow() default: pixel centers at integer coords, edges at half-integers.
+    """
+    m = np.asarray(mask, dtype=bool)
+    if m.ndim != 2 or m.size == 0 or not np.any(m):
+        return np.zeros((0, 2, 2), dtype=float)
+
+    h, w = m.shape
+    segs: list[list[tuple[float, float]]] = []
+
+    for i in range(h):
+        for j in range(w):
+            if not m[i, j]:
+                continue
+
+            x0 = float(j) - 0.5
+            x1 = float(j) + 0.5
+            y0 = float(i) - 0.5
+            y1 = float(i) + 0.5
+
+            if i == 0 or not m[i - 1, j]:
+                segs.append([(x0, y0), (x1, y0)])
+            if i == h - 1 or not m[i + 1, j]:
+                segs.append([(x0, y1), (x1, y1)])
+            if j == 0 or not m[i, j - 1]:
+                segs.append([(x0, y0), (x0, y1)])
+            if j == w - 1 or not m[i, j + 1]:
+                segs.append([(x1, y0), (x1, y1)])
+
+    if not segs:
+        return np.zeros((0, 2, 2), dtype=float)
+    return np.asarray(segs, dtype=float)
+
+
+def _add_edge_overlay(ax, segs: np.ndarray, *, color: str = "y", lw: float = 1.1):
+    if segs is None or np.asarray(segs).size == 0:
+        return None
+    lc = LineCollection(
+        np.asarray(segs, dtype=float),
+        colors=[color],
+        linewidths=float(lw),
+        capstyle="projecting",
+        joinstyle="miter",
+        zorder=5,
+    )
+    ax.add_collection(lc)
+    return lc
+
+
+def _annotate_pixel_values(ax, img: np.ndarray, *, fmt: str = "{:d}", fontsize: int = 6) -> None:
+    """Write pixel values over each pixel center (int formatting)."""
+    h, w = img.shape
+    for i in range(h):
+        for j in range(w):
+            v = img[i, j]
+            try:
+                s = fmt.format(int(v))
+            except Exception:
+                s = str(v)
+            ax.text(
+                j,
+                i,
+                s,
+                ha="center",
+                va="center",
+                fontsize=int(fontsize),
+                color="white",
+                path_effects=[pe.withStroke(linewidth=1.25, foreground="black")],
+                zorder=6,
+            )
+
+
+def simulate_sparse_emitter_frame_fixed_emitters(
+    *,
+    I_exc: np.ndarray,
+    gt_yx: np.ndarray,
+    photons: np.ndarray,
+    seed: int,
+) -> np.ndarray:
+    """Simulate one raw noisy frame using a fixed emitter set (deterministic geometry)."""
+    rng = np.random.default_rng(int(seed))
+
+    img = np.zeros((N_grid, N_grid), dtype=np.float64)
+    img += cfg.bg_photons_flat + cfg.bg_photons_scale_exc * I_exc
+
+    # Add emitters
+    for (y0, x0), p0 in zip(gt_yx, photons):
+        amp = float(p0 * I_exc[int(y0), int(x0)])
+        y1 = int(y0) - R
+        y2 = int(y0) + R + 1
+        x1 = int(x0) - R
+        x2 = int(x0) + R + 1
+        img[y1:y2, x1:x2] += amp * psf
+
+    return rng.poisson(img).astype(np.float32)
+
+
+def match_detections_to_gt(
+    *,
+    df_det: pd.DataFrame,
+    gt_yx: np.ndarray,
+    match_r_px: float = 3.0,
+) -> dict[str, np.ndarray]:
+    """Greedy 1:1 nearest-neighbor matching (detection -> GT)."""
+    det_yx = df_det[["y_px", "x_px"]].to_numpy(dtype=float)
+    gt_yx_f = gt_yx.astype(float)
+
+    det_to_gt = -np.ones(det_yx.shape[0], dtype=int)
+    gt_to_det = -np.ones(gt_yx_f.shape[0], dtype=int)
+
+    for i, (y, x) in enumerate(det_yx):
+        if gt_yx_f.shape[0] == 0:
+            break
+        dy = gt_yx_f[:, 0] - y
+        dx = gt_yx_f[:, 1] - x
+        d2 = dy * dy + dx * dx
+        j = int(np.argmin(d2))
+        if d2[j] <= match_r_px * match_r_px and gt_to_det[j] < 0:
+            det_to_gt[i] = j
+            gt_to_det[j] = i
+
+    tp_det = det_to_gt >= 0
+    fp_det = det_to_gt < 0
+    fn_gt = gt_to_det < 0
+
+    return {
+        "det_yx": det_yx,
+        "det_to_gt": det_to_gt,
+        "gt_to_det": gt_to_det,
+        "tp_det": tp_det,
+        "fp_det": fp_det,
+        "fn_gt": fn_gt,
+    }
+
+
+def _roi_outline_rect_px(*, half_size_um: float, edge_color: str, lw: float) -> Rectangle:
+    half_px = int(round(half_size_um / dx_um))
+    x0 = (N_grid // 2) - half_px - 0.5
+    y0 = (N_grid // 2) - half_px - 0.5
+    side = 2 * half_px
+    return Rectangle((x0, y0), side, side, fill=False, edgecolor=edge_color, linewidth=float(lw))
+
+
+def show_full_field_qc(
+    *,
+    scenario_name: str,
+    img_raw: np.ndarray,
+    gt_yx: np.ndarray,
+    df_det: pd.DataFrame,
+    match: dict[str, np.ndarray],
+) -> None:
+    det_yx = match["det_yx"]
+    tp_det = match["tp_det"]
+    fp_det = match["fp_det"]
+    fn_gt = match["fn_gt"]
+
+    TP = int(tp_det.sum())
+    FP = int(fp_det.sum())
+    FN = int(fn_gt.sum())
+
+    fig, ax = plt.subplots(figsize=(7.0, 6.6))
+    # Robust contrast for visibility while remaining in raw-count units.
+    vmin, vmax = np.percentile(img_raw[inner_mask], [1.0, 99.9])
+    if not np.isfinite(vmin) or not np.isfinite(vmax) or vmax <= vmin:
+        vmin, vmax = float(np.min(img_raw)), float(np.max(img_raw))
+
+    im = ax.imshow(img_raw, origin="lower", interpolation="nearest", vmin=vmin, vmax=vmax)
+    ax.add_patch(_roi_outline_rect_px(half_size_um=0.5 * roi_um, edge_color="w", lw=1.5))
+    ax.add_patch(_roi_outline_rect_px(half_size_um=0.5 * roi_um - inner_margin_um, edge_color="w", lw=1.0))
+
+    # GT emitters
+    ax.scatter(gt_yx[:, 1], gt_yx[:, 0], s=22, facecolors="none", edgecolors="w", linewidths=1.0, label="GT emitters")
+
+    # FN GT emitters (missed)
+    if np.any(fn_gt):
+        ax.scatter(
+            gt_yx[fn_gt, 1],
+            gt_yx[fn_gt, 0],
+            s=48,
+            facecolors="none",
+            edgecolors="r",
+            linewidths=1.6,
+            label="GT missed (FN)",
+        )
+
+    # Detections
+    if det_yx.size > 0:
+        if np.any(tp_det):
+            ax.scatter(
+                det_yx[tp_det, 1],
+                det_yx[tp_det, 0],
+                s=55,
+                marker="+",
+                color="lime",
+                linewidths=1.4,
+                label="detections (TP)",
+            )
+        if np.any(fp_det):
+            ax.scatter(
+                det_yx[fp_det, 1],
+                det_yx[fp_det, 0],
+                s=45,
+                marker="x",
+                color="orange",
+                linewidths=1.2,
+                label="detections (FP)",
+            )
+
+    ax.set_title(f"{scenario_name}\nRepresentative raw frame | TP={TP}  FP={FP}  FN={FN}")
+    ax.set_xlabel("x [px]")
+    ax.set_ylabel("y [px]")
+    ax.legend(loc="upper right", fontsize=9, framealpha=0.85)
+    plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04, label="raw counts / pixel")
+    plt.show()
+
+
+def show_emitter_montage_qc(
+    *,
+    scenario_name: str,
+    img_raw: np.ndarray,
+    I_exc: np.ndarray,
+    gt_yx: np.ndarray,
+    photons: np.ndarray,
+    df_det: pd.DataFrame,
+    match: dict[str, np.ndarray],
+    n_show: int = 15,
+    crop_radius_px: int = 5,
+) -> None:
+    det_yx = match["det_yx"]
+    gt_to_det = match["gt_to_det"]
+
+    r = int(crop_radius_px)
+    crop_size = 2 * r + 1
+
+    # Choose emitters spanning dim -> bright expected amplitude (intrinsic photons * local excitation)
+    amp = photons * I_exc[gt_yx[:, 0], gt_yx[:, 1]]
+    order = np.argsort(amp)
+    n_show = int(min(max(1, n_show), len(order)))
+    pick = np.linspace(0, len(order) - 1, n_show).round().astype(int)
+    chosen = order[pick]
+
+    n_cols = 5
+    n_rows = int(np.ceil(n_show / n_cols))
+    fig, axes = plt.subplots(n_rows, n_cols, figsize=(2.6 * n_cols, 2.6 * n_rows), constrained_layout=True)
+
+    # Shared scaling (raw counts)
+    vmin, vmax = np.percentile(img_raw[inner_mask], [1.0, 99.9])
+    if not np.isfinite(vmin) or not np.isfinite(vmax) or vmax <= vmin:
+        vmin, vmax = float(np.min(img_raw)), float(np.max(img_raw))
+
+    # Slice0 in5 aperture outline (disk mask) in crop coordinates.
+    from src.slice0_kernel import _disk_mask  # local import: private helper, but matches detector exactly
+
+    in5_mask = _disk_mask(int(params.in5_radius_px), crop_size)
+    in5_segs = _mask_edge_segments(in5_mask)
+
+    last_im = None
+    for k, idx in enumerate(chosen):
+        ax = axes.flat[k] if hasattr(axes, "flat") else axes[k]
+        y0, x0 = (int(gt_yx[idx, 0]), int(gt_yx[idx, 1]))
+
+        crop = img_raw[y0 - r : y0 + r + 1, x0 - r : x0 + r + 1]
+        if crop.shape != (crop_size, crop_size):
+            ax.axis("off")
+            continue
+
+        # Matched detection (if any)
+        det_idx = int(gt_to_det[idx])
+        det_off = None
+        status = "FN"
+        if det_idx >= 0:
+            dy = int(round(float(det_yx[det_idx, 0]) - y0))
+            dx = int(round(float(det_yx[det_idx, 1]) - x0))
+            det_off = (dy, dx)
+            status = "TP"
+
+        last_im = ax.imshow(crop, origin="lower", interpolation="nearest", vmin=vmin, vmax=vmax)
+
+        # Pixel grid
+        ax.set_xticks(np.arange(-0.5, crop_size, 1), minor=True)
+        ax.set_yticks(np.arange(-0.5, crop_size, 1), minor=True)
+        ax.grid(which="minor", linestyle="-", linewidth=0.5, alpha=0.25)
+        ax.tick_params(which="both", bottom=False, left=False, labelbottom=False, labelleft=False)
+
+        # Pixel values
+        _annotate_pixel_values(ax, crop, fmt="{:d}", fontsize=6)
+
+        # Mark GT center
+        ax.plot([r], [r], marker="+", color="cyan", markersize=10, mew=1.2, zorder=7)
+
+        # Mark detection center + measurement aperture outline
+        segs = in5_segs
+        if det_off is not None:
+            ax.plot([r + det_off[1]], [r + det_off[0]], marker="x", color="lime", markersize=8, mew=1.2, zorder=7)
+            segs = segs.copy()
+            segs[:, :, 0] += float(det_off[1])  # shift x
+            segs[:, :, 1] += float(det_off[0])  # shift y
+
+        _add_edge_overlay(ax, segs, color="yellow", lw=1.1)
+
+        ax.set_title(f"{status} | amp≈{amp[idx]:.0f}", fontsize=9)
+
+    # Turn off any unused axes
+    for j in range(n_show, n_rows * n_cols):
+        ax = axes.flat[j] if hasattr(axes, "flat") else axes[j]
+        ax.axis("off")
+
+    if last_im is not None:
+        fig.colorbar(last_im, ax=axes, fraction=0.015, pad=0.02, label="raw counts / pixel")
+
+    fig.suptitle(f"{scenario_name} | emitter crops (11×11) with pixel values + in5 aperture", fontsize=12)
+    plt.show()
+
+
+def show_fp_montage_qc(
+    *,
+    scenario_name: str,
+    img_raw: np.ndarray,
+    df_det: pd.DataFrame,
+    match: dict[str, np.ndarray],
+    max_fp: int = 6,
+    crop_radius_px: int = 5,
+) -> None:
+    fp_det = match["fp_det"]
+    det_yx = match["det_yx"]
+    if det_yx.size == 0 or not np.any(fp_det):
+        return
+
+    r = int(crop_radius_px)
+    crop_size = 2 * r + 1
+    from src.slice0_kernel import _disk_mask  # local import: private helper, but matches detector exactly
+
+    in5_mask = _disk_mask(int(params.in5_radius_px), crop_size)
+    in5_segs = _mask_edge_segments(in5_mask)
+
+    fp_idx = np.where(fp_det)[0][: int(max_fp)]
+    n_show = len(fp_idx)
+    n_cols = 3
+    n_rows = int(np.ceil(n_show / n_cols))
+    fig, axes = plt.subplots(n_rows, n_cols, figsize=(2.6 * n_cols, 2.6 * n_rows), constrained_layout=True)
+
+    vmin, vmax = np.percentile(img_raw[inner_mask], [1.0, 99.9])
+    if not np.isfinite(vmin) or not np.isfinite(vmax) or vmax <= vmin:
+        vmin, vmax = float(np.min(img_raw)), float(np.max(img_raw))
+
+    last_im = None
+    for k, det_i in enumerate(fp_idx):
+        ax = axes.flat[k] if hasattr(axes, "flat") else axes[k]
+        y0 = int(round(float(det_yx[det_i, 0])))
+        x0 = int(round(float(det_yx[det_i, 1])))
+
+        crop = img_raw[y0 - r : y0 + r + 1, x0 - r : x0 + r + 1]
+        if crop.shape != (crop_size, crop_size):
+            ax.axis("off")
+            continue
+
+        last_im = ax.imshow(crop, origin="lower", interpolation="nearest", vmin=vmin, vmax=vmax)
+        ax.set_xticks(np.arange(-0.5, crop_size, 1), minor=True)
+        ax.set_yticks(np.arange(-0.5, crop_size, 1), minor=True)
+        ax.grid(which="minor", linestyle="-", linewidth=0.5, alpha=0.25)
+        ax.tick_params(which="both", bottom=False, left=False, labelbottom=False, labelleft=False)
+
+        _annotate_pixel_values(ax, crop, fmt="{:d}", fontsize=6)
+        ax.plot([r], [r], marker="x", color="orange", markersize=10, mew=1.3, zorder=7)
+        _add_edge_overlay(ax, in5_segs, color="yellow", lw=1.1)
+        ax.set_title("FP (crop)", fontsize=9)
+
+    for j in range(n_show, n_rows * n_cols):
+        ax = axes.flat[j] if hasattr(axes, "flat") else axes[j]
+        ax.axis("off")
+
+    if last_im is not None:
+        fig.colorbar(last_im, ax=axes, fraction=0.04, pad=0.02, label="raw counts / pixel")
+
+    fig.suptitle(f"{scenario_name} | example false positives (pixel-annotated)", fontsize=12)
+    plt.show()
+
+
+# Render one representative raw frame per scenario.
+qc_seed_frame_base = 1_234_567
+for k, sc in enumerate(scenarios):
+    I_exc = scenario_exc_fields[sc.name]
+    img_qc = simulate_sparse_emitter_frame_fixed_emitters(
+        I_exc=I_exc,
+        gt_yx=gt_yx_qc,
+        photons=photons_qc,
+        seed=qc_seed_frame_base + 100 * k,
+    )
+    df_det_qc = detect_spots(img_qc, params)
+    match = match_detections_to_gt(df_det=df_det_qc, gt_yx=gt_yx_qc, match_r_px=3.0)
+
+    # Full field: population view
+    show_full_field_qc(
+        scenario_name=sc.name,
+        img_raw=img_qc,
+        gt_yx=gt_yx_qc,
+        df_det=df_det_qc,
+        match=match,
+    )
+
+    # Zoom-ins: enough emitters to build intuition for the aggregate confusion matrix
+    show_emitter_montage_qc(
+        scenario_name=sc.name,
+        img_raw=img_qc,
+        I_exc=I_exc,
+        gt_yx=gt_yx_qc,
+        photons=photons_qc,
+        df_det=df_det_qc,
+        match=match,
+        n_show=15,
+        crop_radius_px=5,
+    )
+
+    # Optional: show a few example FPs to understand failure modes
+    show_fp_montage_qc(
+        scenario_name=sc.name,
+        img_raw=img_qc,
+        df_det=df_det_qc,
+        match=match,
+        max_fp=6,
+        crop_radius_px=5,
+    )
+```
+
+</details>
+
 ## 7) Speckle grain size and the underfill ratio
 
 Your concern (paraphrased):
@@ -1131,7 +1604,7 @@ That can be good (speckle becomes a slow multiplicative shading) or bad (big dar
 We do a small sweep over underfill ratios for one mid-case scenario.
 
 <details>
-<summary>Code cell 11</summary>
+<summary>Code cell 12</summary>
 
 ```python
 # Choose a mid-case scenario to sweep
@@ -1142,6 +1615,7 @@ w_sweep, neff_sweep, _ = scenario_weights_and_neff(sweep_scenario, lambda0_nm=la
 underfill_list = [0.05, 0.10, 0.20, 0.30]
 
 rows = []
+sweep_exc_fields: dict[float, np.ndarray] = {}
 for uf in underfill_list:
     na = uf * NA_obj
 
@@ -1158,6 +1632,9 @@ for uf in underfill_list:
         seed=seed_vis,
     )
     I_exc = I_exc / float(I_exc[inner_mask].mean())
+
+    # Keep fields for visual QC later
+    sweep_exc_fields[float(uf)] = I_exc
 
     C_meas = speckle_contrast_inner(I_exc)
     grain_um = (lambda0_nm * 1e-3) / (2.0 * na)
@@ -1185,7 +1662,7 @@ df_sweep
 </details>
 
 <details>
-<summary>Code cell 12</summary>
+<summary>Code cell 13</summary>
 
 ```python
 fig, ax = plt.subplots(figsize=(7.5, 4.0))
@@ -1197,6 +1674,71 @@ ax.set_title("Effect of grain size (NA_illum) at fixed spectral scenario")
 ax.grid(True, alpha=0.3)
 ax.legend()
 plt.show()
+```
+
+</details>
+
+### 7.1 Visual QC: raw pixel frames across the **underfill / grain-size sweep**
+
+In section 6.2 we compared scenarios at a fixed $`\mathrm{NA}_{\mathrm{illum}}`$.
+Here we keep the spectrum fixed (one mid-case scenario) and change **grain size** via pupil underfill.
+
+We again show:
+- full-field raw pixel frames (with GT + detections), and
+- multiple pixel-annotated zoom-ins spanning dim → bright emitters.
+
+We reuse the **same deterministic emitter set** (`gt_yx_qc`, `photons_qc`) so the visual differences are driven
+primarily by the illumination field (not by different random emitter geometries).
+
+<details>
+<summary>Code cell 14</summary>
+
+```python
+qc_seed_uf_base = 9_876_543
+for i, uf in enumerate(underfill_list):
+    I_exc = sweep_exc_fields[float(uf)]
+    na = float(uf) * float(NA_obj)
+    grain_um = (lambda0_nm * 1e-3) / (2.0 * na)
+
+    label = f"{sweep_scenario.name} | underfill={uf:.2f}  NA_illum={na:.3f}  grain≈{grain_um:.2f} µm"
+
+    img_qc = simulate_sparse_emitter_frame_fixed_emitters(
+        I_exc=I_exc,
+        gt_yx=gt_yx_qc,
+        photons=photons_qc,
+        seed=qc_seed_uf_base + 100 * i,
+    )
+    df_det_qc = detect_spots(img_qc, params)
+    match = match_detections_to_gt(df_det=df_det_qc, gt_yx=gt_yx_qc, match_r_px=3.0)
+
+    show_full_field_qc(
+        scenario_name=label,
+        img_raw=img_qc,
+        gt_yx=gt_yx_qc,
+        df_det=df_det_qc,
+        match=match,
+    )
+
+    show_emitter_montage_qc(
+        scenario_name=label,
+        img_raw=img_qc,
+        I_exc=I_exc,
+        gt_yx=gt_yx_qc,
+        photons=photons_qc,
+        df_det=df_det_qc,
+        match=match,
+        n_show=15,
+        crop_radius_px=5,
+    )
+
+    show_fp_montage_qc(
+        scenario_name=label,
+        img_raw=img_qc,
+        df_det=df_det_qc,
+        match=match,
+        max_fp=6,
+        crop_radius_px=5,
+    )
 ```
 
 </details>
