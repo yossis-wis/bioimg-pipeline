@@ -796,7 +796,9 @@ for sc in scenarios:
         "label": label,
     }
 
-    show_component_and_sum(scenario_name=scenario_name, I_sum=I_sum, components=comps, n_show_components=3)
+    # NOTE: `sc.name` is the scenario identifier; a previous revision used an undefined
+    # `scenario_name` variable, which raised a NameError when this cell was run.
+    show_component_and_sum(scenario_name=sc.name, I_sum=I_sum, components=comps, n_show_components=3)
 ```
 
 </details>
@@ -1431,14 +1433,16 @@ def show_full_field_qc(
         )
 
     # Detections
+    # Use *rings* (unfilled markers) instead of "+/x" so the underlying raw pixels remain visible.
     if det_yx.size > 0:
         if np.any(tp_det):
             ax.scatter(
                 det_yx[tp_det, 1],
                 det_yx[tp_det, 0],
-                s=55,
-                marker="+",
-                color="lime",
+                s=70,
+                marker="o",
+                facecolors="none",
+                edgecolors="lime",
                 linewidths=1.4,
                 label="detections (TP)",
             )
@@ -1446,9 +1450,10 @@ def show_full_field_qc(
             ax.scatter(
                 det_yx[fp_det, 1],
                 det_yx[fp_det, 0],
-                s=45,
-                marker="x",
-                color="orange",
+                s=60,
+                marker="s",
+                facecolors="none",
+                edgecolors="orange",
                 linewidths=1.2,
                 label="detections (FP)",
             )
@@ -1555,13 +1560,35 @@ def show_emitter_montage_qc(
         # Pixel values
         _annotate_pixel_values(ax, crop, fmt="{:d}", fontsize=6)
 
-        # Mark GT center
-        ax.plot([r], [r], marker="+", color="cyan", markersize=10, mew=1.2, zorder=7)
+        # Mark GT center *without* obscuring the central pixel value.
+        # Outline the central pixel (edges are at half-integer coords).
+        ax.add_patch(
+            Rectangle(
+                (r - 0.5, r - 0.5),
+                1,
+                1,
+                fill=False,
+                edgecolor="cyan",
+                linewidth=1.2,
+                zorder=7,
+            )
+        )
 
-        # Mark detection center + measurement aperture outline
+        # Mark detection center + measurement aperture outline.
+        # Again: outline the detection pixel instead of drawing a marker on top of pixel text.
         segs = in5_segs
         if det_off is not None:
-            ax.plot([r + det_off[1]], [r + det_off[0]], marker="x", color="lime", markersize=8, mew=1.2, zorder=7)
+            ax.add_patch(
+                Rectangle(
+                    (r + det_off[1] - 0.5, r + det_off[0] - 0.5),
+                    1,
+                    1,
+                    fill=False,
+                    edgecolor="lime",
+                    linewidth=1.2,
+                    zorder=7,
+                )
+            )
             segs = segs.copy()
             segs[:, :, 0] += float(det_off[1])  # shift x
             segs[:, :, 1] += float(det_off[0])  # shift y
@@ -1625,6 +1652,7 @@ def show_emitter_context_montage_qc(
         vmin, vmax = float(np.min(img_raw)), float(np.max(img_raw))
 
     # in5 aperture overlay (same definition Slice0 uses)
+    from src.slice0_kernel import _disk_mask  # local import: private helper, but matches detector exactly
     in5_mask = _disk_mask(int(params.in5_radius_px), crop_size)
     in5_segs = _mask_edge_segments(in5_mask)
 
@@ -1641,8 +1669,8 @@ def show_emitter_context_montage_qc(
         last_im = ax.imshow(crop, origin="lower", interpolation="nearest", vmin=vmin, vmax=vmax)
         ax.tick_params(which="both", bottom=False, left=False, labelbottom=False, labelleft=False)
 
-        # Mark the GT emitter center in crop coordinates
-        ax.plot([r], [r], marker="o", mfc="none", mec="white", ms=8, mew=1.2, zorder=6)
+        # Mark the GT emitter center in crop coordinates (ring does not obscure pixels)
+        ax.plot([r], [r], marker="o", mfc="none", mec="white", ms=10, mew=1.2, zorder=6)
         _add_edge_overlay(ax, in5_segs, color="yellow", lw=1.0)
 
         det_i = int(gt_to_det[idx]) if gt_to_det.size > idx else -1
@@ -1651,7 +1679,8 @@ def show_emitter_context_montage_qc(
             status = "TP"
             dy = float(det_yx[det_i, 0]) - float(y0)
             dx = float(det_yx[det_i, 1]) - float(x0)
-            ax.plot([r + dx], [r + dy], marker="+", color="lime", ms=10, mew=1.4, zorder=7)
+            # Use a ring marker so the spot remains visible under the annotation.
+            ax.plot([r + dx], [r + dy], marker="o", mfc="none", mec="lime", ms=10, mew=1.4, zorder=7)
 
         ax.set_title(f"{status} | amp≈{amp[idx]:.0f}", fontsize=10)
 
@@ -1715,7 +1744,18 @@ def show_fp_montage_qc(
         ax.tick_params(which="both", bottom=False, left=False, labelbottom=False, labelleft=False)
 
         _annotate_pixel_values(ax, crop, fmt="{:d}", fontsize=6)
-        ax.plot([r], [r], marker="x", color="orange", markersize=10, mew=1.3, zorder=7)
+        # Outline the detection-center pixel (do not cover pixel text)
+        ax.add_patch(
+            Rectangle(
+                (r - 0.5, r - 0.5),
+                1,
+                1,
+                fill=False,
+                edgecolor="orange",
+                linewidth=1.3,
+                zorder=7,
+            )
+        )
         _add_edge_overlay(ax, in5_segs, color="yellow", lw=1.1)
         ax.set_title("FP (crop)", fontsize=9)
 
