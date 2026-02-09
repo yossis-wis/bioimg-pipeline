@@ -349,6 +349,36 @@ def make_skewed_spike_weights(n: int, dominant_frac: float) -> np.ndarray:
     return w
 
 
+def make_gaussian_envelope_spike_weights(
+    n: int,
+    *,
+    fwhm_nm: float,
+    span_nm: Optional[float] = None,
+) -> np.ndarray:
+    """Gaussian power envelope across discrete spikes.
+
+    This is a simple surrogate for a multi-longitudinal-mode Fabry–Perot diode:
+    many narrow modes, but with a smooth gain-envelope so central modes are stronger.
+
+    We place `n` spikes uniformly across `span_nm` (default: `fwhm_nm`) and assign
+    weights proportional to a Gaussian with the requested FWHM.
+    """
+    if n < 1:
+        raise ValueError("n must be >= 1")
+    if fwhm_nm <= 0:
+        raise ValueError("fwhm_nm must be > 0")
+    if span_nm is None:
+        span_nm = float(fwhm_nm)
+    if span_nm <= 0:
+        raise ValueError("span_nm must be > 0")
+
+    sigma_nm = float(fwhm_nm) / (2.0 * math.sqrt(2.0 * math.log(2.0)))
+    lam = np.linspace(-0.5 * float(span_nm), 0.5 * float(span_nm), int(n), dtype=np.float64)
+    w = np.exp(-0.5 * (lam / sigma_nm) ** 2)
+    w = w / float(w.sum())
+    return w
+
+
 # A small set of scenarios spanning "optimistic" to "pessimistic" interpretations.
 scenarios: list[Scenario] = [
     Scenario(
@@ -380,6 +410,16 @@ scenarios: list[Scenario] = [
             "Optimistic discrete-line case (dense comb or longer cavity)."
         ),
     ),
+    Scenario(
+        name="C3b: 100 spikes, Gaussian envelope",
+        kind="spikes",
+        n_spikes=100,
+        spike_weights=make_gaussian_envelope_spike_weights(100, fwhm_nm=linewidth_fwhm_nm_nominal),
+        notes=(
+            "Many simultaneous longitudinal modes, but with a smooth gain-envelope (central modes stronger)."
+        ),
+    ),
+
     Scenario(
         name="C4: 20 spikes, one dominates 50%",
         kind="spikes",
@@ -479,7 +519,7 @@ ax.axhline(0.10, linestyle="--", alpha=0.7, label="C=0.10 (10% RMS)")
 ax.axhline(0.05, linestyle=":", alpha=0.9, label="C=0.05 (5% RMS)")
 ax.plot(np.arange(len(df_scen)), df_scen["C_pred"].to_numpy(), marker="o")
 ax.set_xticks(np.arange(len(df_scen)))
-ax.set_xticklabels([f"C{i}" for i in range(len(df_scen))])
+ax.set_xticklabels([sc.name.split(":")[0] for sc in scenarios])
 ax.set_ylabel("Predicted speckle contrast C")
 ax.set_title("Scenario-level predicted C from spectral weights")
 ax.grid(True, alpha=0.3)
@@ -726,7 +766,7 @@ for sc in scenarios:
         "label": label,
     }
 
-    show_component_and_sum(scenario_name=sc.name, I_sum=I_sum, components=comps, n_show_components=3)
+    show_component_and_sum(scenario_name=scenario_name, I_sum=I_sum, components=comps, n_show_components=3)
 
 # %% [markdown]
 # ## 6) Scenario → (C, confusion matrix): Slice0 FP/FN proxy
@@ -749,23 +789,45 @@ for sc in scenarios:
 # %%
 @dataclass(frozen=True)
 class EmitterSimConfig:
+    """Lightweight synthetic frame model for Slice0 FP/FN intuition.
+
+    The goal is *not* a full microscope simulator. The goal is to generate frames
+    whose spot brightness is in the right ballpark for the *real* Slice0 acceptance
+    threshold `u0_min≈30` (mean in5 minus background ring).
+
+    If `photons_per_emitter_mean` is too low, even a perfectly uniform illumination
+    field will produce near-zero recall, which is a misleading failure mode for the
+    speckle study. So we intentionally choose photon counts such that the **uniform
+    illumination positive control** yields near-perfect detection.
+    """
+
     n_emitters: int = 60
     min_separation_px: int = 18
-    photons_per_emitter_mean: float = 900.0
-    photons_per_emitter_sigma_frac: float = 0.25
-    bg_photons_flat: float = 3.0
-    bg_photons_scale_exc: float = 10.0
-    psf_sigma_px: float = 2.8
+
+    # Total signal photons per emitter (before PSF spreading), scaled so that
+    # u0 ≈ mean(in5) - bg comfortably exceeds u0_min for typical emitters at I_exc≈1.
+    photons_per_emitter_mean: float = 5000.0
+    photons_per_emitter_sigma_frac: float = 0.15
+    photons_per_emitter_min_frac: float = 0.5
+    photons_per_emitter_max_frac: float = 2.0
+
+    # Background (shot-noise limited), with an optional component proportional to excitation.
+    bg_photons_flat: float = 5.0
+    bg_photons_scale_exc: float = 15.0
+
+    # PSF model (Gaussian; sigma should be comparable to the Slice0 LoG scale).
+    psf_sigma_px: float = 2.9
     psf_kernel_radius_px: int = 12
 
 
 cfg = EmitterSimConfig()
 
 # Slice0 params (tune u0_min here)
+# Slice0 params: match the repo's integrated config (and your local YAML) as closely as possible.
 params = Slice0Params(
     pixel_size_nm=dx_um * 1e3,  # µm → nm
-    spot_radius_nm=270.0,
-    q_min=1.0,
+    spot_radius_nm=270.0,       # ~= sqrt(lambda*zR/pi) for (lambda=667 nm, zR=344.5 nm)
+    q_min=3.0,
     u0_min=30.0,
 )
 
@@ -826,8 +888,8 @@ def simulate_sparse_emitter_frame(
     )
     photons = np.clip(
         photons,
-        0.2 * cfg.photons_per_emitter_mean,
-        5.0 * cfg.photons_per_emitter_mean,
+        cfg.photons_per_emitter_min_frac * cfg.photons_per_emitter_mean,
+        cfg.photons_per_emitter_max_frac * cfg.photons_per_emitter_mean,
     )
 
     exc_loc = I_exc[emit_y, emit_x]
@@ -1040,6 +1102,31 @@ for sc in scenarios:
     )
 
 
+# Positive control: perfectly uniform illumination (no speckle) to sanity-check the confusion-matrix logic.
+positive_control_name = "P0: uniform illumination (positive control)"
+I_exc_pc = np.ones((N_grid, N_grid), dtype=np.float64)
+scenario_exc_fields[positive_control_name] = I_exc_pc
+
+pc_stats = run_monte_carlo_for_field(I_exc=I_exc_pc, n_trials=mc_trials, seed0=2_000_000)
+rows.append(
+    {
+        "scenario": positive_control_name,
+        "spectrum_model": "uniform (control)",
+        "N_eff": float("inf"),
+        "C_pred": 0.0,
+        "C_inner_meas": 0.0,
+        **pc_stats,
+    }
+)
+
+if pc_stats["recall"] < 0.95 or pc_stats["precision"] < 0.95:
+    print(
+        "WARNING: Positive control is not near-perfect. "
+        "This usually means the synthetic photon budget / noise model is mismatched to Slice0 thresholds."
+    )
+
+
+
 df_out = pd.DataFrame(rows)
 
 # Compact display
@@ -1105,8 +1192,8 @@ photons_qc = cfg.photons_per_emitter_mean * (
 )
 photons_qc = np.clip(
     photons_qc,
-    0.2 * cfg.photons_per_emitter_mean,
-    5.0 * cfg.photons_per_emitter_mean,
+    cfg.photons_per_emitter_min_frac * cfg.photons_per_emitter_mean,
+    cfg.photons_per_emitter_max_frac * cfg.photons_per_emitter_mean,
 ).astype(np.float64)
 
 
@@ -1329,6 +1416,27 @@ def show_full_field_qc(
     plt.show()
 
 
+def select_emitters_dim_to_bright(
+    *,
+    gt_yx: np.ndarray,
+    photons: np.ndarray,
+    I_exc: np.ndarray,
+    n_show: int,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Choose emitter indices spanning dim → bright in terms of (photons × I_exc)."""
+
+    amp = photons * I_exc[gt_yx[:, 0], gt_yx[:, 1]]
+    order = np.argsort(amp)
+
+    if int(n_show) >= int(len(order)):
+        chosen = order
+    else:
+        pick = np.linspace(0, len(order) - 1, int(n_show)).round().astype(int)
+        chosen = order[pick]
+
+    return chosen.astype(int), amp
+
+
 def show_emitter_montage_qc(
     *,
     scenario_name: str,
@@ -1347,12 +1455,14 @@ def show_emitter_montage_qc(
     r = int(crop_radius_px)
     crop_size = 2 * r + 1
 
-    # Choose emitters spanning dim -> bright expected amplitude (intrinsic photons * local excitation)
-    amp = photons * I_exc[gt_yx[:, 0], gt_yx[:, 1]]
-    order = np.argsort(amp)
-    n_show = int(min(max(1, n_show), len(order)))
-    pick = np.linspace(0, len(order) - 1, n_show).round().astype(int)
-    chosen = order[pick]
+    # Choose emitters spanning dim → bright expected amplitude (intrinsic photons × local excitation)
+    chosen, amp = select_emitters_dim_to_bright(
+        gt_yx=gt_yx,
+        photons=photons,
+        I_exc=I_exc,
+        n_show=n_show,
+    )
+    n_show = int(len(chosen))
 
     n_cols = 5
     n_rows = int(np.ceil(n_show / n_cols))
@@ -1427,6 +1537,90 @@ def show_emitter_montage_qc(
     plt.show()
 
 
+def show_emitter_context_montage_qc(
+    *,
+    scenario_name: str,
+    img_raw: np.ndarray,
+    I_exc: np.ndarray,
+    gt_yx: np.ndarray,
+    photons: np.ndarray,
+    df_det: pd.DataFrame,
+    match: dict[str, np.ndarray],
+    n_show: int = 9,
+    crop_radius_px: int = 15,
+) -> None:
+    """Show a larger-FOV montage around emitters to visualize local background structure.
+
+    This complements `show_emitter_montage_qc()`:
+    - small crops (11×11) show exact pixel values,
+    - these larger crops (e.g. 31×31) show surrounding background / speckle context.
+    """
+
+    det_yx = match["det_yx"]
+    gt_to_det = match["gt_to_det"]
+
+    r = int(crop_radius_px)
+    crop_size = 2 * r + 1
+
+    chosen, amp = select_emitters_dim_to_bright(
+        gt_yx=gt_yx,
+        photons=photons,
+        I_exc=I_exc,
+        n_show=n_show,
+    )
+    n_show = int(len(chosen))
+
+    n_cols = 3
+    n_rows = int(np.ceil(n_show / n_cols))
+    fig, axes = plt.subplots(n_rows, n_cols, figsize=(3.6 * n_cols, 3.6 * n_rows), constrained_layout=True)
+
+    # Use global scaling so crops can be compared.
+    vmin, vmax = np.percentile(img_raw[inner_mask], [1.0, 99.9])
+    if not np.isfinite(vmin) or not np.isfinite(vmax) or vmax <= vmin:
+        vmin, vmax = float(np.min(img_raw)), float(np.max(img_raw))
+
+    # in5 aperture overlay (same definition Slice0 uses)
+    in5_mask = _disk_mask(int(params.in5_radius_px), crop_size)
+    in5_segs = _mask_edge_segments(in5_mask)
+
+    last_im = None
+    for k, idx in enumerate(chosen):
+        ax = axes.flat[k] if hasattr(axes, "flat") else axes[k]
+        y0, x0 = int(gt_yx[idx, 0]), int(gt_yx[idx, 1])
+
+        crop = img_raw[y0 - r : y0 + r + 1, x0 - r : x0 + r + 1]
+        if crop.shape != (crop_size, crop_size):
+            ax.axis("off")
+            continue
+
+        last_im = ax.imshow(crop, origin="lower", interpolation="nearest", vmin=vmin, vmax=vmax)
+        ax.tick_params(which="both", bottom=False, left=False, labelbottom=False, labelleft=False)
+
+        # Mark the GT emitter center in crop coordinates
+        ax.plot([r], [r], marker="o", mfc="none", mec="white", ms=8, mew=1.2, zorder=6)
+        _add_edge_overlay(ax, in5_segs, color="yellow", lw=1.0)
+
+        det_i = int(gt_to_det[idx]) if gt_to_det.size > idx else -1
+        status = "FN"
+        if det_i >= 0:
+            status = "TP"
+            dy = float(det_yx[det_i, 0]) - float(y0)
+            dx = float(det_yx[det_i, 1]) - float(x0)
+            ax.plot([r + dx], [r + dy], marker="+", color="lime", ms=10, mew=1.4, zorder=7)
+
+        ax.set_title(f"{status} | amp≈{amp[idx]:.0f}", fontsize=10)
+
+    for j in range(n_show, n_rows * n_cols):
+        ax = axes.flat[j] if hasattr(axes, "flat") else axes[j]
+        ax.axis("off")
+
+    if last_im is not None:
+        fig.colorbar(last_im, ax=axes, fraction=0.03, pad=0.02, label="raw counts / pixel")
+
+    fig.suptitle(f"{scenario_name} | emitter context crops ({crop_size}×{crop_size})", fontsize=12)
+    plt.show()
+
+
 def show_fp_montage_qc(
     *,
     scenario_name: str,
@@ -1493,8 +1687,9 @@ def show_fp_montage_qc(
 
 # Render one representative raw frame per scenario.
 qc_seed_frame_base = 1_234_567
-for k, sc in enumerate(scenarios):
-    I_exc = scenario_exc_fields[sc.name]
+scenario_qc_names = [sc.name for sc in scenarios] + [positive_control_name]
+for k, scenario_name in enumerate(scenario_qc_names):
+    I_exc = scenario_exc_fields[scenario_name]
     img_qc = simulate_sparse_emitter_frame_fixed_emitters(
         I_exc=I_exc,
         gt_yx=gt_yx_qc,
@@ -1506,7 +1701,7 @@ for k, sc in enumerate(scenarios):
 
     # Full field: population view
     show_full_field_qc(
-        scenario_name=sc.name,
+        scenario_name=scenario_name,
         img_raw=img_qc,
         gt_yx=gt_yx_qc,
         df_det=df_det_qc,
@@ -1515,7 +1710,7 @@ for k, sc in enumerate(scenarios):
 
     # Zoom-ins: enough emitters to build intuition for the aggregate confusion matrix
     show_emitter_montage_qc(
-        scenario_name=sc.name,
+        scenario_name=scenario_name,
         img_raw=img_qc,
         I_exc=I_exc,
         gt_yx=gt_yx_qc,
@@ -1526,9 +1721,21 @@ for k, sc in enumerate(scenarios):
         crop_radius_px=5,
     )
 
+    show_emitter_context_montage_qc(
+        scenario_name=scenario_name,
+        img_raw=img_qc,
+        I_exc=I_exc,
+        gt_yx=gt_yx_qc,
+        photons=photons_qc,
+        df_det=df_det_qc,
+        match=match,
+        n_show=9,
+        crop_radius_px=15,
+    )
+
     # Optional: show a few example FPs to understand failure modes
     show_fp_montage_qc(
-        scenario_name=sc.name,
+        scenario_name=scenario_name,
         img_raw=img_qc,
         df_det=df_det_qc,
         match=match,
@@ -1568,18 +1775,22 @@ underfill_list = [0.05, 0.10, 0.20, 0.30]
 
 rows = []
 sweep_exc_fields: dict[float, np.ndarray] = {}
+sweep_scrambler_hz_by_uf: dict[float, float] = {}
 for uf in underfill_list:
     na = uf * NA_obj
 
-    # Equal-weight spikes -> can simulate by averaging len(w) patterns
-    I_exc, _ = simulate_excitation_speckle_field(
+    # Equal-weight spikes -> can simulate by averaging len(w) patterns.
+    # Add a 10 kHz scrambler to the most plausible "lab-realistic" extremes (0.05 and 0.30 underfill).
+    scr_hz = 10_000.0 if float(uf) in (0.05, 0.30) else 0.0
+
+    I_exc, meta = simulate_excitation_speckle_field(
         n=N_grid,
         dx_um=dx_um,
         roi_um=roi_um,
         lambda_um=lambda0_nm * 1e-3,
         na_illum=na,
-        exposure_s=1.0,
-        scrambler_hz=0.0,
+        exposure_s=float(exposure_us) * 1e-6,
+        scrambler_hz=float(scr_hz),
         n_src=int(len(w_sweep)),
         seed=seed_vis,
     )
@@ -1587,6 +1798,7 @@ for uf in underfill_list:
 
     # Keep fields for visual QC later
     sweep_exc_fields[float(uf)] = I_exc
+    sweep_scrambler_hz_by_uf[float(uf)] = float(scr_hz)
 
     C_meas = speckle_contrast_inner(I_exc)
     grain_um = (lambda0_nm * 1e-3) / (2.0 * na)
@@ -1597,6 +1809,9 @@ for uf in underfill_list:
         {
             "underfill_ratio": uf,
             "NA_illum": na,
+            "scrambler_hz": float(scr_hz),
+            "N_time (scrambler)": int(meta.n_time),
+            "N_eff (time*src)": int(meta.n_eff),
             "speckle_grain_um (est)": grain_um,
             "C_inner_meas": C_meas,
             "precision": stats["precision"],
@@ -1641,7 +1856,9 @@ for i, uf in enumerate(underfill_list):
     na = float(uf) * float(NA_obj)
     grain_um = (lambda0_nm * 1e-3) / (2.0 * na)
 
-    label = f"{sweep_scenario.name} | underfill={uf:.2f}  NA_illum={na:.3f}  grain≈{grain_um:.2f} µm"
+    scr_hz = float(sweep_scrambler_hz_by_uf[float(uf)])
+    scr_note = f"  scrambler={scr_hz/1000:.0f} kHz" if scr_hz > 0 else ""
+    label = f"{sweep_scenario.name} | underfill={uf:.2f}  NA_illum={na:.3f}  grain≈{grain_um:.2f} µm{scr_note}"
 
     img_qc = simulate_sparse_emitter_frame_fixed_emitters(
         I_exc=I_exc,
@@ -1670,6 +1887,18 @@ for i, uf in enumerate(underfill_list):
         match=match,
         n_show=15,
         crop_radius_px=5,
+    )
+
+    show_emitter_context_montage_qc(
+        scenario_name=label,
+        img_raw=img_qc,
+        I_exc=I_exc,
+        gt_yx=gt_yx_qc,
+        photons=photons_qc,
+        df_det=df_det_qc,
+        match=match,
+        n_show=9,
+        crop_radius_px=15,
     )
 
     show_fp_montage_qc(
@@ -1726,3 +1955,4 @@ for i, uf in enumerate(underfill_list):
 #
 # 4. The most important next step is to turn the vendor ambiguity into a concrete measurement:
 #    request a spectrum screenshot and ask the “simultaneous peaks?” question.
+
