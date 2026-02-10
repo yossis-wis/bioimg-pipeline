@@ -30,3 +30,4 @@ python scripts/export_notebooks_markdown.py --check
 - `11_fiber_modes_speckle_interactive_3d.md`
 - `12_mmf_wide_linewidth_stepindex_slab_geometric_optics.md`
 - `13_cni_2nm_stepindex_spectral_diversity_500us.md`
+- `14_stepindex_mmf_spectral_linewidth_physics.md`

@@ -22,6 +22,7 @@ The canonical notebooks live in `notebooks/`:
 - `11_fiber_modes_speckle_interactive_3d.py`: interactive 3D intuition builder for fiber modes + MMF speckle (mode shapes, speckle drift, and averaging).
 - `12_mmf_wide_linewidth_stepindex_slab_geometric_optics.py`: **multimode-only** wide-linewidth argument using a **slab + geometrical-optics** picture, with toy examples showing (1) mode superposition → speckle, (2) mode-weight effects, and (3) spectral diversity → speckle averaging.
 - `13_cni_2nm_stepindex_spectral_diversity_500us.py`: evaluate a **CNI FC-640-class** (2–3 nm linewidth) laser + **3 m step-index MMF** for **500 µs** exposures, focusing on **spectral diversity only** and mapping spectral scenarios → (speckle contrast C, Slice0 confusion-matrix proxy).
+- `14_stepindex_mmf_spectral_linewidth_physics.py`: derivations + intuition for **step-index MMF + spectral linewidth** (answers the margin math questions from notebook 13, adds coherence-time/length intuition from the whiteboard discussion, and includes a staff-scientist meeting checklist).
 
 ## Running notebooks
 
@@ -60,7 +61,7 @@ Canonical reference: `docs/MATH_STYLE.md`.
 ## GitHub-friendly Markdown mirrors (stable reading)
 
 GitHub does **not** render the Markdown cells inside Jupytext percent-format `notebooks/*.py` files.
-For the documentation-style optics notebooks (06–13), we keep a **generated** Markdown mirror (no cell outputs)
+For the documentation-style optics notebooks (06–14), we keep a **generated** Markdown mirror (no cell outputs)
 in:
 
 - `docs/notebooks_md/`

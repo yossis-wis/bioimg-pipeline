@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="300" viewBox="0 0 900 300">
+  <title>Step-index MMF: geometric path length and optical path spread</title>
+
+  <defs>
+    <style>
+      .axis { stroke: #000; stroke-width: 2; fill: none; }
+      .ray  { stroke: #000; stroke-width: 2.5; fill: none; }
+      .thin { stroke: #000; stroke-width: 1.5; fill: none; }
+      .dash { stroke-dasharray: 6 4; }
+      .label { font-family: sans-serif; font-size: 16px; fill: #000; }
+      .small { font-family: sans-serif; font-size: 13px; fill: #000; }
+    </style>
+  </defs>
+
+  <text class="label" x="40" y="28">Where ΔOPL = nL(1/cosθ - 1) comes from (straight fiber, ray picture)</text>
+
+  <!-- Axis -->
+  <line class="axis" x1="80" y1="220" x2="860" y2="220"/>
+  <polygon points="860,220 848,214 848,226" fill="#000"/>
+  <text class="small" x="868" y="225">z</text>
+
+  <!-- Core boundaries -->
+  <line class="thin" x1="120" y1="120" x2="820" y2="120"/>
+  <line class="thin" x1="120" y1="200" x2="820" y2="200"/>
+  <line class="thin dash" x1="120" y1="160" x2="820" y2="160"/>
+  <text class="small" x="125" y="115">core boundary</text>
+  <text class="small" x="125" y="214">core boundary</text>
+  <text class="small" x="125" y="156">axis</text>
+
+  <!-- Axial ray -->
+  <line class="ray" x1="160" y1="160" x2="780" y2="160"/>
+  <text class="small" x="300" y="150">axial ray (θ=0)</text>
+
+  <!-- Angled ray -->
+  <polyline class="ray" points="160,160 280,120 400,200 520,120 640,200 760,160"/>
+  <text class="small" x="520" y="112">high-angle ray (θ≈θ<sub>max</sub>)</text>
+
+  <!-- Length markers -->
+  <line class="axis dash" x1="160" y1="240" x2="780" y2="240"/>
+  <text class="small" x="440" y="262">fiber length along axis: L</text>
+
+  <!-- Path length relation -->
+  <text class="small" x="40" y="285">Geometric path: ℓ(θ)=L/cosθ  ⇒  OPL(θ)=n·ℓ(θ)=nL/cosθ  ⇒  ΔOPL = nL(1/cosθ - 1).</text>
+</svg>

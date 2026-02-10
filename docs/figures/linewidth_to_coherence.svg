@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="300" viewBox="0 0 900 300">
+  <title>Linewidth to coherence time/length (whiteboard chain)</title>
+
+  <defs>
+    <style>
+      .box { stroke: #000; stroke-width: 2; fill: none; }
+      .axis { stroke: #000; stroke-width: 2; fill: none; }
+      .dash { stroke-dasharray: 6 4; }
+      .label { font-family: sans-serif; font-size: 16px; fill: #000; }
+      .small { font-family: sans-serif; font-size: 13px; fill: #000; }
+    </style>
+  </defs>
+
+  <text class="label" x="40" y="28">Whiteboard chain: Δλ → Δν → τ_c → L_c (example numbers at 640 nm)</text>
+
+  <!-- Boxes -->
+  <rect class="box" x="60" y="70" width="190" height="70"/>
+  <text class="small" x="80" y="98">Spectrum (FWHM)</text>
+  <text class="small" x="80" y="120">Δλ</text>
+
+  <rect class="box" x="290" y="70" width="190" height="70"/>
+  <text class="small" x="310" y="98">Frequency bandwidth</text>
+  <text class="small" x="310" y="120">Δν ≈ c·Δλ/λ²</text>
+
+  <rect class="box" x="520" y="70" width="190" height="70"/>
+  <text class="small" x="540" y="98">Coherence time</text>
+  <text class="small" x="540" y="120">τ_c ~ 1/Δν</text>
+
+  <rect class="box" x="750" y="70" width="130" height="70"/>
+  <text class="small" x="770" y="98">Coherence length</text>
+  <text class="small" x="770" y="120">L_c = c·τ_c</text>
+
+  <!-- Arrows -->
+  <line class="axis" x1="250" y1="105" x2="290" y2="105"/>
+  <polygon points="290,105 278,99 278,111" fill="#000"/>
+  <line class="axis" x1="480" y1="105" x2="520" y2="105"/>
+  <polygon points="520,105 508,99 508,111" fill="#000"/>
+  <line class="axis" x1="710" y1="105" x2="750" y2="105"/>
+  <polygon points="750,105 738,99 738,111" fill="#000"/>
+
+  <!-- Example numbers -->
+  <text class="small" x="60" y="190">Example (whiteboard): λ=640 nm, Δλ=2 nm ⇒ Δλ/λ ≈ 1/320.</text>
+  <text class="small" x="60" y="212">Δν ≈ c·Δλ/λ² ≈ 1.5 THz ⇒ τ_c ~ 0.3–0.7 ps ⇒ L_c ~ 0.1–0.2 mm (vacuum-equivalent).</text>
+  <text class="small" x="60" y="242">Compare to fiber intermodal spread: if ΔOPL ≫ L_c, interference terms wash out (good for speckle averaging).</text>
+</svg>

@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="280" viewBox="0 0 900 280">
+  <title>Speckle decorrelation: phase vs wavelength and Δλ_c</title>
+
+  <defs>
+    <style>
+      .axis { stroke: #000; stroke-width: 2; fill: none; }
+      .curve { stroke: #000; stroke-width: 2.5; fill: none; }
+      .dash { stroke-dasharray: 6 4; }
+      .label { font-family: sans-serif; font-size: 16px; fill: #000; }
+      .small { font-family: sans-serif; font-size: 13px; fill: #000; }
+    </style>
+  </defs>
+
+  <text class="label" x="40" y="28">Why Δλ_c ~ λ²/ΔOPL (phase decorrelation condition)</text>
+
+  <!-- Axes -->
+  <line class="axis" x1="90" y1="220" x2="860" y2="220"/>
+  <polygon points="860,220 848,214 848,226" fill="#000"/>
+  <text class="small" x="868" y="225">wavelength λ</text>
+
+  <line class="axis" x1="90" y1="220" x2="90" y2="60"/>
+  <polygon points="90,60 84,72 96,72" fill="#000"/>
+  <text class="small" x="40" y="70">phase φ(λ)</text>
+
+  <!-- Schematic phase curve (monotone, steep) -->
+  <path class="curve" d="M 90 200
+                         C 260 170, 380 140, 520 110
+                         C 650 82, 760 68, 860 62"/>
+  <text class="small" x="120" y="190">φ(λ)=2π·ΔOPL/λ</text>
+
+  <!-- Mark λ0 and λ0+Δλc -->
+  <line class="axis dash" x1="360" y1="220" x2="360" y2="150"/>
+  <text class="small" x="346" y="238">λ₀</text>
+
+  <line class="axis dash" x1="430" y1="220" x2="430" y2="135"/>
+  <text class="small" x="408" y="238">λ₀+Δλ_c</text>
+
+  <!-- Δφ ~ 2π bracket -->
+  <line class="axis" x1="445" y1="140" x2="445" y2="170"/>
+  <line class="axis" x1="455" y1="140" x2="455" y2="170"/>
+  <text class="small" x="465" y="160">Δφ ~ 2π</text>
+
+  <!-- Formula -->
+  <text class="small" x="90" y="268">Condition: |dφ/dλ|·Δλ_c ~ 2π  ⇒  (2π·ΔOPL/λ²)·Δλ_c ~ 2π  ⇒  Δλ_c ~ λ²/ΔOPL.</text>
+</svg>

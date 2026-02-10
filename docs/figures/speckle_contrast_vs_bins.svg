@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="280" viewBox="0 0 900 280">
+  <title>Speckle contrast vs number of independent realizations</title>
+
+  <defs>
+    <style>
+      .axis { stroke: #000; stroke-width: 2; fill: none; }
+      .curve { stroke: #000; stroke-width: 2.5; fill: none; }
+      .dash { stroke-dasharray: 6 4; }
+      .label { font-family: sans-serif; font-size: 16px; fill: #000; }
+      .small { font-family: sans-serif; font-size: 13px; fill: #000; }
+      .pt { fill: #000; }
+    </style>
+  </defs>
+
+  <text class="label" x="40" y="28">Speckle contrast reduction: C ≈ 1/√N (independent intensity sums)</text>
+
+  <!-- Axes -->
+  <line class="axis" x1="90" y1="220" x2="860" y2="220"/>
+  <polygon points="860,220 848,214 848,226" fill="#000"/>
+  <text class="small" x="868" y="225">N (independent patterns)</text>
+
+  <line class="axis" x1="90" y1="220" x2="90" y2="60"/>
+  <polygon points="90,60 84,72 96,72" fill="#000"/>
+  <text class="small" x="52" y="70">C</text>
+
+  <!-- Curve: C=1/sqrt(N) in schematic coordinates -->
+  <!-- Map N in [1, 400] to x in [90, 860] via a log-ish compression (hand-drawn) -->
+  <path class="curve" d="M 90 80
+                         C 160 110, 240 135, 330 155
+                         C 440 175, 580 195, 860 210"/>
+
+  <!-- Guide lines -->
+  <line class="axis dash" x1="90" y1="120" x2="860" y2="120"/>
+  <text class="small" x="95" y="114">C≈0.5</text>
+
+  <line class="axis dash" x1="90" y1="160" x2="860" y2="160"/>
+  <text class="small" x="95" y="154">C≈0.25</text>
+
+  <line class="axis dash" x1="90" y1="196" x2="860" y2="196"/>
+  <text class="small" x="95" y="190">C≈0.1</text>
+
+  <text class="small" x="90" y="268">For equal weights: N ≈ Δλ_src/Δλ_c  ⇒  C ≈ √(Δλ_c/Δλ_src).  (Weighting/correlation reduces N_eff.)</text>
+</svg>

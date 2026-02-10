@@ -184,6 +184,12 @@ for irr_kw_cm2 in [10.0, 30.0]:
 # %% [markdown]
 # ## 2) From **base fiber properties** to $`\Delta\lambda_c`$ (speckle spectral correlation width)
 #
+# **Derivation companion:** if you want the step-by-step geometry, approximation error checks,
+# and the whiteboard coherence-time/length intuition in one place, see:
+#
+# - `notebooks/14_stepindex_mmf_spectral_linewidth_physics.py`
+#
+#
 # The core modeling idea is extremely simple:
 #
 # - A step-index MMF supports rays/modes at different angles $\theta$.

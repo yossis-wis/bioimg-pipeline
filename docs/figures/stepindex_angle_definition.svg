@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="300" viewBox="0 0 900 300">
+  <title>Step-index fiber: external acceptance angle vs internal ray angle</title>
+
+  <defs>
+    <style>
+      .axis { stroke: #000; stroke-width: 2; fill: none; }
+      .core { stroke: #000; stroke-width: 2; fill: none; }
+      .ray  { stroke: #000; stroke-width: 2.5; fill: none; }
+      .dash { stroke-dasharray: 6 4; }
+      .label { font-family: sans-serif; font-size: 16px; fill: #000; }
+      .small { font-family: sans-serif; font-size: 13px; fill: #000; }
+    </style>
+  </defs>
+
+  <text class="label" x="40" y="28">Angles: u (in air) vs θ (inside core) and why θ<sub>max</sub> = asin(NA/n<sub>core</sub>)</text>
+
+  <!-- Coordinate axes -->
+  <line class="axis" x1="80" y1="240" x2="860" y2="240"/>
+  <polygon points="860,240 848,234 848,246" fill="#000"/>
+  <text class="small" x="868" y="245">fiber axis z</text>
+
+  <line class="axis" x1="120" y1="260" x2="120" y2="60"/>
+  <polygon points="120,60 114,72 126,72" fill="#000"/>
+  <text class="small" x="80" y="72">radial r</text>
+
+  <!-- Fiber core (schematic) -->
+  <line class="core" x1="240" y1="140" x2="840" y2="140"/>
+  <line class="core" x1="240" y1="220" x2="840" y2="220"/>
+  <line class="core dash" x1="240" y1="180" x2="840" y2="180"/>
+  <text class="small" x="250" y="135">core boundary</text>
+  <text class="small" x="250" y="235">core boundary</text>
+  <text class="small" x="250" y="176">axis</text>
+
+  <!-- Input face -->
+  <line class="axis" x1="240" y1="120" x2="240" y2="240"/>
+  <text class="small" x="210" y="112">input face</text>
+
+  <!-- External ray (air) -->
+  <path class="ray" d="M 80 210 L 240 180"/>
+  <text class="small" x="70" y="200">air</text>
+
+  <!-- Internal ray (core) -->
+  <path class="ray" d="M 240 180 L 760 150"/>
+  <text class="small" x="620" y="155">core</text>
+
+  <!-- Angle u in air -->
+  <path class="axis dash" d="M 180 180 L 240 180"/>
+  <path class="axis dash" d="M 180 180 L 214 201"/>
+  <text class="small" x="160" y="170">u</text>
+
+  <!-- Angle theta inside core -->
+  <path class="axis dash" d="M 320 180 L 380 180"/>
+  <path class="axis dash" d="M 320 180 L 372 170"/>
+  <text class="small" x="392" y="182">θ</text>
+
+  <!-- Formulas -->
+  <text class="small" x="60" y="285">External acceptance (air): sin u<sub>max</sub> ≈ NA.</text>
+  <text class="small" x="420" y="285">Snell at input: n<sub>0</sub> sin u = n<sub>core</sub> sin θ ⇒ sin θ<sub>max</sub> ≈ NA / n<sub>core</sub>.</text>
+</svg>

@@ -33,12 +33,27 @@ As in Notebook 09, the style is:
 from __future__ import annotations
 
 import sys
+from pathlib import Path
 from dataclasses import asdict
 
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+
+def find_repo_root(start: Path) -> Path:
+    """Find repo root by walking upward until we see (src/, environment.yml)."""
+
+    p = start.resolve()
+    for parent in [p, *p.parents]:
+        if (parent / "src").is_dir() and (parent / "environment.yml").exists():
+            return parent
+    return p
+
+
+REPO_ROOT = find_repo_root(Path.cwd())
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 
 from src.excitation_speckle_sim import simulate_excitation_speckle_field
 from src.illumination_design_params import illumination_na, speckle_grain_size_um
