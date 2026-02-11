@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="300" viewBox="0 0 900 300">
+  <title>Step-index MMF: derive θ_max from total internal reflection (TIR)</title>
+
+  <defs>
+    <style>
+      .core  { stroke: #000; stroke-width: 2; fill: none; }
+      .ray   { stroke: #000; stroke-width: 2.6; fill: none; }
+      .ref   { stroke: #000; stroke-width: 1.2; fill: none; stroke-dasharray: 6 4; }
+      .help  { stroke: #000; stroke-width: 1.2; fill: none; stroke-dasharray: 2 3; }
+      .axis  { stroke: #000; stroke-width: 2; fill: none; }
+      .label { font-family: sans-serif; font-size: 16px; fill: #000; }
+      .small { font-family: sans-serif; font-size: 13px; fill: #000; }
+    </style>
+  </defs>
+
+  <text class="label" x="40" y="26">Alternative view: θ<sub>max</sub> comes from the TIR condition at the core–clad boundary</text>
+
+  <!-- Core boundary (top) and axis (reference) -->
+  <line class="core" x1="160" y1="90" x2="760" y2="90"/>
+  <text class="small" x="165" y="78">core–clad boundary</text>
+
+  <line class="ref" x1="160" y1="210" x2="760" y2="210"/>
+  <text class="small" x="165" y="205">fiber axis (reference)</text>
+
+  <!-- Reflection point and normal -->
+  <circle cx="460" cy="90" r="3" fill="#000"/>
+  <line class="help" x1="460" y1="90" x2="460" y2="170"/>
+  <text class="small" x="468" y="125">normal</text>
+
+  <!-- Incoming and reflected rays (meridional ray picture) -->
+  <line class="ray" x1="300" y1="180" x2="460" y2="90"/>
+  <line class="ray" x1="460" y1="90" x2="620" y2="180"/>
+
+  <!-- Angle theta relative to axis (draw at lower left) -->
+  <line class="help" x1="320" y1="180" x2="400" y2="180"/>
+  <line class="help" x1="320" y1="180" x2="370" y2="152"/>
+  <text class="small" x="408" y="184">θ</text>
+
+  <!-- Incidence angle alpha relative to normal (draw near reflection point) -->
+  <line class="help" x1="460" y1="120" x2="460" y2="170"/>
+  <line class="help" x1="460" y1="120" x2="430" y2="137"/>
+  <text class="small" x="410" y="118">α</text>
+
+  <!-- Relationship label -->
+  <text class="small" x="560" y="118">α = 90° − θ</text>
+
+  <!-- TIR + NA formulas -->
+  <text class="small" x="40" y="250">TIR requires: α ≥ α<sub>c</sub>,  where  sin α<sub>c</sub> = n<sub>clad</sub> / n<sub>core</sub>.</text>
+  <text class="small" x="40" y="270">So:  90° − θ ≥ α<sub>c</sub>  ⇒  θ ≤ arccos(n<sub>clad</sub>/n<sub>core</sub>)  ⇒  sin θ<sub>max</sub> = √(1 − (n<sub>clad</sub>/n<sub>core</sub>)²) = NA / n<sub>core</sub>.</text>
+</svg>

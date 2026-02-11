@@ -67,9 +67,18 @@ import numpy as np
 import pandas as pd
 
 # Plotly is used for one interactive slider-based visualization.
-import plotly.graph_objects as go
-import plotly.io as pio
-from plotly.subplots import make_subplots
+# It is optional: the notebook still runs if it's missing (interactive section will be skipped).
+try:
+    import plotly.graph_objects as go
+    import plotly.io as pio
+    from plotly.subplots import make_subplots
+
+    HAS_PLOTLY = True
+except ModuleNotFoundError:
+    HAS_PLOTLY = False
+    go = None  # type: ignore[assignment]
+    pio = None  # type: ignore[assignment]
+    make_subplots = None  # type: ignore[assignment]
 
 # If we are in a notebook, prefer inline backend.
 if "ipykernel" in sys.modules:
@@ -125,7 +134,8 @@ plt.rcParams.update({"figure.figsize": (7.8, 4.6), "figure.dpi": 120})
 # Good defaults:
 #   "vscode" (VS Code), "notebook" (classic), "jupyterlab", or "browser".
 # We keep it explicit but do not force a value.
-pio.renderers.default = pio.renderers.default
+if HAS_PLOTLY:
+    pio.renderers.default = pio.renderers.default
 
 # %% [markdown]
 # ## 1) Configuration (meeting defaults)
@@ -168,53 +178,7 @@ pd.DataFrame(
 )
 
 # %% [markdown]
-# ## 2) The chain (as diagrams)
-# 
-# These SVG figures are tracked under `docs/figures/` (text-only assets).
-# They are embedded here so the notebook can be exported to HTML for printing.
-# 
-# ### 2.1 Fiber NA → internal angle
-# 
-# ![](../docs/figures/stepindex_angle_definition.svg)
-# 
-# ### 2.2 Internal angle → optical-path spread
-# 
-# ![](../docs/figures/stepindex_opl_geometry.svg)
-# 
-# ### 2.3 Optical-path spread → spectral decorrelation width
-# 
-# ![](../docs/figures/phase_decorrelation_lambda.svg)
-# 
-# ![](../docs/figures/spectral_correlation_width_cartoon.svg)
-# 
-# ### 2.4 The discrete “two spikes” picture
-# 
-# ![](../docs/figures/two_spikes_same_paths_different_speckle.svg)
-# 
-# Another view: a wavelength shift creates a **phase ramp** across the mode delay spread.
-# 
-# ![](../docs/figures/delta_phi_ramp_vs_deltalambda.svg)
-# 
-# ### 2.5 Scaling summary (what changes when you change L, NA, n, step-index-ness)
-# 
-# ![](../docs/figures/delta_lambda_c_scaling.svg)
-# 
-# ### 2.6 Contrast vs number of independent spectral bins
-# 
-# ![](../docs/figures/speckle_contrast_vs_bins.svg)
-# 
-# ### 2.7 Linewidth ↔ coherence length (useful sanity check)
-# 
-# ![](../docs/figures/linewidth_to_coherence.svg)
-# 
-# ![](../docs/figures/coherence_vs_delay.svg)
-# 
-# ### 2.8 Step-index vs graded-index intuition
-# 
-# ![](../docs/figures/ray_paths_step_vs_grin.svg)
-
-# %% [markdown]
-# ## 3) Symbol table (so we stop getting lost)
+# ## 2) Symbol table (so we stop getting lost)
 # 
 # This notebook uses a small number of “load-bearing” symbols. Here is a quick reference.
 # 
@@ -239,55 +203,155 @@ pd.DataFrame(
 # - $\Delta\lambda_c$ is the **characteristic** width that makes the correlation drop (a property of the fiber).
 
 # %% [markdown]
-# ## 4) Step 1: why $\sin\theta_{\max}\approx \mathrm{NA}/n$?
+# ## 3) Step 1: why $\sin\theta_{\max}\approx \mathrm{NA}/n_{\mathrm{core}}$?
 # 
-# This is a common point of confusion, because “fiber NA” is usually introduced as an **external** acceptance cone in air.
+# ![](../docs/figures/stepindex_angle_definition.svg)
 # 
-# **Definitions (step-index, weak guidance):**
+# ![](../docs/figures/stepindex_theta_max_from_tir.svg)
+# 
+# In the figures:
+# 
+# - **solid lines** = rays
+# - **dashed lines** = reference lines (fiber axis, angle markers)
+# 
+# This is a common point of confusion, because “fiber NA” is often introduced as an **external acceptance cone in air**.
+# The cleanest way to stay un-confused is to keep **two equivalent derivations** in your pocket:
+# 
+# ---
+# 
+# ### 1) Internal picture: $\theta_{\max}$ comes from total internal reflection (TIR)
+# 
+# Start from the **definition** (step-index):
 # 
 # $$
 # \mathrm{NA} \equiv \sqrt{n_{\mathrm{core}}^2 - n_{\mathrm{clad}}^2}.
 # $$
 # 
-# A standard result is that the **external** half-angle in air $u_{\max}$ satisfies:
+# Now connect that to the *largest internal guided angle*.
 # 
-# $$
-# \sin u_{\max} \approx \mathrm{NA}.
-# $$
+# 1. Let a **meridional ray** in the core make an angle $\theta$ to the **fiber axis**.
 # 
-# At the input face, Snell’s law links external angle $u$ and internal core angle $\theta$:
+# 2. When that ray hits a (locally flat) core–clad boundary, its **incidence angle** (relative to the surface normal) is:
+# 
+#    $$
+#    \alpha = \frac{\pi}{2}-\theta.
+#    $$
+# 
+#    (Because the fiber axis is parallel to the boundary surface.)
+# 
+# 3. Total internal reflection requires $\alpha\ge\alpha_c$, where the **critical angle** satisfies:
+# 
+#    $$
+#    \sin\alpha_c = \frac{n_{\mathrm{clad}}}{n_{\mathrm{core}}}.
+#    $$
+# 
+# 4. Combine the last two lines:
+# 
+#    $$
+#    \frac{\pi}{2}-\theta \ge \alpha_c
+#    \;\Rightarrow\;
+#    \theta \le \frac{\pi}{2}-\alpha_c
+#    = \arccos\!\left(\frac{n_{\mathrm{clad}}}{n_{\mathrm{core}}}\right).
+#    $$
+# 
+# 5. Take the sine (this is the part you want to remember):
+# 
+#    $$
+#    \sin\theta_{\max}
+#    = \sqrt{1-\left(\frac{n_{\mathrm{clad}}}{n_{\mathrm{core}}}\right)^2}
+#    = \frac{\sqrt{n_{\mathrm{core}}^2-n_{\mathrm{clad}}^2}}{n_{\mathrm{core}}}
+#    = \frac{\mathrm{NA}}{n_{\mathrm{core}}}.
+#    $$
+# 
+# ---
+# 
+# ### 2) External picture: connect to the “acceptance cone in air”
+# 
+# At the **input face**, Snell’s law relates external angle $u$ (in air) and internal angle $\theta$ (in core):
 # 
 # $$
 # n_0\sin u = n_{\mathrm{core}}\sin\theta.
 # $$
 # 
-# Taking $n_0\approx 1$ (air) and $u=u_{\max}$:
+# A standard result for a step-index fiber is that the **external** acceptance half-angle $u_{\max}$ satisfies:
 # 
 # $$
-# \sin\theta_{\max} \approx \frac{\mathrm{NA}}{n_{\mathrm{core}}},\qquad
-# \theta_{\max}=\arcsin\!\left(\frac{\mathrm{NA}}{n_{\mathrm{core}}}\right).
+# n_0\sin u_{\max} = \mathrm{NA}.
 # $$
 # 
-# Why we care: the axial projection is $\cos\theta$, and the optical path goes like $1/\cos\theta$.
+# Combine those two statements at the launch limit ($u=u_{\max}$):
+# 
+# $$
+# \sin\theta_{\max}
+# = \frac{n_0}{n_{\mathrm{core}}}\sin u_{\max}
+# = \frac{\mathrm{NA}}{n_{\mathrm{core}}}.
+# $$
+# 
+# For air, $n_0\approx 1$, so you often see the shorthand:
+# 
+# $$
+# \sin u_{\max}\approx \mathrm{NA},\qquad
+# \sin\theta_{\max}\approx \mathrm{NA}/n_{\mathrm{core}}.
+# $$
+# 
+# ---
+# 
+# ### Intuition: what the division by $n_{\mathrm{core}}$ is really saying
+# 
+# The fiber limits how much **transverse** momentum you can have:
+# 
+# $$
+# k_{\perp,\max} = k_0\,\mathrm{NA},\qquad k_0=\frac{2\pi}{\lambda}.
+# $$
+# 
+# Inside the core, the total wavevector magnitude is $|k|=n_{\mathrm{core}}k_0$, so:
+# 
+# $$
+# \sin\theta_{\max}=\frac{k_{\perp,\max}}{|k|}
+# = \frac{k_0\,\mathrm{NA}}{n_{\mathrm{core}}k_0}
+# = \frac{\mathrm{NA}}{n_{\mathrm{core}}}.
+# $$
+# 
+# Why we care: once $\theta_{\max}$ is set, **everything else** in this notebook flows from the fact that path length scales like $1/\cos\theta$.
 
 # %%
+n0 = 1.0  # refractive index outside the fiber (air)
+
+# Internal max guided meridional ray angle (core).
 theta_max_rad = max_guided_meridional_ray_angle_rad(na=fiber.na, n_core=fiber.n_core)
 theta_max_deg = theta_max_rad * 180.0 / math.pi
+
+# External acceptance half-angle in air u_max, from: n0 sin u_max = NA.
+u_max_rad = math.asin(min(1.0, fiber.na / n0))
+u_max_deg = u_max_rad * 180.0 / math.pi
+
+# Back out an implied n_clad from (NA, n_core) for sanity checks.
+n_clad = math.sqrt(max(0.0, fiber.n_core * fiber.n_core - fiber.na * fiber.na))
+
+# Critical angle (core->clad) relative to the normal: sin(alpha_c) = n_clad / n_core.
+alpha_c_rad = math.asin(min(1.0, n_clad / fiber.n_core))
+alpha_c_deg = alpha_c_rad * 180.0 / math.pi
 
 pd.DataFrame(
     [
         {
             "NA": fiber.na,
+            "n0 (air)": n0,
             "n_core": fiber.n_core,
-            "theta_max_deg (internal)": theta_max_deg,
-            "sin(theta_max)": math.sin(theta_max_rad),
-            "NA/n": fiber.na / fiber.n_core,
+            "n_clad (implied)": n_clad,
+            "u_max_deg (external in air)": u_max_deg,
+            "sin(u_max) = NA/n0": math.sin(u_max_rad),
+            "theta_max_deg (internal in core)": theta_max_deg,
+            "sin(theta_max) = NA/n_core": math.sin(theta_max_rad),
+            "NA/n_core": fiber.na / fiber.n_core,
+            "alpha_c_deg (critical, to normal)": alpha_c_deg,
         }
     ]
 )
-
 # %% [markdown]
-# ## 5) Step 2: where does $\Delta\mathrm{OPL}\approx (\mathrm{NA}^2/(2n))\,L$ come from?
+# ## 4) Step 2: where does $\Delta\mathrm{OPL}\approx (\mathrm{NA}^2/(2n))\,L$ come from?
+# 
+# ![](../docs/figures/stepindex_opl_geometry.svg)
 # 
 # **Start with geometry.** For a straight fiber, think of two limiting meridional rays:
 # 
@@ -376,7 +440,11 @@ ax.grid(True, alpha=0.3)
 plt.show()
 
 # %% [markdown]
-# ## 6) Step 3: why $\Delta\lambda_c \sim \lambda^2/\Delta\mathrm{OPL}$?
+# ## 5) Step 3: why $\Delta\lambda_c \sim \lambda^2/\Delta\mathrm{OPL}$?
+# 
+# ![](../docs/figures/phase_decorrelation_lambda.svg)
+# 
+# ![](../docs/figures/spectral_correlation_width_cartoon.svg)
 # 
 # Here is the “single sentence” physics:
 # 
@@ -409,6 +477,10 @@ plt.show()
 # 
 # - Bigger delay spread $\Delta\mathrm{OPL}$ ⇒ you need a *smaller* wavelength change to scramble phases ⇒ smaller $\Delta\lambda_c$.
 # - This is why **meter-scale step-index MMFs** can easily give **0.01 nm-scale** decorrelation widths.
+# 
+# A one-page scaling summary (useful for meeting notes):
+# 
+# ![](../docs/figures/delta_lambda_c_scaling.svg)
 
 # %%
 dlam_c_nm = speckle_spectral_corr_width_nm(lambda0_nm=lambda0_nm, delta_opl_m=opl_spread_exact_m)
@@ -423,11 +495,13 @@ pd.DataFrame(
 )
 
 # %% [markdown]
-# ## 7) The 0.01 nm question (the discrete picture)
+# ## 6) The 0.01 nm question (the discrete picture)
 # 
 # You said you want a concrete mental model for:
 # 
 # > “Why do two spikes separated by ~0.01 nm give unrelated speckle?”
+# 
+# ![](../docs/figures/two_spikes_same_paths_different_speckle.svg)
 # 
 # A really compact derivation is to look at how much the **relative phase** changes.
 # 
@@ -457,6 +531,11 @@ pd.DataFrame(
 # 
 # - If $\delta\lambda = \Delta\lambda_c$, you get $\delta\phi_{\max}\approx 2\pi$.
 # - If $\delta\lambda > \Delta\lambda_c$, you get *more than* a full cycle of relative phase spread.
+# 
+# 
+# Another view (same math, different picture): a wavelength shift creates a **phase ramp** across the mode delay spread.
+# 
+# ![](../docs/figures/delta_phi_ramp_vs_deltalambda.svg)
 # 
 # That’s exactly the “two spikes give independent speckle” statement.
 
@@ -494,7 +573,7 @@ ax.legend(loc="upper left")
 plt.show()
 
 # %% [markdown]
-# ## 8) Toy speckle simulation: same modes, different λ → decorrelation
+# ## 7) Toy speckle simulation: same modes, different λ → decorrelation
 # 
 # The SVG diagrams show the concept; here we make it *feel real* with a small simulation.
 # 
@@ -623,7 +702,7 @@ ax.legend(loc="upper right")
 plt.show()
 
 # %% [markdown]
-# ## 9) Interactive: move δλ and watch the pattern change
+# ## 8) Interactive: move δλ and watch the pattern change
 # 
 # This is intentionally “mechanical”: a slider that flips between precomputed δλ values.
 # 
@@ -634,74 +713,80 @@ plt.show()
 # You can add more frames (more δλ samples) if you want finer control.
 
 # %%
-# Precompute a handful of δλ frames.
-delta_frames_nm = [0.0, 0.002, 0.005, float(dlam_c_nm), 0.01, 0.02, 0.05]
+if not HAS_PLOTLY:
+    print("Plotly is not installed, so the interactive slider cell is skipped.")
+    print("Install with: pip install plotly")
+else:
+    # Precompute a handful of δλ frames.
+    delta_frames_nm = [0.0, 0.002, 0.005, float(dlam_c_nm), 0.01, 0.02, 0.05]
 
-I_A = speckle_intensity_for_lambda_nm(lambda0_nm)
+    I_A = speckle_intensity_for_lambda_nm(lambda0_nm)
 
-# Create initial data for δλ=0
-I_B0 = speckle_intensity_for_lambda_nm(lambda0_nm + delta_frames_nm[0])
+    # Create initial data for δλ=0
+    I_B0 = speckle_intensity_for_lambda_nm(lambda0_nm + delta_frames_nm[0])
 
-fig = make_subplots(
-    rows=1,
-    cols=2,
-    subplot_titles=("I(λ0)", "I(λ0 + δλ)"),
-    horizontal_spacing=0.06,
-)
+    fig = make_subplots(
+        rows=1,
+        cols=2,
+        subplot_titles=("I(λ0)", "I(λ0 + δλ)"),
+        horizontal_spacing=0.06,
+    )
 
-heat0 = go.Heatmap(z=np.where(mask, I_A, np.nan), colorscale="Viridis", showscale=False)
-heat1 = go.Heatmap(z=np.where(mask, I_B0, np.nan), colorscale="Viridis", showscale=False)
+    heat0 = go.Heatmap(z=np.where(mask, I_A, np.nan), colorscale="Viridis", showscale=False)
+    heat1 = go.Heatmap(z=np.where(mask, I_B0, np.nan), colorscale="Viridis", showscale=False)
 
-fig.add_trace(heat0, row=1, col=1)
-fig.add_trace(heat1, row=1, col=2)
+    fig.add_trace(heat0, row=1, col=1)
+    fig.add_trace(heat1, row=1, col=2)
 
-# Build frames
-frames = []
-for dnm in delta_frames_nm:
-    I_B = speckle_intensity_for_lambda_nm(lambda0_nm + float(dnm))
-    corr = corrcoef_in_mask(I_A, I_B)
-    frames.append(
-        go.Frame(
-            data=[
-                go.Heatmap(z=np.where(mask, I_A, np.nan), colorscale="Viridis", showscale=False),
-                go.Heatmap(z=np.where(mask, I_B, np.nan), colorscale="Viridis", showscale=False),
-            ],
-            name=f"{dnm:.4f}",
-            layout=go.Layout(
-                title_text=f"Toy MMF speckle vs wavelength: δλ={dnm:.4f} nm   corr={corr:.3f}   (Δλ_c≈{dlam_c_nm:.4f} nm)",
-            ),
+    # Build frames
+    frames = []
+    for dnm in delta_frames_nm:
+        I_B = speckle_intensity_for_lambda_nm(lambda0_nm + float(dnm))
+        corr = corrcoef_in_mask(I_A, I_B)
+        frames.append(
+            go.Frame(
+                data=[
+                    go.Heatmap(z=np.where(mask, I_A, np.nan), colorscale="Viridis", showscale=False),
+                    go.Heatmap(z=np.where(mask, I_B, np.nan), colorscale="Viridis", showscale=False),
+                ],
+                name=f"{dnm:.4f}",
+                layout=go.Layout(
+                    title_text=f"Toy MMF speckle vs wavelength: δλ={dnm:.4f} nm   corr={corr:.3f}   (Δλ_c≈{dlam_c_nm:.4f} nm)",
+                ),
+            )
         )
+
+    fig.frames = frames
+
+    # Slider
+    steps = []
+    for dnm in delta_frames_nm:
+        steps.append(
+            {
+                "label": f"{dnm:.4f}",
+                "method": "animate",
+                "args": [[f"{dnm:.4f}"], {"frame": {"duration": 0, "redraw": True}, "mode": "immediate"}],
+            }
+        )
+
+    fig.update_layout(
+        title_text="Toy MMF speckle vs wavelength",
+        sliders=[{"active": 0, "pad": {"t": 40}, "steps": steps, "currentvalue": {"prefix": "δλ [nm] = "}}],
+        margin=dict(l=20, r=20, t=80, b=20),
     )
 
-fig.frames = frames
+    # Make both subplots square-ish and hide axes.
+    fig.update_xaxes(visible=False)
+    fig.update_yaxes(visible=False, scaleanchor="x", scaleratio=1)
 
-# Slider
-steps = []
-for dnm in delta_frames_nm:
-    steps.append(
-        {
-            "label": f"{dnm:.4f}",
-            "method": "animate",
-            "args": [[f"{dnm:.4f}"], {"frame": {"duration": 0, "redraw": True}, "mode": "immediate"}],
-        }
-    )
-
-fig.update_layout(
-    title_text="Toy MMF speckle vs wavelength",
-    sliders=[{"active": 0, "pad": {"t": 40}, "steps": steps, "currentvalue": {"prefix": "δλ [nm] = "}}],
-    margin=dict(l=20, r=20, t=80, b=20),
-)
-
-# Make both subplots square-ish and hide axes.
-fig.update_xaxes(visible=False)
-fig.update_yaxes(visible=False, scaleanchor="x", scaleratio=1)
-
-fig
+    fig
 
 # %% [markdown]
-# ## 10) From Δλ_c to predicted speckle contrast C
+# ## 9) From Δλ_c to predicted speckle contrast C
 # 
 # This is the “engineering step”:
+# 
+# ![](../docs/figures/speckle_contrast_vs_bins.svg)
 # 
 # - If the spectrum contains $N_\lambda$ **independent** speckle patterns *within the exposure*,
 #   then in the best-case (equal weights),
@@ -759,7 +844,11 @@ ax.legend(loc="upper right")
 plt.show()
 
 # %% [markdown]
-# ## 11) Coherence time / length sanity checks
+# ## 10) Coherence time / length sanity checks
+# 
+# ![](../docs/figures/linewidth_to_coherence.svg)
+# 
+# ![](../docs/figures/coherence_vs_delay.svg)
 # 
 # Sometimes it is easier to reason in the time domain.
 # 
@@ -804,7 +893,9 @@ pd.DataFrame(
 )
 
 # %% [markdown]
-# ## 12) Step-index vs graded-index: the `modal_delay_scale` knob
+# ## 11) Step-index vs graded-index: the `modal_delay_scale` knob
+# 
+# ![](../docs/figures/ray_paths_step_vs_grin.svg)
 # 
 # Many “homogenizing fibers” are not truly step-index; they can be graded-index (GI), which reduces modal dispersion.
 # 
@@ -837,7 +928,7 @@ for s in scales:
 pd.DataFrame(rows)
 
 # %% [markdown]
-# ## 13) The gotcha: “instantaneous linewidth” vs OSA linewidth
+# ## 12) The gotcha: “instantaneous linewidth” vs OSA linewidth
 # 
 # For your use-case, what matters is the spectrum present **simultaneously** within a single exposure.
 # 
@@ -868,7 +959,7 @@ spacing = np.array([fsr_spacing_nm(lambda0_nm=lambda0_nm, n_cav=3.5, L_cav_um=L)
 pd.DataFrame({"L_cav_um": cavity_um, "Δλ_FSR_nm (n=3.5)": spacing})
 
 # %% [markdown]
-# ## 14) Meeting checklist (practical)
+# ## 13) Meeting checklist (practical)
 # 
 # Bring these to the meeting:
 # 
@@ -931,3 +1022,4 @@ pd.DataFrame({"L_cav_um": cavity_um, "Δλ_FSR_nm (n=3.5)": spacing})
 # \tau_c \sim 1/\Delta\nu,\qquad
 # L_c = c\tau_c.
 # $$
+

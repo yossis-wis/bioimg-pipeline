@@ -1,59 +1,66 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="900" height="300" viewBox="0 0 900 300">
-  <title>Step-index fiber: external acceptance angle vs internal ray angle</title>
+  <title>Step-index fiber: external acceptance angle u vs internal ray angle θ</title>
 
   <defs>
     <style>
-      .axis { stroke: #000; stroke-width: 2; fill: none; }
-      .core { stroke: #000; stroke-width: 2; fill: none; }
-      .ray  { stroke: #000; stroke-width: 2.5; fill: none; }
-      .dash { stroke-dasharray: 6 4; }
+      .core  { stroke: #000; stroke-width: 2; fill: none; }
+      .ray   { stroke: #000; stroke-width: 2.6; fill: none; }
+      .ref   { stroke: #000; stroke-width: 1.2; fill: none; stroke-dasharray: 6 4; }
+      .help  { stroke: #000; stroke-width: 1.2; fill: none; stroke-dasharray: 2 3; }
+      .axis  { stroke: #000; stroke-width: 2; fill: none; }
       .label { font-family: sans-serif; font-size: 16px; fill: #000; }
       .small { font-family: sans-serif; font-size: 13px; fill: #000; }
     </style>
   </defs>
 
-  <text class="label" x="40" y="28">Angles: u (in air) vs θ (inside core) and why θ<sub>max</sub> = asin(NA/n<sub>core</sub>)</text>
+  <text class="label" x="40" y="26">Why sin θ<sub>max</sub> ≈ NA / n<sub>core</sub>: u (air) is larger than θ (core) by Snell</text>
 
-  <!-- Coordinate axes -->
-  <line class="axis" x1="80" y1="240" x2="860" y2="240"/>
-  <polygon points="860,240 848,234 848,246" fill="#000"/>
-  <text class="small" x="868" y="245">fiber axis z</text>
+  <!-- Fiber axis arrow -->
+  <line class="axis" x1="90" y1="260" x2="860" y2="260"/>
+  <polygon points="860,260 848,254 848,266" fill="#000"/>
+  <text class="small" x="870" y="265">z</text>
 
-  <line class="axis" x1="120" y1="260" x2="120" y2="60"/>
-  <polygon points="120,60 114,72 126,72" fill="#000"/>
-  <text class="small" x="80" y="72">radial r</text>
+  <!-- Input face + core boundaries (schematic) -->
+  <line class="axis" x1="260" y1="90" x2="260" y2="240"/>
+  <text class="small" x="224" y="84">input face</text>
 
-  <!-- Fiber core (schematic) -->
-  <line class="core" x1="240" y1="140" x2="840" y2="140"/>
-  <line class="core" x1="240" y1="220" x2="840" y2="220"/>
-  <line class="core dash" x1="240" y1="180" x2="840" y2="180"/>
-  <text class="small" x="250" y="135">core boundary</text>
-  <text class="small" x="250" y="235">core boundary</text>
-  <text class="small" x="250" y="176">axis</text>
+  <line class="core" x1="260" y1="110" x2="840" y2="110"/>
+  <line class="core" x1="260" y1="230" x2="840" y2="230"/>
+  <line class="ref"  x1="260" y1="170" x2="840" y2="170"/>
+  <text class="small" x="268" y="104">core boundary</text>
+  <text class="small" x="268" y="244">core boundary</text>
+  <text class="small" x="268" y="166">fiber axis (reference)</text>
 
-  <!-- Input face -->
-  <line class="axis" x1="240" y1="120" x2="240" y2="240"/>
-  <text class="small" x="210" y="112">input face</text>
+  <!-- Region labels -->
+  <text class="small" x="110" y="205">air (n₀≈1)</text>
+  <text class="small" x="760" y="150">core (n<sub>core</sub>)</text>
 
-  <!-- External ray (air) -->
-  <path class="ray" d="M 80 210 L 240 180"/>
-  <text class="small" x="70" y="200">air</text>
+  <!-- Launch point on input face -->
+  <circle cx="260" cy="170" r="3" fill="#000"/>
 
-  <!-- Internal ray (core) -->
-  <path class="ray" d="M 240 180 L 760 150"/>
-  <text class="small" x="620" y="155">core</text>
+  <!-- Rays: incoming in air, refracted in core -->
+  <!-- Incoming ray at angle u -->
+  <line class="ray" x1="90" y1="120" x2="260" y2="170"/>
+  <!-- Refracted ray inside core at smaller angle θ -->
+  <line class="ray" x1="260" y1="170" x2="750" y2="230"/>
 
-  <!-- Angle u in air -->
-  <path class="axis dash" d="M 180 180 L 240 180"/>
-  <path class="axis dash" d="M 180 180 L 214 201"/>
-  <text class="small" x="160" y="170">u</text>
+  <!-- Angle markers at the same vertex (input face point) -->
+  <!-- Baseline along axis to the left (for u) -->
+  <line class="help" x1="260" y1="170" x2="200" y2="170"/>
+  <!-- Along incoming ray direction (backwards into air) -->
+  <line class="help" x1="260" y1="170" x2="209" y2="155"/>
+  <text class="small" x="185" y="158">u</text>
 
-  <!-- Angle theta inside core -->
-  <path class="axis dash" d="M 320 180 L 380 180"/>
-  <path class="axis dash" d="M 320 180 L 372 170"/>
-  <text class="small" x="392" y="182">θ</text>
+  <!-- Baseline along axis to the right (for θ) -->
+  <line class="help" x1="260" y1="170" x2="320" y2="170"/>
+  <!-- Along internal ray direction -->
+  <line class="help" x1="260" y1="170" x2="358" y2="182"/>
+  <text class="small" x="332" y="182">θ</text>
+
+  <!-- Legend -->
+  <text class="small" x="560" y="70">solid = ray</text>
+  <text class="small" x="560" y="88">dashed = reference / angle markers</text>
 
   <!-- Formulas -->
-  <text class="small" x="60" y="285">External acceptance (air): sin u<sub>max</sub> ≈ NA.</text>
-  <text class="small" x="420" y="285">Snell at input: n<sub>0</sub> sin u = n<sub>core</sub> sin θ ⇒ sin θ<sub>max</sub> ≈ NA / n<sub>core</sub>.</text>
+  <text class="small" x="40" y="285">Snell at input: n₀ sin u = n<sub>core</sub> sin θ.  For max guided launch in air: sin u<sub>max</sub> ≈ NA/n₀ ⇒ sin θ<sub>max</sub> ≈ NA/n<sub>core</sub>.</text>
 </svg>
