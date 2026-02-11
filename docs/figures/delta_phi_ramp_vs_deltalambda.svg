@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="300" viewBox="0 0 900 300">
+  <title>Phase shift across the mode-delay spread vs wavelength separation</title>
+
+  <defs>
+    <style>
+      .axis  { stroke: #000; stroke-width: 2; fill: none; }
+      .curve { stroke: #000; stroke-width: 2.5; fill: none; }
+      .thin  { stroke: #000; stroke-width: 1.2; fill: none; }
+      .dash  { stroke-dasharray: 6 4; }
+      .label { font-family: sans-serif; font-size: 16px; fill: #000; }
+      .small { font-family: sans-serif; font-size: 13px; fill: #000; }
+    </style>
+  </defs>
+
+  <text class="label" x="40" y="26">Another view: a tiny δλ creates a big phase ramp across the mode delays</text>
+
+  <!-- Axes -->
+  <line class="axis" x1="90" y1="240" x2="860" y2="240"/>
+  <polygon points="860,240 848,234 848,246" fill="#000"/>
+  <text class="small" x="650" y="265">mode optical-path offset ΔOPLₖ (0 → ΔOPL)</text>
+
+  <line class="axis" x1="90" y1="240" x2="90" y2="60"/>
+  <polygon points="90,60 84,72 96,72" fill="#000"/>
+  <text class="small" x="18" y="70">δφₖ</text>
+
+  <!-- Curves: δφ(ΔOPL_k) = (2π/λ²)·ΔOPL_k·δλ -->
+  <!-- We draw three ramps with different slopes (schematic). -->
+
+  <!-- δλ << Δλ_c -->
+  <path class="curve" d="M 90 230 L 860 200"/>
+  <text class="small" x="690" y="195">δλ = 0.002 nm</text>
+
+  <!-- δλ ~ Δλ_c -->
+  <path class="curve" d="M 90 230 L 860 120"/>
+  <text class="small" x="690" y="115">δλ ≈ Δλ_c ≈ 0.008 nm</text>
+
+  <!-- δλ > Δλ_c -->
+  <path class="curve" d="M 90 230 L 860 70"/>
+  <text class="small" x="690" y="66">δλ = 0.02 nm</text>
+
+  <!-- Horizontal reference lines -->
+  <line class="thin dash" x1="90" y1="120" x2="860" y2="120"/>
+  <text class="small" x="100" y="114">~2π phase swing across ΔOPL ⇒ decorrelation</text>
+
+  <!-- Formula -->
+  <text class="small" x="90" y="288">δφₖ ≈ (2π·ΔOPLₖ/λ²)·δλ.  Across the spread, δφ_max ≈ 2π·(δλ/Δλ_c).  When δλ ≳ Δλ_c, phases span ~2π → speckle changes drastically.</text>
+</svg>

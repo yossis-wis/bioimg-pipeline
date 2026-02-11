@@ -40,6 +40,10 @@ Given fiber length `L`, NA, and core index `n`, a step-index geometric upper bou
 
 ![](figures/phase_decorrelation_lambda.svg)
 
+![](figures/spectral_correlation_width_cartoon.svg)
+
+![](figures/two_spikes_same_paths_different_speckle.svg)
+
 ### 3) Source span → effective number of independent patterns (best-case)
 
 ```math
@@ -63,6 +67,10 @@ Then:
 
 - If Δλ_src ≈ 2 nm (instantaneous): N ≈ 250 → C ≈ 0.06
 - If Δλ_src ≈ 5 nm: N ≈ 600 → C ≈ 0.04
+
+This scaling summary is often the fastest way to sanity-check “does 0.01 nm really matter?”
+
+![](figures/delta_lambda_c_scaling.svg)
 
 These are “optimistic continuum” values; mode-weighting and partial correlation reduce the benefit.
 
@@ -142,3 +150,4 @@ Walk out with **one concrete falsifiable experiment**:
 > (c) swap SI vs GI fiber.
 
 If the observed C follows the predicted scaling trends, the approach is on solid ground.
+

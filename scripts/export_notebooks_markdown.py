@@ -97,6 +97,27 @@ def parse_percent_format(py_text: str) -> list[Cell]:
     return cells
 
 
+def rewrite_notebook_asset_paths_for_docs_mirror(line: str) -> str:
+    """Rewrite notebook-relative asset paths for the docs Markdown mirror.
+
+    Notebooks live under `notebooks/`, while the generated Markdown mirrors live under
+    `docs/notebooks_md/`.
+
+    A common pattern in notebooks is to embed SVGs stored under `docs/figures/` using:
+
+        ![](../docs/figures/<name>.svg)
+
+    That relative path is correct when viewed from `notebooks/`, but in the Markdown mirror
+    (which is already under `docs/`), the correct relative path is:
+
+        ![](../figures/<name>.svg)
+
+    This helper performs that narrow, explicit rewrite so the mirrors render images on GitHub.
+    """
+
+    return line.replace("../docs/figures/", "../figures/")
+
+
 def render_cells_to_markdown(cells: list[Cell], *, src_rel: str) -> str:
     """Render parsed cells to a Markdown mirror (no outputs)."""
     out: list[str] = []
@@ -120,11 +141,11 @@ def render_cells_to_markdown(cells: list[Cell], *, src_rel: str) -> str:
                     s = ln[1:]
                     if s.startswith(" "):
                         s = s[1:]
-                    out.append(s)
+                    out.append(rewrite_notebook_asset_paths_for_docs_mirror(s))
                 else:
                     # Defensive: Jupytext markdown cells should be comment lines,
                     # but keep unexpected content rather than silently dropping it.
-                    out.append(ln)
+                    out.append(rewrite_notebook_asset_paths_for_docs_mirror(ln))
             out.append("")
             continue
 
@@ -253,3 +274,4 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+

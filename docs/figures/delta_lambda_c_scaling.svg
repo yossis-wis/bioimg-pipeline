@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="300" viewBox="0 0 900 300">
+  <title>How Δλ_c scales with fiber parameters (L, NA, n, dispersion scale)</title>
+
+  <defs>
+    <style>
+      .axis  { stroke: #000; stroke-width: 2; fill: none; }
+      .thin  { stroke: #000; stroke-width: 1.2; fill: none; }
+      .dash  { stroke-dasharray: 6 4; }
+      .label { font-family: sans-serif; font-size: 16px; fill: #000; }
+      .small { font-family: sans-serif; font-size: 13px; fill: #000; }
+      .box   { stroke: #000; stroke-width: 1.5; fill: none; }
+    </style>
+  </defs>
+
+  <text class="label" x="40" y="26">How the “~0.008 nm” decorrelation width comes from fiber specs</text>
+
+  <!-- Central formula box -->
+  <rect class="box" x="250" y="60" width="400" height="120"/>
+  <text class="small" x="270" y="90">Step-index (upper bound):  ΔOPL ≈ (NA²/(2n))·L · s</text>
+  <text class="small" x="270" y="115">Phase decorrelation:  Δλ_c ~ λ²/ΔOPL</text>
+  <text class="small" x="270" y="140">Combine:</text>
+  <text class="small" x="270" y="165">Δλ_c ≈ (2n·λ²)/(NA²·L) · (1/s)</text>
+
+  <!-- Arrows showing parameter trends -->
+  <line class="axis" x1="250" y1="120" x2="140" y2="120"/>
+  <polygon points="140,120 152,114 152,126" fill="#000"/>
+  <text class="small" x="45" y="105">L ↑ (longer fiber)</text>
+  <text class="small" x="45" y="125">→ ΔOPL ↑ → Δλ_c ↓</text>
+
+  <line class="axis" x1="650" y1="120" x2="760" y2="120"/>
+  <polygon points="760,120 748,114 748,126" fill="#000"/>
+  <text class="small" x="770" y="105">NA ↑</text>
+  <text class="small" x="770" y="125">→ ΔOPL ↑ → Δλ_c ↓</text>
+
+  <line class="axis" x1="450" y1="60" x2="450" y2="40"/>
+  <polygon points="450,40 444,52 456,52" fill="#000"/>
+  <text class="small" x="372" y="44">n ↑</text>
+  <text class="small" x="310" y="58">→ ΔOPL ↓ (via NA/n) → Δλ_c ↑</text>
+
+  <line class="axis" x1="450" y1="180" x2="450" y2="220"/>
+  <polygon points="450,220 444,208 456,208" fill="#000"/>
+  <text class="small" x="300" y="236">s ↓ (graded-index-like; less modal dispersion)</text>
+  <text class="small" x="300" y="256">→ ΔOPL ↓ → Δλ_c ↑ (needs more linewidth to average)</text>
+
+  <!-- Numeric plug-in -->
+  <rect class="box" x="40" y="200" width="220" height="80"/>
+  <text class="small" x="55" y="225">Example (meeting defaults)</text>
+  <text class="small" x="55" y="245">λ=640 nm, L=3 m</text>
+  <text class="small" x="55" y="265">NA=0.22, n≈1.46, s=1</text>
+
+  <rect class="box" x="680" y="200" width="180" height="80"/>
+  <text class="small" x="695" y="230">ΔOPL ≈ 50 mm</text>
+  <text class="small" x="695" y="250">Δλ_c ≈ 0.008 nm</text>
+  <text class="small" x="695" y="270">(order-of-mag.)</text>
+</svg>

@@ -9,51 +9,67 @@
 # ---
 
 # %% [markdown]
-# # Step-index MMF + spectral linewidth: physics, math, and meeting prep
-#
-# This notebook is a **derivation + intuition companion** to:
-#
-# - `notebooks/13_cni_2nm_stepindex_spectral_diversity_500us.py`
-#
-# The goal here is *not* to do detection simulations.
-# It is to answer the “margin questions” from the annotated screenshot of notebook 13 and to
-# make the spectral-linewidth / step-index-MMF argument solid enough to discuss with a
-# laser-savvy staff scientist.
-#
+# # Step-index MMF + spectral linewidth
+# 
+# This notebook is meant to be a **single place** where you can build real intuition for:
+# 
+# - why a **step-index multimode fiber (MMF)** can create a **very small** spectral correlation width
+#   (often **~0.01 nm scale** for meter-scale fibers), and therefore
+# - why a **few-nm instantaneous linewidth** can average **many effectively independent** speckle patterns
+#   *within a single short exposure* (e.g. 500 μs).
+# 
+# It merges two kinds of content into one read-through:
+# 
+# 1) **SVG “whiteboard diagrams”** (tracked in the repo under `docs/figures/`).
+# 2) **Python-generated plots + toy simulations**, including a small **interactive slider**.
+# 
+# Companion files:
+# 
+# - `docs/MEETING_PREP_LASER_STAFF_SCIENTIST.md` (one-page chain + questions)
+# - `notebooks/13_cni_2nm_stepindex_spectral_diversity_500us.py` (scenario sweeps)
+# 
+# ---
+# 
 # ## What you should get from this notebook
-#
-# 1. A clean derivation of the key chain:
-#
-#    $$\theta_{\max} \;\Rightarrow\; \Delta\mathrm{OPL} \;\Rightarrow\; \Delta\lambda_c \;\Rightarrow\; N_{\lambda} \;\Rightarrow\; C.$$
-#
-# 2. **Where each approximation enters** (and how big the error is for NA≈0.22).
-# 3. A whiteboard-style bandwidth→coherence-time/length conversion (the “1/320” line).
-# 4. A short checklist of “what to ask / what to measure” so the meeting is productive.
-#
-# Throughout, we keep two ideas separate:
-#
-# - **Fiber NA** ($\mathrm{NA}_{\mathrm{fiber}}$): what angles the fiber *guides*.
-# - **Illumination NA at the sample** ($\mathrm{NA}_{\mathrm{illum}}$): what spatial frequencies reach the sample,
-#   controlled by your relay optics and pupil underfill.
-#
-# The derivations below use the **fiber NA** only to estimate **intermodal delay / optical path spread**.
-# The speckle *grain size* is a separate Fourier-optics question governed by $\mathrm{NA}_{\mathrm{illum}}$.
+# 
+# 1. A defensible derivation chain:
+# 
+#    $$
+#    \theta_{\max}\;\Rightarrow\;\Delta\mathrm{OPL}\;\Rightarrow\;\Delta\lambda_c\;\Rightarrow\;N_{\lambda}\;\Rightarrow\;C.
+#    $$
+# 
+# 2. A *discrete* picture for the key confusion:
+# 
+#    > “Why can two narrow spikes separated by **0.01 nm** produce **uncorrelated** speckle?”
+# 
+# 3. Multiple views of the same idea (ray picture, phase-vs-λ picture, correlation-vs-δλ picture, toy speckle simulation).
+# 
+# 4. Practical “meeting-ready” numbers: what changes when you change **L**, **NA**, **n**, and “how graded-index it is”.
 
 # %% [markdown]
 # ## 0) Imports + repo plumbing
+# 
+# Notes:
+# 
+# - These notebooks are tracked as **Jupytext percent** (`*.py`). You can convert to `ipynb` locally.
+# - This repo keeps **binary outputs** out of git; the notebook should be executed locally and exported to HTML/PDF for printing.
 
 # %%
 from __future__ import annotations
 
 import math
 import sys
-from dataclasses import dataclass
 from pathlib import Path
 
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+
+# Plotly is used for one interactive slider-based visualization.
+import plotly.graph_objects as go
+import plotly.io as pio
+from plotly.subplots import make_subplots
 
 # If we are in a notebook, prefer inline backend.
 if "ipykernel" in sys.modules:
@@ -77,6 +93,8 @@ REPO_ROOT = find_repo_root(Path.cwd())
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+FIG_DIR = REPO_ROOT / "docs" / "figures"
+
 from src.mmf_fiber_speckle import (  # noqa: E402
     MultimodeFiber,
     max_guided_meridional_ray_angle_rad,
@@ -90,20 +108,38 @@ from src.temporal_coherence import (  # noqa: E402
     delta_nu_hz_from_delta_lambda_nm,
 )
 
-plt.rcParams.update({"figure.figsize": (7.5, 4.5), "figure.dpi": 120})
+# Toy speckle generator: disk-basis "modes" used elsewhere in this repo.
+from src.fiber_modes import (  # noqa: E402
+    disk_mode_indices,
+    intensity_from_field,
+    make_core_grid,
+    precompute_mode_stack,
+    random_complex_coeffs,
+    speckle_contrast,
+    superpose_modes,
+)
+
+plt.rcParams.update({"figure.figsize": (7.8, 4.6), "figure.dpi": 120})
+
+# Plotly renderer: choose what works in your setup.
+# Good defaults:
+#   "vscode" (VS Code), "notebook" (classic), "jupyterlab", or "browser".
+# We keep it explicit but do not force a value.
+pio.renderers.default = pio.renderers.default
 
 # %% [markdown]
-# ## 1) Configuration (numbers you can change)
-#
-# These are the “meeting defaults” consistent with notebook 13:
-#
-# - wavelength: 640 nm
-# - fiber: 400 µm core, NA=0.22, length=3 m, silica-like index ~1.46
-# - candidate linewidths: 2–5 nm (your lab discussion) and 20 nm (wide-linewidth extreme)
-#
-# **Important:** the linewidth you should use in the formulas below is the **instantaneous** spectral span
-# present *within one exposure* (e.g. 500 µs). If a laser slowly mode-hops across a 2–3 nm band,
-# an OSA might report “2–3 nm”, but within 500 µs the effective span could be far smaller.
+# ## 1) Configuration (meeting defaults)
+# 
+# We keep numbers aligned with notebook 13:
+# 
+# - Center wavelength: 640 nm
+# - Fiber: 400 μm core, NA=0.22, length=3 m, silica-like index ~1.46
+# - Example linewidths / separations: 0.002–20 nm
+# 
+# Important distinction:
+# 
+# - **Δλ_src** in the speckle-averaging model means the **instantaneous** spectral span present *within one exposure*.
+# - An OSA “2–3 nm” measurement can be **time-averaged**; that can be irrelevant if the source is narrow on 500 μs timescales.
 
 # %%
 lambda0_nm = 640.0
@@ -113,388 +149,578 @@ fiber = MultimodeFiber(
     na=0.22,
     length_m=3.0,
     n_core=1.46,
-    modal_delay_scale=1.0,  # 1.0 = step-index-like upper bound
+    modal_delay_scale=1.0,  # 1.0 = step-index-like upper bound; <<1 = more graded-index-like
 )
 
-linewidth_examples_nm = [0.01, 0.1, 0.5, 2.0, 5.0, 20.0]
+# A few example wavelength separations / spans.
+linewidth_examples_nm = [0.002, 0.005, 0.008, 0.01, 0.02, 0.1, 0.5, 2.0, 5.0, 20.0]
+
+pd.DataFrame(
+    [
+        {
+            "λ0_nm": lambda0_nm,
+            "L_m": fiber.length_m,
+            "NA": fiber.na,
+            "n_core": fiber.n_core,
+            "modal_delay_scale": fiber.modal_delay_scale,
+        }
+    ]
+)
 
 # %% [markdown]
-# ## 2) Question 1: Why is $\theta_{\max}=\arcsin(\mathrm{NA}/n_{\mathrm{core}})$?
-#
-# **What $\theta$ is in this notebook:**
-#
-# - $\theta$ is the **internal** ray angle *inside the core*, measured relative to the fiber axis.
-# - It is **not** the external “acceptance cone” angle in air.
-#
-# The standard step-index NA definition (weak guidance) is:
-#
+# ## 2) The chain (as diagrams)
+# 
+# These SVG figures are tracked under `docs/figures/` (text-only assets).
+# They are embedded here so the notebook can be exported to HTML for printing.
+# 
+# ### 2.1 Fiber NA → internal angle
+# 
+# ![](../docs/figures/stepindex_angle_definition.svg)
+# 
+# ### 2.2 Internal angle → optical-path spread
+# 
+# ![](../docs/figures/stepindex_opl_geometry.svg)
+# 
+# ### 2.3 Optical-path spread → spectral decorrelation width
+# 
+# ![](../docs/figures/phase_decorrelation_lambda.svg)
+# 
+# ![](../docs/figures/spectral_correlation_width_cartoon.svg)
+# 
+# ### 2.4 The discrete “two spikes” picture
+# 
+# ![](../docs/figures/two_spikes_same_paths_different_speckle.svg)
+# 
+# Another view: a wavelength shift creates a **phase ramp** across the mode delay spread.
+# 
+# ![](../docs/figures/delta_phi_ramp_vs_deltalambda.svg)
+# 
+# ### 2.5 Scaling summary (what changes when you change L, NA, n, step-index-ness)
+# 
+# ![](../docs/figures/delta_lambda_c_scaling.svg)
+# 
+# ### 2.6 Contrast vs number of independent spectral bins
+# 
+# ![](../docs/figures/speckle_contrast_vs_bins.svg)
+# 
+# ### 2.7 Linewidth ↔ coherence length (useful sanity check)
+# 
+# ![](../docs/figures/linewidth_to_coherence.svg)
+# 
+# ![](../docs/figures/coherence_vs_delay.svg)
+# 
+# ### 2.8 Step-index vs graded-index intuition
+# 
+# ![](../docs/figures/ray_paths_step_vs_grin.svg)
+
+# %% [markdown]
+# ## 3) Symbol table (so we stop getting lost)
+# 
+# This notebook uses a small number of “load-bearing” symbols. Here is a quick reference.
+# 
+# | Symbol | Meaning | Typical value here | Units |
+# |---|---|---:|---|
+# | $\lambda$ | Wavelength | 640 | nm |
+# | $\delta\lambda$ | Separation between two narrow spectral spikes | 0.01 | nm |
+# | $\Delta\lambda_{\mathrm{src}}$ | Instantaneous spectral span present during one exposure | 2–5 | nm |
+# | $\mathrm{NA}$ | Fiber numerical aperture (guidance) | 0.22 | (unitless) |
+# | $n$ | Core index (effective) | 1.46 | (unitless) |
+# | $L$ | Fiber length | 3 | m |
+# | $\theta_{\max}$ | Max guided *internal* ray angle in core | ~9 | deg |
+# | $\Delta\mathrm{OPL}$ | Intermodal optical-path *spread* (vacuum-equivalent) | ~0.05 | m |
+# | $\Delta\tau$ | Intermodal group delay spread | ~170 | ps |
+# | $\Delta\lambda_c$ | Speckle spectral correlation width | ~0.008 | nm |
+# | $N_\lambda$ | # of (effectively) independent spectral speckle patterns in the exposure | ~250 for 2 nm | (unitless) |
+# | $C$ | Speckle contrast (RMS/mean) | ~0.06 (optimistic) | (unitless) |
+# 
+# A note on “$\Delta$” vs “$\delta$”:
+# 
+# - $\delta\lambda$ is often used as a variable “offset” (e.g. the separation between two spikes).
+# - $\Delta\lambda_c$ is the **characteristic** width that makes the correlation drop (a property of the fiber).
+
+# %% [markdown]
+# ## 4) Step 1: why $\sin\theta_{\max}\approx \mathrm{NA}/n$?
+# 
+# This is a common point of confusion, because “fiber NA” is usually introduced as an **external** acceptance cone in air.
+# 
+# **Definitions (step-index, weak guidance):**
+# 
 # $$
 # \mathrm{NA} \equiv \sqrt{n_{\mathrm{core}}^2 - n_{\mathrm{clad}}^2}.
 # $$
-#
-# A textbook derivation (Snell + total internal reflection) gives the **external** acceptance half-angle
-# (in air, $n_0\approx 1$):
-#
+# 
+# A standard result is that the **external** half-angle in air $u_{\max}$ satisfies:
+# 
 # $$
 # \sin u_{\max} \approx \mathrm{NA}.
 # $$
-#
-# At the input face, Snell relates the external angle $u$ and the internal propagation angle $\theta$:
-#
+# 
+# At the input face, Snell’s law links external angle $u$ and internal core angle $\theta$:
+# 
 # $$
 # n_0\sin u = n_{\mathrm{core}}\sin\theta.
 # $$
-#
-# Taking the maximum guided ray (set $u=u_{\max}$, $n_0\approx 1$):
-#
+# 
+# Taking $n_0\approx 1$ (air) and $u=u_{\max}$:
+# 
 # $$
 # \sin\theta_{\max} \approx \frac{\mathrm{NA}}{n_{\mathrm{core}}},\qquad
 # \theta_{\max}=\arcsin\!\left(\frac{\mathrm{NA}}{n_{\mathrm{core}}}\right).
 # $$
-#
-# **Why do we care about $\theta$?** Because the axial group delay depends on the **axial projection**
-# of the ray/mode, which depends on $\cos\theta$.
+# 
+# Why we care: the axial projection is $\cos\theta$, and the optical path goes like $1/\cos\theta$.
 
 # %%
 theta_max_rad = max_guided_meridional_ray_angle_rad(na=fiber.na, n_core=fiber.n_core)
 theta_max_deg = theta_max_rad * 180.0 / math.pi
-u_max_deg_air = math.asin(fiber.na) * 180.0 / math.pi  # external in air
 
 pd.DataFrame(
     [
         {
-            "NA_fiber": fiber.na,
+            "NA": fiber.na,
             "n_core": fiber.n_core,
             "theta_max_deg (internal)": theta_max_deg,
-            "u_max_deg (air)": u_max_deg_air,
+            "sin(theta_max)": math.sin(theta_max_rad),
+            "NA/n": fiber.na / fiber.n_core,
         }
     ]
 )
 
 # %% [markdown]
-# ### Quick “small-angle” check
-#
-# For NA=0.22 and n≈1.46:
-#
-# - $\theta_{\max}\approx 8.7^\circ$ (internal).
-#
-# That is firmly in the *paraxial-ish* regime, so expansions like
-# $\cos\theta\approx 1-\theta^2/2$ are accurate at the ~1% level.
-
-# %%
-theta = theta_max_rad
-err_cos = abs(math.cos(theta) - (1 - theta**2 / 2)) / math.cos(theta)
-print(f"theta_max ≈ {theta_max_deg:.2f} deg")
-print(f"Relative error of cos(theta) ≈ 1-theta^2/2 at theta_max: {err_cos*100:.2f}%")
-
-# %% [markdown]
-# ## 3) Question 2: Where does $\Delta\mathrm{OPL}=nL(1/\cos\theta_{\max}-1)$ come from?
-#
-# **What $L$ is:** the **physical fiber length along the axis** (the number printed on the spool / in the spec).
-#
-# For a straight fiber, consider a meridional ray that propagates at a constant internal angle $\theta$.
-# Its **geometric** path length is longer than $L$ by a factor $1/\cos\theta$:
-#
+# ## 5) Step 2: where does $\Delta\mathrm{OPL}\approx (\mathrm{NA}^2/(2n))\,L$ come from?
+# 
+# **Start with geometry.** For a straight fiber, think of two limiting meridional rays:
+# 
+# - an axial ray ($\theta=0$)
+# - the highest-angle guided ray ($\theta=\theta_{\max}$)
+# 
+# The **geometric path length** is:
+# 
 # $$
 # \ell(\theta) = \frac{L}{\cos\theta}.
 # $$
-#
-# The *vacuum-equivalent optical path length* is:
-#
+# 
+# The **optical path length** (OPL) is refractive index times geometric length:
+# 
 # $$
-# \mathrm{OPL}(\theta) = n_{\mathrm{core}}\,\ell(\theta) = \frac{n_{\mathrm{core}}\,L}{\cos\theta}.
+# \mathrm{OPL}(\theta)=n\,\ell(\theta)=\frac{nL}{\cos\theta}.
 # $$
-#
-# Compare the axial ray ($\theta=0$) to the highest-angle guided ray ($\theta=\theta_{\max}$):
-#
+# 
+# So the spread between the two extremes is:
+# 
 # $$
-# \Delta\mathrm{OPL}
-# = \mathrm{OPL}(\theta_{\max}) - \mathrm{OPL}(0)
-# = n_{\mathrm{core}}L\left(\frac{1}{\cos\theta_{\max}}-1\right).
+# \Delta\mathrm{OPL} = \mathrm{OPL}(\theta_{\max})-\mathrm{OPL}(0)
+# = nL\left(\frac{1}{\cos\theta_{\max}}-1\right).
 # $$
-#
-# **Why does $n$ appear?**
-#
-# - We want an optical delay in units of length (vacuum-equivalent), because phase is $2\pi\,\mathrm{OPL}/\lambda$.
-# - Strictly, *group index* would be the right quantity for delays; for silica at visible wavelengths,
-#   phase index vs group index differs by a few percent. For this engineering estimate, $n\approx 1.46$ is fine.
-#
-# **Why is this “geometric optics” and not “Fourier optics”?**
-#
-# - This part is *only* estimating **modal delay spread** (a guided-wave / ray-optics quantity).
-# - Fourier optics enters when you ask: “what speckle grain size do I see in the sample plane?” (set by $\mathrm{NA}_{\mathrm{illum}}$).
-
-# %%
-delta_opl_exact_m = optical_path_spread_geometric_step_index_m(
-    length_m=fiber.length_m, na=fiber.na, n_core=fiber.n_core
-)
-delta_opl_exact_mm = delta_opl_exact_m * 1e3
-delta_tau_exact_ps = (delta_opl_exact_m / 299_792_458.0) * 1e12
-
-pd.DataFrame(
-    [
-        {
-            "L_m": fiber.length_m,
-            "NA": fiber.na,
-            "n_core": fiber.n_core,
-            "theta_max_deg": theta_max_deg,
-            "ΔOPL_exact_mm": delta_opl_exact_mm,
-            "Δτ_exact_ps": delta_tau_exact_ps,
-        }
-    ]
-)
-
-# %% [markdown]
-# ### 3.1 Question 2b: Where does the small-angle approximation $\Delta\mathrm{OPL}\approx (\mathrm{NA}^2/(2n))L$ come from?
-#
-# Start from:
-#
+# 
+# **Small-angle approximation.** If $\theta$ is small, $\cos\theta\approx 1-\theta^2/2$, so:
+# 
 # $$
-# \Delta\mathrm{OPL} = nL\left(\frac{1}{\cos\theta_{\max}}-1\right).
+# \frac{1}{\cos\theta}-1 \approx \frac{\theta^2}{2}.
 # $$
-#
-# For small angles, $\cos\theta\approx 1-\theta^2/2$ and therefore
-# $1/\cos\theta\approx 1+\theta^2/2$.
-# So:
-#
+# 
+# With $\sin\theta\approx\theta$ and $\sin\theta_{\max}\approx \mathrm{NA}/n$:
+# 
 # $$
-# \Delta\mathrm{OPL} \approx nL\left(\frac{\theta_{\max}^2}{2}\right).
-# $$
-#
-# Using $\sin\theta_{\max}\approx \theta_{\max}\approx \mathrm{NA}/n$:
-#
-# $$
-# \Delta\mathrm{OPL} \approx nL\,\frac{1}{2}\left(\frac{\mathrm{NA}}{n}\right)^2
+# \Delta\mathrm{OPL} \approx nL\,\frac{\theta_{\max}^2}{2}
+# \approx nL\,\frac{1}{2}\left(\frac{\mathrm{NA}}{n}\right)^2
 # = \frac{\mathrm{NA}^2}{2n}\,L.
 # $$
-#
-# Below we quantify the approximation error for realistic NAs.
+# 
+# **Interpretation:**
+# 
+# - Larger **NA** means you guide higher-angle rays/modes → longer zig-zag paths → larger delay spread.
+# - Longer **L** gives more accumulated delay spread.
+# - Larger **n** makes the internal angles smaller (for the same NA), reducing the spread.
 
 # %%
-def delta_opl_small_angle_m(*, length_m: float, na: float, n_core: float) -> float:
-    return (na * na) * length_m / (2.0 * n_core)
+# Exact geometric expression using theta_max
+opl_spread_exact_m = optical_path_spread_geometric_step_index_m(length_m=fiber.length_m, na=fiber.na, n_core=fiber.n_core)
 
-
-na_grid = np.linspace(0.05, 0.50, 200)
-exact = np.array(
-    [optical_path_spread_geometric_step_index_m(length_m=1.0, na=na, n_core=fiber.n_core) for na in na_grid]
-)
-approx = np.array([delta_opl_small_angle_m(length_m=1.0, na=na, n_core=fiber.n_core) for na in na_grid])
-rel_err = (approx - exact) / exact
-
-fig, ax = plt.subplots(figsize=(7.5, 4.2))
-ax.plot(na_grid, 100 * rel_err)
-ax.axvline(fiber.na, linestyle="--", alpha=0.6)
-ax.set_title("Small-angle ΔOPL approximation error (L=1 m, n=1.46)")
-ax.set_xlabel("Fiber NA")
-ax.set_ylabel("Relative error [%]  (approx - exact)/exact")
-ax.grid(True, alpha=0.3)
-plt.show()
-
-# %% [markdown]
-# **Takeaway:** for NA≈0.22 the small-angle form is a very good approximation (≈2% error or better),
-# and the scaling $\Delta\mathrm{OPL}\propto L\,\mathrm{NA}^2/n$ is robust.
-
-# %% [markdown]
-# ## 4) Question 3: Why is $\Delta\lambda_c \sim \lambda_0^2/\Delta\mathrm{OPL}$?
-#
-# The underlying idea is **phase decorrelation**.
-#
-# Consider two interfering paths with optical path difference $\Delta\mathrm{OPL}$.
-# Their relative phase is:
-#
-# $$
-# \phi(\lambda) = \frac{2\pi\,\Delta\mathrm{OPL}}{\lambda}.
-# $$
-#
-# If you change wavelength by a small amount $\delta\lambda$, the phase changes by:
-#
-# $$
-# \delta\phi \approx \left|\frac{\mathrm{d}\phi}{\mathrm{d}\lambda}\right|\delta\lambda
-# = \frac{2\pi\,\Delta\mathrm{OPL}}{\lambda^2}\,\delta\lambda.
-# $$
-#
-# A common “decorrelation condition” is $\delta\phi\sim 2\pi$.
-# Solving for $\delta\lambda$ gives:
-#
-# $$
-# \Delta\lambda_c \sim \frac{\lambda_0^2}{\Delta\mathrm{OPL}}.
-# $$
-#
-# Notes:
-#
-# - This is an **order-of-magnitude** relationship. Depending on the exact definition of “correlation width”
-#   and the statistics of the path delays, there can be O(1) constants.
-# - The important part is the scaling: larger $\Delta\mathrm{OPL}$ → smaller $\Delta\lambda_c$ → more spectral diversity.
-
-# %%
-dlam_c_nm = speckle_spectral_corr_width_nm(lambda0_nm=lambda0_nm, delta_opl_m=delta_opl_exact_m)
+# Small-angle approximation: ΔOPL ≈ (NA^2/(2n)) L
+opl_spread_small_angle_m = (fiber.na * fiber.na) * fiber.length_m / (2.0 * fiber.n_core)
 
 pd.DataFrame(
     [
         {
-            "lambda0_nm": lambda0_nm,
-            "ΔOPL_mm": delta_opl_exact_m * 1e3,
-            "Δλ_c_nm": dlam_c_nm,
-            "Δλ_src/Δλ_c for 2nm": 2.0 / dlam_c_nm,
-            "Δλ_src/Δλ_c for 5nm": 5.0 / dlam_c_nm,
+            "ΔOPL_exact_m": opl_spread_exact_m,
+            "ΔOPL_small_angle_m": opl_spread_small_angle_m,
+            "ratio_exact/small": opl_spread_exact_m / opl_spread_small_angle_m,
+            "ΔOPL_exact_mm": 1e3 * opl_spread_exact_m,
         }
     ]
 )
 
 # %% [markdown]
-# ### 4.1 Visual intuition: $\phi(\lambda)$ is *steep* when $\Delta\mathrm{OPL}$ is large
-#
-# The plot below draws $\phi(\lambda)$ for the 3 m fiber case and highlights $\Delta\lambda_c$ as the
-# wavelength change required to accumulate ~2π phase shift.
+# ### 5.1 How accurate is the small-angle approximation for NA=0.22?
+# 
+# It matters because the “0.008 nm” number ultimately depends on $\Delta\mathrm{OPL}$.
+# 
+# The good news: for NA≈0.22 in silica, it’s a **few-percent** effect.
 
 # %%
-lam = np.linspace(lambda0_nm - 0.05, lambda0_nm + 0.05, 800)  # nm (tiny span)
-phi = 2 * math.pi * delta_opl_exact_m / (lam * 1e-9)  # radians
+na_grid = np.linspace(0.05, 0.40, 80)
+ratios = []
+for na in na_grid:
+    exact = optical_path_spread_geometric_step_index_m(length_m=fiber.length_m, na=float(na), n_core=fiber.n_core)
+    approx = (na * na) * fiber.length_m / (2.0 * fiber.n_core)
+    ratios.append(exact / approx)
 
-# Pick a reference mod 2π for plotting (otherwise huge numbers)
-phi_mod = np.mod(phi, 2 * math.pi)
-
-fig, ax = plt.subplots(figsize=(7.5, 4.2))
-ax.plot(lam, phi_mod, linewidth=2)
-ax.axvline(lambda0_nm, linestyle="--", alpha=0.6)
-ax.axvline(lambda0_nm + dlam_c_nm, linestyle=":", alpha=0.9)
-ax.set_title("Relative phase modulo 2π vs wavelength (schematic)")
-ax.set_xlabel("Wavelength [nm]")
-ax.set_ylabel("φ mod 2π [rad]")
+fig, ax = plt.subplots(figsize=(7.8, 4.2))
+ax.plot(na_grid, ratios)
+ax.axvline(fiber.na, linestyle="--", alpha=0.6)
+ax.set_title("Exact ΔOPL / small-angle ΔOPL vs NA (L fixed)")
+ax.set_xlabel("Fiber NA")
+ax.set_ylabel("ratio")
 ax.grid(True, alpha=0.3)
-ax.text(lambda0_nm + dlam_c_nm, 1.0, "  Δλ_c", va="center")
 plt.show()
 
 # %% [markdown]
-# ## 5) Whiteboard line: $\Delta\lambda/\lambda = \Delta f/f$ and coherence length
-#
-# On the whiteboard you had (for 640 nm and ~2 nm):
-#
-# - $\Delta\lambda/\lambda \approx 2/640 = 1/320$
-#
-# Since $f=c/\lambda$, a small-signal change gives:
-#
+# ## 6) Step 3: why $\Delta\lambda_c \sim \lambda^2/\Delta\mathrm{OPL}$?
+# 
+# Here is the “single sentence” physics:
+# 
+# - The speckle pattern depends on **relative phases** between many guided contributions.
+# - Changing wavelength changes those phases.
+# - Once the phase differences have shifted by **~2π** across the relevant delay spread, the interference pattern is effectively unrelated.
+# 
+# A standard decorrelation condition is:
+# 
 # $$
-# \frac{\Delta f}{f} \approx \frac{\Delta\lambda}{\lambda}.
+# \Delta k\,\Delta\mathrm{OPL} \sim 2\pi,\qquad k=2\pi/\lambda.
 # $$
-#
-# And the absolute frequency bandwidth is:
-#
+# 
+# For a small change $\Delta\lambda$:
+# 
 # $$
-# \Delta f \equiv \Delta\nu \approx \frac{c\,\Delta\lambda}{\lambda^2}.
+# \Delta k \approx \left|\frac{\mathrm{d}}{\mathrm{d}\lambda}\left(\frac{2\pi}{\lambda}\right)\right|\Delta\lambda
+# = \frac{2\pi}{\lambda^2}\,\Delta\lambda.
 # $$
-#
-# The coherence time is roughly the inverse bandwidth (up to a profile-dependent constant),
-# and the coherence length is $L_c = c\,\tau_c$ (vacuum-equivalent optical path length).
-#
-# In this repo we use common approximations:
-#
-# - Gaussian spectrum: $\Delta\nu_{\mathrm{FWHM}}\,\tau_{c,\mathrm{FWHM}}\approx 0.44$
-# - Lorentzian spectrum: $\tau_c\approx 1/(\pi\Delta\nu)$
-#
-# Below we compute the Gaussian numbers (matches the whiteboard order-of-magnitude).
+# 
+# Plugging into $\Delta k\,\Delta\mathrm{OPL} \sim 2\pi$:
+# 
+# $$
+# \frac{2\pi}{\lambda^2}\,\Delta\lambda_c\,\Delta\mathrm{OPL} \sim 2\pi
+# \;\Rightarrow\;
+# \Delta\lambda_c \sim \frac{\lambda^2}{\Delta\mathrm{OPL}}.
+# $$
+# 
+# ### Key intuition
+# 
+# - Bigger delay spread $\Delta\mathrm{OPL}$ ⇒ you need a *smaller* wavelength change to scramble phases ⇒ smaller $\Delta\lambda_c$.
+# - This is why **meter-scale step-index MMFs** can easily give **0.01 nm-scale** decorrelation widths.
 
 # %%
-def coherence_summary(lambda0_nm: float, fwhm_nm: float) -> dict[str, float]:
-    dnu_hz = delta_nu_hz_from_delta_lambda_nm(lambda0_nm=lambda0_nm, delta_lambda_nm=fwhm_nm)
-    tau_s = coherence_time_s_from_linewidth_nm(lambda0_nm=lambda0_nm, fwhm_nm=fwhm_nm, profile="gaussian")
-    lc_m = coherence_length_m_from_linewidth_nm(lambda0_nm=lambda0_nm, fwhm_nm=fwhm_nm, profile="gaussian")
-    return {
-        "lambda0_nm": lambda0_nm,
-        "FWHM_nm": fwhm_nm,
-        "Δν_THz": dnu_hz * 1e-12,
-        "τc_ps (Gaussian)": tau_s * 1e12,
-        "Lc_mm (vacuum eq.)": lc_m * 1e3,
-    }
+dlam_c_nm = speckle_spectral_corr_width_nm(lambda0_nm=lambda0_nm, delta_opl_m=opl_spread_exact_m)
 
-
-df_coh = pd.DataFrame([coherence_summary(lambda0_nm, lw) for lw in [0.01, 0.1, 0.5, 2.0, 5.0, 20.0]])
-df_coh
+pd.DataFrame(
+    [
+        {
+            "ΔOPL_mm": opl_spread_exact_m * 1e3,
+            "Δλ_c_nm": dlam_c_nm,
+        }
+    ]
+)
 
 # %% [markdown]
-# ### 5.1 Compare coherence length to the fiber's intermodal spread
-#
-# There are two equivalent ways to think about whether linewidth “kills coherence between modes”:
-#
-# 1. **Delay picture**: if the intermodal delay spread $\Delta\tau$ is much larger than the coherence time $\tau_c$,
-#    then mutual coherence between distant modes is near zero.
-# 2. **Spectral correlation picture**: if the source spectrum spans many $\Delta\lambda_c$ bins, speckle averages down.
-#
-# They are consistent because:
-#
+# ## 7) The 0.01 nm question (the discrete picture)
+# 
+# You said you want a concrete mental model for:
+# 
+# > “Why do two spikes separated by ~0.01 nm give unrelated speckle?”
+# 
+# A really compact derivation is to look at how much the **relative phase** changes.
+# 
+# Consider a guided contribution with optical path length $\mathrm{OPL}_k$.
+# Its phase is:
+# 
 # $$
-# \Delta\lambda_c \sim \lambda^2/\Delta\mathrm{OPL},\qquad
-# L_c \sim \lambda^2/\Delta\lambda.
+# \phi_k(\lambda)=\frac{2\pi\,\mathrm{OPL}_k}{\lambda}.
 # $$
-#
-# The first tells you how the **fiber** sets a correlation width; the second tells you how the **source**
-# sets a coherence length.
+# 
+# For a small wavelength shift $\delta\lambda$:
+# 
+# $$
+# \delta\phi_k \approx \left|\frac{\mathrm{d}\phi_k}{\mathrm{d}\lambda}\right|\delta\lambda
+# = \frac{2\pi\,\mathrm{OPL}_k}{\lambda^2}\,\delta\lambda.
+# $$
+# 
+# The key is the **spread** of these phase changes across the guided set.
+# If the paths span $\Delta\mathrm{OPL}$, then the phase swing across the set is approximately:
+# 
+# $$
+# \delta\phi_{\max} \approx \frac{2\pi\,\Delta\mathrm{OPL}}{\lambda^2}\,\delta\lambda
+# = 2\pi\,\frac{\delta\lambda}{\Delta\lambda_c}.
+# $$
+# 
+# So:
+# 
+# - If $\delta\lambda = \Delta\lambda_c$, you get $\delta\phi_{\max}\approx 2\pi$.
+# - If $\delta\lambda > \Delta\lambda_c$, you get *more than* a full cycle of relative phase spread.
+# 
+# That’s exactly the “two spikes give independent speckle” statement.
 
 # %%
-delta_tau_ps = delta_tau_exact_ps
-rows = []
-for lw in [0.5, 2.0, 5.0, 20.0]:
-    tau_c_ps = coherence_time_s_from_linewidth_nm(lambda0_nm=lambda0_nm, fwhm_nm=lw, profile="gaussian") * 1e12
-    lc_mm = coherence_length_m_from_linewidth_nm(lambda0_nm=lambda0_nm, fwhm_nm=lw, profile="gaussian") * 1e3
-    rows.append(
+# Evaluate delta-phi swing across the spread for a few delta-lambda values.
+delta_lams_nm = np.array([0.002, 0.005, 0.008, 0.01, 0.02, 0.05], dtype=float)
+
+delta_phi_max_rad = 2.0 * math.pi * (delta_lams_nm / dlam_c_nm)
+
+pd.DataFrame(
+    {
+        "δλ_nm": delta_lams_nm,
+        "Δλ_c_nm": dlam_c_nm,
+        "δλ/Δλ_c": delta_lams_nm / dlam_c_nm,
+        "δφ_max_rad": delta_phi_max_rad,
+        "δφ_max/(2π)": delta_phi_max_rad / (2.0 * math.pi),
+    }
+)
+
+# %% [markdown]
+# ### 7.1 Plot: phase swing vs δλ
+# 
+# This is a very direct “why 0.01 nm matters” plot.
+
+# %%
+fig, ax = plt.subplots(figsize=(7.8, 4.2))
+ax.plot(delta_lams_nm, delta_phi_max_rad / (2.0 * math.pi), marker="o")
+ax.axhline(1.0, linestyle="--", alpha=0.7, label="1 cycle (2π)")
+ax.axvline(dlam_c_nm, linestyle=":", alpha=0.9, label="δλ = Δλ_c")
+ax.set_title("Relative phase swing across ΔOPL vs wavelength separation")
+ax.set_xlabel("δλ [nm]")
+ax.set_ylabel("δφ_max / (2π)  (cycles)")
+ax.grid(True, alpha=0.3)
+ax.legend(loc="upper left")
+plt.show()
+
+# %% [markdown]
+# ## 8) Toy speckle simulation: same modes, different λ → decorrelation
+# 
+# The SVG diagrams show the concept; here we make it *feel real* with a small simulation.
+# 
+# We use the repo’s “disk-basis modes” as a surrogate for real fiber modes:
+# 
+# $$
+# U(x,y;\lambda) = \sum_{k=1}^{M} a_k\,u_k(x,y)\,e^{i\,2\pi\,\Delta\mathrm{OPL}_k/\lambda}.
+# $$
+# 
+# Notes:
+# 
+# - The spatial patterns $u_k(x,y)$ are fixed.
+# - The coupling coefficients $a_k$ are fixed.
+# - Only the wavelength-dependent phase factors change.
+# 
+# We assign each mode a random delay offset $\Delta\mathrm{OPL}_k$ spanning $[0,\Delta\mathrm{OPL}]$.
+# This is not an exact physical distribution, but it is enough to demonstrate the key scaling.
+
+# %%
+# Make a small grid representing the fiber core.
+# (Speed/readability tradeoff: keep n_grid modest.)
+n_grid = 151
+core_radius_um = fiber.core_diameter_um / 2.0
+x_um, y_um, mask, dx_um = make_core_grid(n=n_grid, core_radius_um=core_radius_um)
+
+# Build a moderate number of modes.
+# More modes -> "more speckly" near-field, but also slower.
+# This is just for intuition.
+rng = np.random.default_rng(0)
+
+modes = disk_mode_indices(max_l=10, max_m=10, include_sin=True)
+# Take the first N modes (deterministic order) for reproducibility.
+N_MODES = 80
+modes = modes[:N_MODES]
+
+mode_stack = precompute_mode_stack(modes, x_um=x_um, y_um=y_um, core_radius_um=core_radius_um, mask=mask)
+
+# Fixed complex coupling coefficients.
+coeffs0 = random_complex_coeffs(n_modes=mode_stack.shape[0], seed=1)
+
+# Random per-mode delay offsets spanning the estimated ΔOPL.
+# (Vacuum-equivalent; only relative offsets matter.)
+delta_opl_k_m = rng.uniform(0.0, opl_spread_exact_m, size=mode_stack.shape[0])
+
+
+def speckle_intensity_for_lambda_nm(lambda_nm: float) -> np.ndarray:
+    """Return normalized near-field intensity at the fiber output for wavelength lambda_nm."""
+    lam_m = float(lambda_nm) * 1e-9
+    phase = np.exp(1j * (2.0 * math.pi * (delta_opl_k_m / lam_m)))
+    coeffs = coeffs0 * phase
+    u = superpose_modes(mode_stack, coeffs)
+    I = intensity_from_field(u)
+    I = np.where(mask, I, np.nan)
+    return I / float(np.nanmean(I))
+
+
+def corrcoef_in_mask(a: np.ndarray, b: np.ndarray) -> float:
+    aa = np.asarray(a)[mask].ravel()
+    bb = np.asarray(b)[mask].ravel()
+    return float(np.corrcoef(aa, bb)[0, 1])
+
+
+# Quick sanity: contrast should be near 1 for a fully developed speckle-like pattern.
+I0 = speckle_intensity_for_lambda_nm(lambda0_nm)
+C0 = speckle_contrast(np.nan_to_num(I0, nan=0.0), mask)
+C0
+
+# %% [markdown]
+# ### 8.1 Two wavelengths side-by-side
+# 
+# We pick a few separations around the predicted $\Delta\lambda_c$ and show correlation.
+
+# %%
+separations_nm = [0.0, 0.002, 0.005, float(dlam_c_nm), 0.01, 0.02]
+
+fig, axes = plt.subplots(2, 3, figsize=((10.8, 6.8))
+)
+axes = axes.ravel()
+
+for ax, dnm in zip(axes, separations_nm):
+    I_a = speckle_intensity_for_lambda_nm(lambda0_nm)
+    I_b = speckle_intensity_for_lambda_nm(lambda0_nm + dnm)
+    corr = corrcoef_in_mask(I_a, I_b)
+
+    # Show the *difference* map to make decorrelation obvious.
+    D = I_b - I_a
+    im = ax.imshow(D, origin="lower")
+    ax.set_title(f"δλ={dnm:.3f} nm\n corr={corr:.2f}")
+    ax.set_xticks([])
+    ax.set_yticks([])
+
+fig.suptitle("Toy model: wavelength decorrelation of MMF speckle (difference image)")
+fig.colorbar(im, ax=axes.tolist(), shrink=0.8, label="I(λ+δλ) - I(λ)")
+plt.show()
+
+# %% [markdown]
+# ### 8.2 Correlation curve vs δλ
+# 
+# This is the closest thing to a “proof by picture” that $\Delta\lambda_c$ is the right scale.
+
+# %%
+delta_grid_nm = np.concatenate(
+    [
+        np.linspace(0.0, 0.02, 41),
+        np.linspace(0.02, 0.12, 31)[1:],
+    ]
+)
+
+I_ref = speckle_intensity_for_lambda_nm(lambda0_nm)
+
+corrs = []
+for dnm in delta_grid_nm:
+    I_d = speckle_intensity_for_lambda_nm(lambda0_nm + float(dnm))
+    corrs.append(corrcoef_in_mask(I_ref, I_d))
+
+corrs = np.array(corrs)
+
+fig, ax = plt.subplots(figsize=(7.8, 4.2))
+ax.plot(delta_grid_nm, corrs, marker=".")
+ax.axvline(dlam_c_nm, linestyle="--", alpha=0.7, label=f"Δλ_c (formula) = {dlam_c_nm:.4f} nm")
+ax.set_title("Toy speckle model: corr(I(λ), I(λ+δλ))")
+ax.set_xlabel("δλ [nm]")
+ax.set_ylabel("Correlation coefficient")
+ax.grid(True, alpha=0.3)
+ax.legend(loc="upper right")
+plt.show()
+
+# %% [markdown]
+# ## 9) Interactive: move δλ and watch the pattern change
+# 
+# This is intentionally “mechanical”: a slider that flips between precomputed δλ values.
+# 
+# - Left: intensity at $\lambda_0$
+# - Right: intensity at $\lambda_0+\delta\lambda$
+# - Title shows the correlation
+# 
+# You can add more frames (more δλ samples) if you want finer control.
+
+# %%
+# Precompute a handful of δλ frames.
+delta_frames_nm = [0.0, 0.002, 0.005, float(dlam_c_nm), 0.01, 0.02, 0.05]
+
+I_A = speckle_intensity_for_lambda_nm(lambda0_nm)
+
+# Create initial data for δλ=0
+I_B0 = speckle_intensity_for_lambda_nm(lambda0_nm + delta_frames_nm[0])
+
+fig = make_subplots(
+    rows=1,
+    cols=2,
+    subplot_titles=("I(λ0)", "I(λ0 + δλ)"),
+    horizontal_spacing=0.06,
+)
+
+heat0 = go.Heatmap(z=np.where(mask, I_A, np.nan), colorscale="Viridis", showscale=False)
+heat1 = go.Heatmap(z=np.where(mask, I_B0, np.nan), colorscale="Viridis", showscale=False)
+
+fig.add_trace(heat0, row=1, col=1)
+fig.add_trace(heat1, row=1, col=2)
+
+# Build frames
+frames = []
+for dnm in delta_frames_nm:
+    I_B = speckle_intensity_for_lambda_nm(lambda0_nm + float(dnm))
+    corr = corrcoef_in_mask(I_A, I_B)
+    frames.append(
+        go.Frame(
+            data=[
+                go.Heatmap(z=np.where(mask, I_A, np.nan), colorscale="Viridis", showscale=False),
+                go.Heatmap(z=np.where(mask, I_B, np.nan), colorscale="Viridis", showscale=False),
+            ],
+            name=f"{dnm:.4f}",
+            layout=go.Layout(
+                title_text=f"Toy MMF speckle vs wavelength: δλ={dnm:.4f} nm   corr={corr:.3f}   (Δλ_c≈{dlam_c_nm:.4f} nm)",
+            ),
+        )
+    )
+
+fig.frames = frames
+
+# Slider
+steps = []
+for dnm in delta_frames_nm:
+    steps.append(
         {
-            "FWHM_nm": lw,
-            "τc_ps": tau_c_ps,
-            "Lc_mm (vac eq.)": lc_mm,
-            "fiber Δτ_ps": delta_tau_ps,
-            "Δτ/τc": delta_tau_ps / tau_c_ps,
-            "fiber ΔOPL_mm": delta_opl_exact_mm,
-            "ΔOPL/Lc": delta_opl_exact_mm / lc_mm,
+            "label": f"{dnm:.4f}",
+            "method": "animate",
+            "args": [[f"{dnm:.4f}"], {"frame": {"duration": 0, "redraw": True}, "mode": "immediate"}],
         }
     )
 
-pd.DataFrame(rows)
+fig.update_layout(
+    title_text="Toy MMF speckle vs wavelength",
+    sliders=[{"active": 0, "pad": {"t": 40}, "steps": steps, "currentvalue": {"prefix": "δλ [nm] = "}}],
+    margin=dict(l=20, r=20, t=80, b=20),
+)
+
+# Make both subplots square-ish and hide axes.
+fig.update_xaxes(visible=False)
+fig.update_yaxes(visible=False, scaleanchor="x", scaleratio=1)
+
+fig
 
 # %% [markdown]
-# **Takeaway:** for a 3 m step-index-ish fiber, $\Delta\mathrm{OPL}$ is **tens of millimeters**.
-# Even a 0.5 nm linewidth has coherence length $\ll 1$ mm, so extreme modes are mutually incoherent.
-#
-# That is why $\Delta\lambda_c$ comes out tiny (≈0.01 nm scale).
-
-# %% [markdown]
-# ## 6) From $\Delta\lambda_c$ to speckle contrast $C$ (and what assumptions are hidden)
-#
-# The simplest “spectral averaging” model is:
-#
-# - Each independent wavelength bin produces a statistically independent speckle intensity pattern $I_k(\mathbf{r})$.
-# - The detected intensity is the **incoherent sum**:
-#
+# ## 10) From Δλ_c to predicted speckle contrast C
+# 
+# This is the “engineering step”:
+# 
+# - If the spectrum contains $N_\lambda$ **independent** speckle patterns *within the exposure*,
+#   then in the best-case (equal weights),
+# 
 # $$
-# I(\mathbf{r}) = \sum_{k=1}^{N} w_k\, I_k(\mathbf{r}),\qquad \sum_k w_k = 1.
+# C \approx \frac{1}{\sqrt{N_\lambda}}.
 # $$
-#
-# For fully developed speckle, each $I_k$ has $\mathrm{Var}(I_k)=\langle I_k\rangle^2$.
-# If the patterns are independent, then:
-#
+# 
+# A more general statement uses an effective number of patterns:
+# 
 # $$
-# C \equiv \frac{\sigma_I}{\langle I\rangle}
-# \approx \sqrt{\sum_k w_k^2}
-# = \frac{1}{\sqrt{N_{\mathrm{eff}}}},
+# N_{\mathrm{eff}} \equiv \frac{1}{\sum_k w_k^2},\qquad C\approx \frac{1}{\sqrt{N_{\mathrm{eff}}}},
 # $$
-#
-# where:
-#
-# $$
-# N_{\mathrm{eff}} \equiv \frac{1}{\sum_k w_k^2}.
-# $$
-#
-# **The big assumptions:**
-#
-# 1. The bins are separated by more than $\Delta\lambda_c$ (independent patterns).
-# 2. The spectrum is present **simultaneously within one exposure**.
-# 3. Polarization is either fixed or already folded into the model (we ignore it here).
-# 4. “Fully developed speckle” is a good approximation at the plane you care about.
-#
-# Next we compute the optimistic upper bound where the spectrum is continuous and “fills” the band.
+# 
+# where $w_k$ are normalized spectral weights.
 
 # %%
 def predicted_contrast_equal_bins(*, source_span_nm: float, corr_width_nm: float) -> float:
+    """Upper-bound prediction: spectrum fills the span with equal-weight independent bins."""
     if source_span_nm <= 0:
         return 1.0
     n_bins = max(1, int(math.ceil(source_span_nm / corr_width_nm)))
@@ -518,13 +744,10 @@ df_C = pd.DataFrame(rows)
 df_C
 
 # %% [markdown]
-# ### 6.1 Plot: predicted $C$ vs linewidth for this fiber
-#
-# This is the cleanest “engineering curve” to bring to the meeting:
-# it shows what the step-index modal delay estimate *predicts* if the spectrum is truly present within 500 µs.
+# ### 10.1 Plot: predicted C vs instantaneous linewidth (for this fiber)
 
 # %%
-fig, ax = plt.subplots(figsize=(7.5, 4.2))
+fig, ax = plt.subplots(figsize=(7.8, 4.2))
 ax.semilogx(df_C["Δλ_src_nm"], df_C["C_pred (equal bins)"], marker="o")
 ax.axhline(0.10, linestyle="--", alpha=0.7, label="C=0.10")
 ax.axhline(0.05, linestyle=":", alpha=0.9, label="C=0.05")
@@ -536,37 +759,101 @@ ax.legend(loc="upper right")
 plt.show()
 
 # %% [markdown]
-# ## 7) The “gotcha”: what is the *instantaneous* span within 500 µs?
-#
-# Notebook 13 already framed this as scenarios (best-case continuum vs few discrete modes vs time-averaged hopping).
-# For the staff scientist meeting, what matters is that your key requirement is:
-#
-# > Within one 500 µs exposure, the illumination must contain **many mutually incoherent spectral components**.
-#
-# A useful way to ask the vendor / lab is:
-#
-# - “How many longitudinal modes lase **simultaneously**?” (not just over seconds)
-# - “What is the mode spacing?”
-# - “Is the quoted linewidth an *instantaneous* linewidth or an OSA time-average?”
-#
-# ### Back-of-envelope: Fabry–Perot diode mode spacing
-#
-# For a simple cavity of length $L_{\mathrm{cav}}$ and effective index $n$:
-#
+# ## 11) Coherence time / length sanity checks
+# 
+# Sometimes it is easier to reason in the time domain.
+# 
+# For small fractional bandwidths, a handy conversion is:
+# 
 # $$
-# \Delta\nu_{\mathrm{FSR}} \approx \frac{c}{2nL_{\mathrm{cav}}}.
+# \Delta\nu \approx \frac{c\,\Delta\lambda}{\lambda^2}.
 # $$
-#
-# Converting to wavelength spacing:
-#
+# 
+# And (order-of-magnitude):
+# 
 # $$
+# \tau_c\sim \frac{1}{\Delta\nu},\qquad L_c=c\tau_c.
+# $$
+# 
+# If the intermodal delay spread $\Delta\tau$ is much larger than $\tau_c$, interference averages away.
+# 
+# **Caution:** this does *not* replace the speckle-correlation-width picture; it’s an additional sanity check.
+
+# %%
+# Convert Δλ=2 nm at 640 nm to Δν, τ_c, L_c
+example_dlam_nm = 2.0
+
+example_dnu_hz = delta_nu_hz_from_delta_lambda_nm(lambda0_nm=lambda0_nm, delta_lambda_nm=example_dlam_nm)
+example_tau_c_s = coherence_time_s_from_linewidth_nm(lambda0_nm=lambda0_nm, linewidth_nm=example_dlam_nm)
+example_Lc_m = coherence_length_m_from_linewidth_nm(lambda0_nm=lambda0_nm, linewidth_nm=example_dlam_nm)
+
+# Fiber intermodal delay spread Δτ = ΔOPL / c
+C_M_PER_S = 299_792_458.0
+fiber_delta_tau_s = opl_spread_exact_m / C_M_PER_S
+
+pd.DataFrame(
+    [
+        {
+            "Δλ_nm": example_dlam_nm,
+            "Δν_GHz": example_dnu_hz / 1e9,
+            "τ_c_ps": example_tau_c_s * 1e12,
+            "L_c_mm": example_Lc_m * 1e3,
+            "fiber_Δτ_ps (from ΔOPL/c)": fiber_delta_tau_s * 1e12,
+        }
+    ]
+)
+
+# %% [markdown]
+# ## 12) Step-index vs graded-index: the `modal_delay_scale` knob
+# 
+# Many “homogenizing fibers” are not truly step-index; they can be graded-index (GI), which reduces modal dispersion.
+# 
+# In `src.mmf_fiber_speckle`, we represent this uncertainty with:
+# 
+# - `modal_delay_scale = 1` → step-index-like (large dispersion)
+# - `modal_delay_scale << 1` → GI-like (reduced dispersion)
+# 
+# In the scaling, smaller `modal_delay_scale` → smaller $\Delta\mathrm{OPL}$ → larger $\Delta\lambda_c$ → fewer independent patterns.
+# 
+# This section quantifies how sensitive the conclusion is to that knob.
+
+# %%
+scales = [1.0, 0.3, 0.1, 0.03]
+
+rows = []
+for s in scales:
+    delta_opl_m = s * opl_spread_exact_m
+    dlam_nm = speckle_spectral_corr_width_nm(lambda0_nm=lambda0_nm, delta_opl_m=delta_opl_m)
+    rows.append(
+        {
+            "modal_delay_scale": s,
+            "ΔOPL_mm": delta_opl_m * 1e3,
+            "Δλ_c_nm": dlam_nm,
+            "Nλ for 2 nm span": int(math.ceil(2.0 / dlam_nm)),
+            "C_pred (2 nm, equal bins)": predicted_contrast_equal_bins(source_span_nm=2.0, corr_width_nm=dlam_nm),
+        }
+    )
+
+pd.DataFrame(rows)
+
+# %% [markdown]
+# ## 13) The gotcha: “instantaneous linewidth” vs OSA linewidth
+# 
+# For your use-case, what matters is the spectrum present **simultaneously** within a single exposure.
+# 
+# A good vendor / lab question is:
+# 
+# - “How many longitudinal modes lase **at once**?” (not just over seconds)
+# 
+# A simple cavity free-spectral-range estimate (Fabry–Perot-like cavity):
+# 
+# $$
+# \Delta\nu_{\mathrm{FSR}} \approx \frac{c}{2nL_{\mathrm{cav}}},\qquad
 # \Delta\lambda_{\mathrm{FSR}} \approx \frac{\lambda^2}{2nL_{\mathrm{cav}}}.
 # $$
-#
-# For $L_{\mathrm{cav}}\sim 0.3$–$1\,\mathrm{mm}$ and $\lambda\sim 640\,\mathrm{nm}$,
-# the spacing is typically **0.02–0.2 nm**, so a 2 nm envelope could contain **~10–100 modes**.
-#
-# That is consistent with why broad-area / multimode diodes often show a few nm linewidth on an OSA.
+# 
+# For $L_{\mathrm{cav}}\sim 0.3$–$1\,\mathrm{mm}$ and $\lambda\sim 640\,\mathrm{nm}$, the spacing is often
+# **0.02–0.2 nm**, so a 2 nm envelope could contain **~10–100 modes**.
 
 # %%
 def fsr_spacing_nm(*, lambda0_nm: float, n_cav: float, L_cav_um: float) -> float:
@@ -578,104 +865,67 @@ def fsr_spacing_nm(*, lambda0_nm: float, n_cav: float, L_cav_um: float) -> float
 cavity_um = np.array([200, 300, 500, 800, 1200, 2000], dtype=float)
 spacing = np.array([fsr_spacing_nm(lambda0_nm=lambda0_nm, n_cav=3.5, L_cav_um=L) for L in cavity_um])
 
-df_fsr = pd.DataFrame({"L_cav_um": cavity_um, "Δλ_FSR_nm (n=3.5)": spacing})
-df_fsr
+pd.DataFrame({"L_cav_um": cavity_um, "Δλ_FSR_nm (n=3.5)": spacing})
 
 # %% [markdown]
-# ## 8) Where the lab screenshots fit (TOPTICA BAL / OsTech systems)
-#
-# The screenshots from the lab discussion were essentially pointing to a common “pump laser” ecosystem:
-#
-# - **Broad-area / multimode diode lasers** often have **2–5 nm** spectral width.
-# - They can show a **flat-ish nearfield** (many transverse modes) and are designed to deliver high power
-#   into **multimode fibers**.
-#
-# For your use-case, the *physics* requirement is not “diode vs DPSS”, but:
-#
-# 1. linewidth (instantaneous span) in the 2–5 nm range (or more),
-# 2. stable multimode operation (many longitudinal modes present at once),
-# 3. enough power at 640 nm (≈2 W class to leave margin after losses),
-# 4. a coupling format that matches your delivery plan (free-space into MMF, or FC/PC fiber-coupled),
-# 5. acceptable intensity noise (RIN) on 500 µs exposures.
-#
-# In other words: the screenshots are plausibility evidence that “2–5 nm linewidth at multi-watt power”
-# is a *normal* product category, not exotic.
-
-# %% [markdown]
-# ## 9) Multifocus / multi-beam note: why partial coherence can help
-#
-# If your multifocus approach creates multiple beamlets that overlap on the sample,
-# high temporal coherence can produce unwanted **interference fringes** between beamlets.
-#
-# A simple criterion:
-#
-# - If the optical path difference between two interfering beams is $\Delta\mathrm{OPL}_{\mathrm{beams}}$,
-#   fringes have high visibility only if $\Delta\mathrm{OPL}_{\mathrm{beams}} \lesssim L_c$.
-#
-# With a few-nm linewidth at 640 nm, $L_c$ is on the order of **0.1 mm** (vacuum-equivalent),
-# so any beamlet-path differences larger than that suppress stable fringes.
-#
-# This is conceptually the same as the MMF speckle argument: more bandwidth → shorter coherence length → less interference.
-
-# %% [markdown]
-# ## 10) Staff-scientist meeting checklist (practical)
-#
+# ## 14) Meeting checklist (practical)
+# 
 # Bring these to the meeting:
-#
+# 
 # ### A) Your parameter-to-prediction chain (one page)
-# - Fiber: (L, NA, n) → $\Delta\mathrm{OPL}$ → $\Delta\lambda_c$.
-# - Laser: “instantaneous” $\Delta\lambda_{\mathrm{src}}$ → $N_\lambda \approx \Delta\lambda_{\mathrm{src}}/\Delta\lambda_c$ → $C\approx 1/\sqrt{N_\lambda}$.
-#
-# ### B) Assumptions to explicitly validate
-# 1. Is the fiber really step-index-like in modal dispersion? (If it is strongly GI, effective $\Delta\mathrm{OPL}$ is smaller.)
-# 2. Is the source spectrum truly multi-mode simultaneously on 500 µs timescales?
-# 3. Are there other diversity channels you are accidentally getting (polarization, angle diversity)?
-# 4. Is the illumination plane you care about “fully developed speckle”, or are you in a near-field regime with different statistics?
-#
-# ### C) “Sharp” questions (not fluffy)
-# - “What measurement would you trust to decide whether the 2–3 nm is instantaneous on 500 µs?”
+# - Fiber: (L, NA, n, step-index-ness) → $\Delta\mathrm{OPL}$ → $\Delta\lambda_c$.
+# - Laser: instantaneous $\Delta\lambda_{\mathrm{src}}$ → $N_\lambda\approx \Delta\lambda_{\mathrm{src}}/\Delta\lambda_c$ → $C\approx 1/\sqrt{N_\lambda}$.
+# 
+# ### B) Assumptions to validate explicitly
+# 1. Is the fiber step-index-like in modal dispersion? (If strongly GI, effective $\Delta\mathrm{OPL}$ is smaller.)
+# 2. Is the source spectrum truly multi-mode *simultaneously* on 500 μs timescales?
+# 3. Are there other diversity channels you get “for free” (polarization, angle diversity)?
+# 4. Is your observation plane fully developed speckle or a near-field regime with different statistics?
+# 
+# ### C) “Sharp” questions
+# - “What measurement would you trust to decide whether the 2–3 nm is instantaneous on 500 μs?”
 # - “Given NA=0.22 and L=3 m, does ΔOPL≈50 mm seem right to you? If not, why?”
-# - “If the spectrum has ~20 lines and one dominates 50%, what contrast would you expect?” (points to weight sensitivity)
-# - “Would you expect strong wavelength-dependent nearfield structure from a broad-area diode into a 400 µm MMF?”
-#
-# If the meeting ends with a measurement plan (even a crude one), it is a win.
+# - “If the spectrum has ~20 lines and one dominates 50%, what contrast would you expect?” (points to weighting sensitivity)
+# - “Would you expect strong wavelength-dependent near-field structure from a broad-area diode into a 400 μm MMF?”
+# 
+# If the meeting ends with a measurement plan (even crude), it is a win.
 
 # %% [markdown]
-# ## Appendix: one-line formulas (for your notes)
-#
+# ## Appendix: one-line formulas
+# 
 # **Internal max guided meridional angle** (inside core):
-#
+# 
 # $$
 # \sin\theta_{\max} \approx \mathrm{NA}/n.
 # $$
-#
+# 
 # **Geometric intermodal optical-path spread** (step-index upper bound):
-#
+# 
 # $$
 # \Delta\mathrm{OPL} = nL\left(\frac{1}{\cos\theta_{\max}}-1\right)
 # \approx \frac{\mathrm{NA}^2}{2n}\,L.
 # $$
-#
+# 
 # **Speckle spectral correlation width**:
-#
+# 
 # $$
 # \Delta\lambda_c \sim \lambda^2/\Delta\mathrm{OPL}.
 # $$
-#
+# 
 # **Independent spectral bins** (optimistic continuum):
-#
+# 
 # $$
 # N_\lambda \approx \Delta\lambda_{\mathrm{src}}/\Delta\lambda_c.
 # $$
-#
+# 
 # **Speckle contrast** (equal weights):
-#
+# 
 # $$
 # C \approx 1/\sqrt{N_\lambda}.
 # $$
-#
+# 
 # **Bandwidth conversion**:
-#
+# 
 # $$
 # \Delta\nu \approx \frac{c\,\Delta\lambda}{\lambda^2},\qquad
 # \tau_c \sim 1/\Delta\nu,\qquad

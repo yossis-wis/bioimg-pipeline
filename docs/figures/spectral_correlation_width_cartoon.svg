@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="280" viewBox="0 0 900 280">
+  <title>Spectral correlation width cartoon (ρ(δλ) falls over Δλ_c)</title>
+
+  <defs>
+    <style>
+      .axis  { stroke: #000; stroke-width: 2; fill: none; }
+      .curve { stroke: #000; stroke-width: 2.5; fill: none; }
+      .thin  { stroke: #000; stroke-width: 1.2; fill: none; }
+      .dash  { stroke-dasharray: 6 4; }
+      .label { font-family: sans-serif; font-size: 16px; fill: #000; }
+      .small { font-family: sans-serif; font-size: 13px; fill: #000; }
+    </style>
+  </defs>
+
+  <text class="label" x="40" y="26">Spectral correlation: how far do you move in wavelength before the speckle changes?</text>
+
+  <!-- Axes -->
+  <line class="axis" x1="90" y1="210" x2="860" y2="210"/>
+  <polygon points="860,210 848,204 848,216" fill="#000"/>
+  <text class="small" x="845" y="235">δλ</text>
+
+  <line class="axis" x1="90" y1="210" x2="90" y2="60"/>
+  <polygon points="90,60 84,72 96,72" fill="#000"/>
+  <text class="small" x="30" y="70">ρ</text>
+
+  <!-- Correlation curve (schematic) -->
+  <path class="curve" d="M 90 80
+                         C 210 85, 300 120, 360 160
+                         C 420 200, 520 210, 860 210"/>
+  <text class="small" x="120" y="98">ρ(δλ) = corr(I(λ), I(λ+δλ))</text>
+
+  <!-- Mark Δλ_c -->
+  <line class="thin dash" x1="360" y1="210" x2="360" y2="165"/>
+  <text class="small" x="335" y="232">Δλ_c</text>
+
+  <!-- Reference levels -->
+  <line class="thin dash" x1="90" y1="160" x2="860" y2="160"/>
+  <text class="small" x="96" y="154">~0.5</text>
+
+  <line class="thin dash" x1="90" y1="210" x2="860" y2="210"/>
+  <text class="small" x="96" y="205">0</text>
+
+  <!-- Interpretation -->
+  <text class="small" x="90" y="265">Rule of thumb: if two narrow spikes are separated by δλ ≳ Δλ_c, their speckle patterns are effectively independent (ρ ≈ 0).</text>
+</svg>
