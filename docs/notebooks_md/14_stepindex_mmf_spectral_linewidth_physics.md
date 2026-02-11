@@ -849,8 +849,8 @@ If the intermodal delay spread $\Delta\tau$ is much larger than $\tau_c$, interf
 example_dlam_nm = 2.0
 
 example_dnu_hz = delta_nu_hz_from_delta_lambda_nm(lambda0_nm=lambda0_nm, delta_lambda_nm=example_dlam_nm)
-example_tau_c_s = coherence_time_s_from_linewidth_nm(lambda0_nm=lambda0_nm, linewidth_nm=example_dlam_nm)
-example_Lc_m = coherence_length_m_from_linewidth_nm(lambda0_nm=lambda0_nm, linewidth_nm=example_dlam_nm)
+example_tau_c_s = coherence_time_s_from_linewidth_nm(lambda0_nm=lambda0_nm, fwhm_nm=example_dlam_nm)
+example_Lc_m = coherence_length_m_from_linewidth_nm(lambda0_nm=lambda0_nm, fwhm_nm=example_dlam_nm)
 
 # Fiber intermodal delay spread Δτ = ΔOPL / c
 C_M_PER_S = 299_792_458.0
