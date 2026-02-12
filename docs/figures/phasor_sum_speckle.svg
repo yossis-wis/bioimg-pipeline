@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="340" viewBox="0 0 900 340">
+  <title>Phasor sum: many guided contributions add as complex vectors</title>
+
+  <defs>
+    <style>
+      .axis { stroke: #000; stroke-width: 2; fill: none; }
+      .thin { stroke: #000; stroke-width: 1.2; fill: none; }
+      .dash { stroke-dasharray: 6 4; }
+      .phasor { stroke: #000; stroke-width: 2.4; fill: none; }
+      .sum { stroke: #000; stroke-width: 3.0; fill: none; }
+      .label { font-family: sans-serif; font-size: 16px; fill: #000; }
+      .small { font-family: sans-serif; font-size: 13px; fill: #000; }
+      .eq { font-family: sans-serif; font-size: 15px; fill: #000; }
+    </style>
+  </defs>
+
+  <text class="label" x="40" y="26">Phasor sum picture of speckle (one output pixel)</text>
+  <rect class="thin" x="40" y="44" width="420" height="260"/>
+  <text class="small" x="54" y="68">Each mode contributes a complex phasor</text>
+  <line class="thin dash" x1="125" y1="180" x2="375" y2="180"/>
+  <line class="thin dash" x1="250" y1="55" x2="250" y2="305"/>
+  <circle class="thin" cx="250" cy="180" r="95"/>
+  <line class="phasor" x1="250" y1="180" x2="330.34371907719515" y2="150.75727774565533"/>
+  <polygon points="330.34371907719515,150.75727774565533 322.3148734426387,157.93624966205564 319.57871229603336,150.4187086957684" fill="#000"/>
+  <line class="phasor" x1="250" y1="180" x2="304.47361094521796" y2="218.14283301734457"/>
+  <polygon points="304.47361094521796,218.14283301734457 293.9877847569239,215.68367683099007 298.57639624773225,209.13046047667814" fill="#000"/>
+  <line class="phasor" x1="250" y1="180" x2="230.50485183043688" y2="233.56247938479677"/>
+  <polygon points="230.50485183043688,233.56247938479677 230.16628278054995,222.79747260363501 237.6838237468372,225.53363375024037" fill="#000"/>
+  <line class="phasor" x1="250" y1="180" x2="191.7806223229577" y2="131.148141663823"/>
+  <polygon points="191.7806223229577,131.148141663823 202.01221719289362,134.51183998821247 196.86991631540133,140.6401955331643" fill="#000"/>
+  <line class="phasor" x1="250" y1="180" x2="205.36460051266937" y2="196.24595680796926"/>
+  <polygon points="205.36460051266937,196.24595680796926 213.39344614722577,189.06698489156895 216.12960729383113,196.5845258578562" fill="#000"/>
+  <line class="phasor" x1="250" y1="180" x2="271.11974385036007" y2="121.97398066647017"/>
+  <polygon points="271.11974385036007,121.97398066647017 271.458312900247,132.73898744763193 263.94077193395975,130.00282630102657" fill="#000"/>
+  <line class="sum" x1="250" y1="180" x2="276.8697188310697" y2="157.46453542884728"/>
+  <polygon points="276.8697188310697,157.46453542884728 270.8883735295367,169.00678427315097 264.4623226642125,161.34480866132174" fill="#000"/>
+  <text class="small" x="284.8697188310697" y="157.46453542884728">U = Σ U_k</text>
+  <rect class="thin" x="480" y="44" width="380" height="260"/>
+  <text class="small" x="494" y="68">Why tiny phase changes matter</text>
+  <text class="eq" x="500" y="110">Field at one pixel:  U(λ) = Σ_k a_k · e^{ i φ_k(λ) }</text>
+  <text class="eq" x="500" y="134">Intensity:           I(λ) = |U(λ)|²</text>
+  <text class="eq" x="500" y="174.8">Phase of mode k:     φ_k(λ) = 2π · OPL_k / λ</text>
+  <text class="eq" x="500" y="215.60000000000002">Change λ ⇒ every φ_k changes ⇒ every phasor rotates.</text>
+  <text class="eq" x="500" y="239.60000000000002">If the rotation across the mode delays spans ~2π,</text>
+  <text class="eq" x="500" y="263.6">the phasor sum becomes effectively “new” ⇒ new speckle.</text>
+</svg>
