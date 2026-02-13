@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="260" viewBox="0 0 900 260">
+  <title>Phasor step 3: interference is vector addition</title>
+  <defs>
+    <style>
+      .axis { stroke: #000; stroke-width: 2; fill: none; }
+      .thin { stroke: #000; stroke-width: 1.2; fill: none; }
+      .dash { stroke-dasharray: 6 4; }
+      .vec { stroke: #000; stroke-width: 2.8; fill: none; }
+      .sum { stroke: #000; stroke-width: 3.2; fill: none; }
+      .label { font-family: sans-serif; font-size: 16px; fill: #000; }
+      .small { font-family: sans-serif; font-size: 13px; fill: #000; }
+      .eq { font-family: sans-serif; font-size: 15px; fill: #000; }
+    </style>
+  </defs>
+
+  <text class="label" x="40" y="28">Phasor step 3: interference = add complex arrows, then take |sum|²</text>
+
+  <!-- Axes -->
+  <line class="axis" x1="170" y1="150" x2="730" y2="150"/>
+  <polygon points="730,150 718,144 718,156" fill="#000"/>
+  <text class="small" x="740" y="155">Re</text>
+
+  <line class="axis" x1="450" y1="220" x2="450" y2="60"/>
+  <polygon points="450,60 444,72 456,72" fill="#000"/>
+  <text class="small" x="460" y="58">Im</text>
+
+  <!-- U1 from origin -->
+  <line class="vec" x1="450" y1="150" x2="520" y2="120"/>
+  <polygon points="520,120 509,123 516,131" fill="#000"/>
+  <text class="small" x="528" y="122">U₁</text>
+
+  <!-- U2 from tip of U1 -->
+  <line class="vec" x1="520" y1="120" x2="560" y2="175"/>
+  <polygon points="560,175 552,166 545,171" fill="#000"/>
+  <text class="small" x="568" y="178">U₂</text>
+
+  <!-- Resultant U = U1 + U2 -->
+  <line class="sum" x1="450" y1="150" x2="560" y2="175"/>
+  <polygon points="560,175 547,175 553,164" fill="#000"/>
+  <text class="small" x="570" y="170">U = U₁ + U₂</text>
+
+  <!-- light dashed helper -->
+  <line class="thin dash" x1="520" y1="120" x2="520" y2="150"/>
+  <line class="thin dash" x1="450" y1="150" x2="520" y2="150"/>
+
+  <text class="eq" x="40" y="240">Field:  U = Σ_k U_k     Intensity:  I = |U|²</text>
+</svg>

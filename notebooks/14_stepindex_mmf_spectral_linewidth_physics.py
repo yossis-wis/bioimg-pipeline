@@ -666,56 +666,110 @@ else:
 
 # %% [markdown]
 # ## Interlude: what are $k$ and “phasors” (just enough for Step 3)
-# 
+#
 # Step 3 often feels like it comes out of nowhere because a few *optics shorthand* ideas appear suddenly.
-# This interlude is meant to make those explicit.
-# 
-# ### What is $k$?
-# 
+# This interlude is meant to make those explicit — **slowly**, with pictures that build one concept at a time.
+#
+# ---
+#
+# ### What is $k$? (3 pictures)
+#
+# **Picture 1 — wavelength $\lambda$ sets the spatial period**
+#
+# ![](../docs/figures/k_wavenumber_step1_wavelength.svg)
+#
+# **Picture 2 — define wavenumber $k$: “phase advance per meter”**
+#
+# ![](../docs/figures/k_wavenumber_step2_k_definition.svg)
+#
+# **Picture 3 — phase is $k$ times optical path length (OPL)**
+#
+# ![](../docs/figures/k_wavenumber_step3_phase_opl.svg)
+#
+# Key takeaways:
+#
+# - $k(\lambda) \equiv 2\pi/\lambda$ (units: rad/m) is the **spatial frequency** of the optical carrier.
+# - Optical phase along a path is $\phi(\lambda)=k(\lambda)\,\mathrm{OPL}$, where $\mathrm{OPL}=\int n\,ds$ (meters).
+# - So changing wavelength changes $k$, and therefore changes phase.
+#
+# <details>
+# <summary>Optional: one “all-in-one” summary diagram for <i>k</i></summary>
+#
 # ![](../docs/figures/k_wavenumber_definition.svg)
-# 
-# - The **wavenumber** $k$ is the spatial frequency of the optical carrier.
-# - In free space (vacuum wavelength $\lambda$):
-# 
-# $$
-# k \equiv \frac{2\pi}{\lambda}\quad\text{(units: rad/m).}
-# $$
-# 
-# - A 1D monochromatic wave can be written as:
-# 
-# $$
-# E(x) = \mathrm{Re}\{U\,e^{i k x}\}.
-# $$
-# 
-# Here **$U$ is a complex amplitude** (a “phasor”), and $\mathrm{Re}\{\cdot\}$ means “take the real part”.
-# 
-# ### What is a phasor?
-# 
+#
+# </details>
+#
+# ---
+#
+# ### What is a phasor? (3 pictures)
+#
+# **Picture 1 — a complex amplitude as an arrow**
+#
+# ![](../docs/figures/phasor_step1_complex_arrow.svg)
+#
+# **Picture 2 — changing phase rotates the arrow**
+#
+# ![](../docs/figures/phasor_step2_phase_rotation.svg)
+#
+# **Picture 3 — interference is vector addition, and intensity is $|\cdot|^2$**
+#
+# ![](../docs/figures/phasor_step3_vector_addition.svg)
+#
+# Key takeaways:
+#
+# - A **phasor** is just a complex number: $U=a\,e^{i\phi}$.
+# - The physical (real) field is the real part: $E(x)=\mathrm{Re}\{U\,e^{ikx}\}$.
+# - Interference is **adding phasors**. The measured intensity is proportional to $|U|^2$.
+#
+# <details>
+# <summary>Optional: one “all-in-one” summary diagram for <i>phasors</i></summary>
+#
 # ![](../docs/figures/phasor_definition.svg)
-# 
-# A **phasor** is just a complex number drawn as a 2D arrow:
-# 
-# $$
-# U = a\,e^{i\phi}.
-# $$
-# 
-# - length $a$ = amplitude
-# - angle $\phi$ = phase
-# 
-# The reason phasors are useful is that **interference is vector addition** in the complex plane.
-# 
+#
+# </details>
+#
+# ---
+#
 # ### Why does this matter for MMF speckle?
-# 
-# ![](../docs/figures/phasor_sum_speckle.svg)
-# 
+#
+# **Picture 1 — many modes → many phasors**
+#
+# ![](../docs/figures/speckle_step1_many_phasors.svg)
+#
+# **Picture 2 — the phasor sum sets intensity**
+#
+# ![](../docs/figures/speckle_step2_sum_sets_intensity.svg)
+#
+# **Picture 3 — change wavelength → rotate phasors → change the sum (new speckle)**
+#
+# ![](../docs/figures/speckle_step3_lambda_rotates_phasors.svg)
+#
 # In a multimode fiber, at a given output pixel you can think:
-# 
+#
 # $$
 # U(\lambda)=\sum_k a_k\,e^{i\phi_k(\lambda)},\qquad I(\lambda)=|U(\lambda)|^2.
 # $$
-# 
+#
 # Changing wavelength changes $k=2\pi/\lambda$, which changes every $\phi_k$, which rotates every phasor.
 # Step 3 is just the statement: *how big must Δλ be before those rotations “scramble” the sum?*
+#
+# <details>
+# <summary>Optional: one “all-in-one” summary diagram for the speckle phasor picture</summary>
+#
+# ![](../docs/figures/phasor_sum_speckle.svg)
+#
+# </details>
+#
+# ---
+#
+# ### If you want a better *visual* intuition (external links)
+#
+# These are excellent animated explanations (not required, but often a faster way to “see” what’s going on):
+#
+# - [Complex number fundamentals (3Blue1Brown)](https://www.3blue1brown.com/lessons/ldm-complex-numbers)
+# - [What is Euler’s formula actually saying? (3Blue1Brown)](https://www.3blue1brown.com/lessons/ldm-eulers-formula)
+# - [But what is the Fourier Transform? (3Blue1Brown)](https://www.3blue1brown.com/lessons/fourier-transforms)
+#
 
 # %%
 # Toy phasor-sum picture: same paths, different wavelengths
@@ -1473,5 +1527,6 @@ pd.DataFrame({"L_cav_um": cavity_um, "Δλ_FSR_nm (n=3.5)": spacing})
 # \tau_c \sim 1/\Delta\nu,\qquad
 # L_c = c\tau_c.
 # $$
+
 
 

@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="240" viewBox="0 0 900 240">
+  <title>Phasor step 1: a complex number as an arrow (magnitude + angle)</title>
+  <defs>
+    <style>
+      .axis { stroke: #000; stroke-width: 2; fill: none; }
+      .thin { stroke: #000; stroke-width: 1.2; fill: none; }
+      .dash { stroke-dasharray: 6 4; }
+      .vec { stroke: #000; stroke-width: 2.8; fill: none; }
+      .label { font-family: sans-serif; font-size: 16px; fill: #000; }
+      .small { font-family: sans-serif; font-size: 13px; fill: #000; }
+      .eq { font-family: sans-serif; font-size: 15px; fill: #000; }
+    </style>
+  </defs>
+
+  <text class="label" x="40" y="28">Phasor step 1: represent a complex amplitude U as an arrow in the complex plane</text>
+
+  <!-- Axes -->
+  <line class="axis" x1="170" y1="150" x2="730" y2="150"/>
+  <polygon points="730,150 718,144 718,156" fill="#000"/>
+  <text class="small" x="740" y="155">Re</text>
+
+  <line class="axis" x1="450" y1="210" x2="450" y2="60"/>
+  <polygon points="450,60 444,72 456,72" fill="#000"/>
+  <text class="small" x="460" y="58">Im</text>
+
+  <!-- Circle (constant magnitude) -->
+  <circle class="thin" cx="450" cy="150" r="70"/>
+  <text class="small" x="528" y="146">radius = a</text>
+
+  <!-- Vector -->
+  <line class="vec" x1="450" y1="150" x2="503" y2="103"/>
+  <polygon points="503,103 492,107 499,115" fill="#000"/>
+  <text class="small" x="510" y="108">U</text>
+
+  <!-- Angle arc -->
+  <path class="thin" d="M 485 150 A 35 35 0 0 0 476 129"/>
+  <text class="small" x="492" y="132">φ</text>
+
+  <text class="eq" x="40" y="220">U = a · e^{iφ}   (a = magnitude, φ = angle)</text>
+</svg>

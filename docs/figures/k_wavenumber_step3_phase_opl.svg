@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="280" viewBox="0 0 900 280">
+  <title>Step 3: phase is k times optical path length (OPL)</title>
+  <defs>
+    <style>
+      .axis { stroke: #000; stroke-width: 2; fill: none; }
+      .thin { stroke: #000; stroke-width: 1.2; fill: none; }
+      .path { stroke: #000; stroke-width: 2.6; fill: none; }
+      .dash { stroke-dasharray: 6 4; }
+      .label { font-family: sans-serif; font-size: 16px; fill: #000; }
+      .small { font-family: sans-serif; font-size: 13px; fill: #000; }
+      .eq { font-family: sans-serif; font-size: 15px; fill: #000; }
+    </style>
+  </defs>
+
+  <text class="label" x="40" y="28">Step 3: phase accumulates as φ = k·OPL (OPL = ∫n ds)</text>
+
+  <!-- Left panel: two paths -->
+  <rect class="thin" x="40" y="44" width="420" height="210"/>
+  <text class="small" x="54" y="68">Different guided paths → different optical path lengths</text>
+
+  <!-- “fiber” box -->
+  <rect class="thin" x="90" y="96" width="320" height="90"/>
+  <text class="small" x="98" y="92">fiber</text>
+
+  <!-- Short (near-axial) path -->
+  <line class="path" x1="100" y1="120" x2="400" y2="120"/>
+  <text class="small" x="108" y="112">short path</text>
+
+  <!-- Long (higher-angle) path -->
+  <polyline class="path" points="100,170 160,135 220,170 280,135 340,170 400,135"/>
+  <text class="small" x="108" y="198">longer path (more bounces)</text>
+
+  <!-- output facet -->
+  <line class="thin dash" x1="410" y1="96" x2="410" y2="186"/>
+  <text class="small" x="416" y="142">output</text>
+
+  <!-- Right panel: formulas -->
+  <rect class="thin" x="480" y="44" width="380" height="210"/>
+  <text class="small" x="494" y="68">Key relations</text>
+
+  <text class="eq" x="500" y="108">OPL ≡ ∫ n(s) ds   (units: meters)</text>
+  <text class="eq" x="500" y="140">k(λ) ≡ 2π/λ   (units: rad/m)</text>
+  <text class="eq" x="500" y="172">phase:  φ(λ) = k(λ) · OPL</text>
+  <text class="eq" x="500" y="204">relative phase:  Δφ(λ) = (2π/λ) · ΔOPL</text>
+  <text class="small" x="500" y="232">This ΔOPL is what controls speckle decorrelation in Step 3.</text>
+</svg>

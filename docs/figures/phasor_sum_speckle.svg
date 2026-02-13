@@ -34,7 +34,7 @@
   <polygon points="271.11974385036007,121.97398066647017 271.458312900247,132.73898744763193 263.94077193395975,130.00282630102657" fill="#000"/>
   <line class="sum" x1="250" y1="180" x2="276.8697188310697" y2="157.46453542884728"/>
   <polygon points="276.8697188310697,157.46453542884728 270.8883735295367,169.00678427315097 264.4623226642125,161.34480866132174" fill="#000"/>
-  <text class="small" x="284.8697188310697" y="157.46453542884728">U = Σ U_k</text>
+  <text class="small" x="292" y="142">U = Σ U_k</text>
   <rect class="thin" x="480" y="44" width="380" height="260"/>
   <text class="small" x="494" y="68">Why tiny phase changes matter</text>
   <text class="eq" x="500" y="110">Field at one pixel:  U(λ) = Σ_k a_k · e^{ i φ_k(λ) }</text>
@@ -44,3 +44,4 @@
   <text class="eq" x="500" y="239.60000000000002">If the rotation across the mode delays spans ~2π,</text>
   <text class="eq" x="500" y="263.6">the phasor sum becomes effectively “new” ⇒ new speckle.</text>
 </svg>
+

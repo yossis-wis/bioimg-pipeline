@@ -697,45 +697,81 @@ else:
 ## Interlude: what are $k$ and “phasors” (just enough for Step 3)
 
 Step 3 often feels like it comes out of nowhere because a few *optics shorthand* ideas appear suddenly.
-This interlude is meant to make those explicit.
+This interlude is meant to make those explicit — **slowly**, with pictures that build one concept at a time.
 
-### What is $k$?
+---
+
+### What is $k$? (3 pictures)
+
+**Picture 1 — wavelength $\lambda$ sets the spatial period**
+
+![](../figures/k_wavenumber_step1_wavelength.svg)
+
+**Picture 2 — define wavenumber $k$: “phase advance per meter”**
+
+![](../figures/k_wavenumber_step2_k_definition.svg)
+
+**Picture 3 — phase is $k$ times optical path length (OPL)**
+
+![](../figures/k_wavenumber_step3_phase_opl.svg)
+
+Key takeaways:
+
+- $k(\lambda) \equiv 2\pi/\lambda$ (units: rad/m) is the **spatial frequency** of the optical carrier.
+- Optical phase along a path is $\phi(\lambda)=k(\lambda)\,\mathrm{OPL}$, where $\mathrm{OPL}=\int n\,ds$ (meters).
+- So changing wavelength changes $k$, and therefore changes phase.
+
+<details>
+<summary>Optional: one “all-in-one” summary diagram for <i>k</i></summary>
 
 ![](../figures/k_wavenumber_definition.svg)
 
-- The **wavenumber** $k$ is the spatial frequency of the optical carrier.
-- In free space (vacuum wavelength $\lambda$):
+</details>
 
-$$
-k \equiv \frac{2\pi}{\lambda}\quad\text{(units: rad/m).}
-$$
+---
 
-- A 1D monochromatic wave can be written as:
+### What is a phasor? (3 pictures)
 
-$$
-E(x) = \mathrm{Re}\{U\,e^{i k x}\}.
-$$
+**Picture 1 — a complex amplitude as an arrow**
 
-Here **$U$ is a complex amplitude** (a “phasor”), and $\mathrm{Re}\{\cdot\}$ means “take the real part”.
+![](../figures/phasor_step1_complex_arrow.svg)
 
-### What is a phasor?
+**Picture 2 — changing phase rotates the arrow**
+
+![](../figures/phasor_step2_phase_rotation.svg)
+
+**Picture 3 — interference is vector addition, and intensity is $|\cdot|^2$**
+
+![](../figures/phasor_step3_vector_addition.svg)
+
+Key takeaways:
+
+- A **phasor** is just a complex number: $U=a\,e^{i\phi}$.
+- The physical (real) field is the real part: $E(x)=\mathrm{Re}\{U\,e^{ikx}\}$.
+- Interference is **adding phasors**. The measured intensity is proportional to $|U|^2$.
+
+<details>
+<summary>Optional: one “all-in-one” summary diagram for <i>phasors</i></summary>
 
 ![](../figures/phasor_definition.svg)
 
-A **phasor** is just a complex number drawn as a 2D arrow:
+</details>
 
-$$
-U = a\,e^{i\phi}.
-$$
-
-- length $a$ = amplitude
-- angle $\phi$ = phase
-
-The reason phasors are useful is that **interference is vector addition** in the complex plane.
+---
 
 ### Why does this matter for MMF speckle?
 
-![](../figures/phasor_sum_speckle.svg)
+**Picture 1 — many modes → many phasors**
+
+![](../figures/speckle_step1_many_phasors.svg)
+
+**Picture 2 — the phasor sum sets intensity**
+
+![](../figures/speckle_step2_sum_sets_intensity.svg)
+
+**Picture 3 — change wavelength → rotate phasors → change the sum (new speckle)**
+
+![](../figures/speckle_step3_lambda_rotates_phasors.svg)
 
 In a multimode fiber, at a given output pixel you can think:
 
@@ -745,6 +781,24 @@ $$
 
 Changing wavelength changes $k=2\pi/\lambda$, which changes every $\phi_k$, which rotates every phasor.
 Step 3 is just the statement: *how big must Δλ be before those rotations “scramble” the sum?*
+
+<details>
+<summary>Optional: one “all-in-one” summary diagram for the speckle phasor picture</summary>
+
+![](../figures/phasor_sum_speckle.svg)
+
+</details>
+
+---
+
+### If you want a better *visual* intuition (external links)
+
+These are excellent animated explanations (not required, but often a faster way to “see” what’s going on):
+
+- [Complex number fundamentals (3Blue1Brown)](https://www.3blue1brown.com/lessons/ldm-complex-numbers)
+- [What is Euler’s formula actually saying? (3Blue1Brown)](https://www.3blue1brown.com/lessons/ldm-eulers-formula)
+- [But what is the Fourier Transform? (3Blue1Brown)](https://www.3blue1brown.com/lessons/fourier-transforms)
+
 
 <details>
 <summary>Code cell 8</summary>

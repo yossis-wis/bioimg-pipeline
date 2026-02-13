@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="240" viewBox="0 0 900 240">
+  <title>Phasor step 2: changing phase rotates the arrow</title>
+  <defs>
+    <style>
+      .axis { stroke: #000; stroke-width: 2; fill: none; }
+      .thin { stroke: #000; stroke-width: 1.2; fill: none; }
+      .dash { stroke-dasharray: 6 4; }
+      .vec { stroke: #000; stroke-width: 2.8; fill: none; }
+      .label { font-family: sans-serif; font-size: 16px; fill: #000; }
+      .small { font-family: sans-serif; font-size: 13px; fill: #000; }
+      .eq { font-family: sans-serif; font-size: 15px; fill: #000; }
+    </style>
+  </defs>
+
+  <text class="label" x="40" y="28">Phasor step 2: changing phase rotates the phasor on its circle</text>
+
+  <!-- Axes -->
+  <line class="axis" x1="170" y1="150" x2="730" y2="150"/>
+  <polygon points="730,150 718,144 718,156" fill="#000"/>
+  <text class="small" x="740" y="155">Re</text>
+
+  <line class="axis" x1="450" y1="210" x2="450" y2="60"/>
+  <polygon points="450,60 444,72 456,72" fill="#000"/>
+  <text class="small" x="460" y="58">Im</text>
+
+  <circle class="thin" cx="450" cy="150" r="70"/>
+
+  <!-- U at phase φ -->
+  <line class="vec" x1="450" y1="150" x2="507" y2="112"/>
+  <polygon points="507,112 496,115 503,123" fill="#000"/>
+  <text class="small" x="516" y="115">U(φ)</text>
+
+  <!-- U at phase φ+Δφ -->
+  <line class="vec" x1="450" y1="150" x2="492" y2="88"/>
+  <polygon points="492,88 482,94 490,100" fill="#000"/>
+  <text class="small" x="500" y="86">U(φ+Δφ)</text>
+
+  <!-- Arc showing Δφ -->
+  <path class="thin" d="M 491 123 A 45 45 0 0 1 484 105"/>
+  <text class="small" x="505" y="104">Δφ</text>
+
+  <text class="eq" x="40" y="220">U(φ+Δφ) = U(φ) · e^{iΔφ}  (multiplying by e^{iΔφ} is a rotation)</text>
+</svg>
