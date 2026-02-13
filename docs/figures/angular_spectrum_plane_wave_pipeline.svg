@@ -1,0 +1,117 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="460" viewBox="0 0 900 460">
+  <title>Angular-spectrum / plane-wave picture of MMF speckle: input field → angles → phase accumulation → output field</title>
+
+  <defs>
+    <style>
+      .box   { stroke: #000; stroke-width: 2; fill: none; }
+      .thin  { stroke: #000; stroke-width: 1.2; fill: none; }
+      .dash  { stroke-dasharray: 6 4; opacity: 0.35; }
+      .arrow { stroke: #000; stroke-width: 2.2; fill: none; }
+      .label { font-family: Arial, Helvetica, sans-serif; font-size: 16px; fill: #000; }
+      .eq    { font-family: Arial, Helvetica, sans-serif; font-size: 15px; fill: #000; }
+      .small { font-family: Arial, Helvetica, sans-serif; font-size: 13px; fill: #000; }
+      .speck { fill: #000; opacity: 0.8; }
+    </style>
+  </defs>
+
+  <!-- INPUT FIELD (near field) -->
+  <rect class="box" x="60" y="80" width="160" height="160"/>
+  <text class="label" x="60" y="55">Input facet</text>
+  <text class="eq" x="72" y="105">U<tspan baseline-shift="sub">in</tspan>(x,y)</text>
+
+  <!-- A few "dots" to hint at a complex field pattern -->
+  <circle class="speck" cx="90" cy="125" r="2"/>
+  <circle class="speck" cx="130" cy="160" r="3"/>
+  <circle class="speck" cx="175" cy="140" r="2"/>
+  <circle class="speck" cx="115" cy="205" r="2"/>
+  <circle class="speck" cx="190" cy="205" r="3"/>
+  <circle class="speck" cx="155" cy="190" r="2"/>
+  <circle class="speck" cx="95" cy="185" r="3"/>
+  <circle class="speck" cx="205" cy="150" r="2"/>
+
+  <!-- FFT box -->
+  <rect class="box" x="250" y="132" width="70" height="56"/>
+  <text class="label" x="270" y="166">FFT</text>
+
+  <!-- Arrow input -> FFT -->
+  <line class="arrow" x1="220" y1="160" x2="250" y2="160"/>
+  <polygon points="250,160 240,155 240,165" fill="#000"/>
+
+  <!-- ANGULAR SPECTRUM (k-space / angles) -->
+  <rect class="box" x="340" y="80" width="160" height="160"/>
+  <text class="label" x="340" y="55">Angular spectrum</text>
+  <text class="eq" x="350" y="105">A<tspan baseline-shift="sub">in</tspan>(k<tspan baseline-shift="sub">x</tspan>,k<tspan baseline-shift="sub">y</tspan>)</text>
+
+  <!-- k-space axes -->
+  <line class="thin" x1="420" y1="95" x2="420" y2="225"/>
+  <line class="thin" x1="355" y1="160" x2="485" y2="160"/>
+  <text class="small" x="488" y="164">k<tspan baseline-shift="sub">x</tspan></text>
+  <text class="small" x="424" y="92">k<tspan baseline-shift="sub">y</tspan></text>
+
+  <!-- A few plane-wave "spokes" -->
+  <line class="thin" x1="420" y1="160" x2="470" y2="125"/>
+  <line class="thin" x1="420" y1="160" x2="465" y2="190"/>
+  <line class="thin" x1="420" y1="160" x2="380" y2="120"/>
+  <line class="thin" x1="420" y1="160" x2="370" y2="195"/>
+
+  <!-- Arrow FFT -> spectrum -->
+  <line class="arrow" x1="320" y1="160" x2="340" y2="160"/>
+  <polygon points="340,160 330,155 330,165" fill="#000"/>
+
+  <!-- FIBER PROPAGATION block -->
+  <rect class="box" x="530" y="95" width="300" height="130"/>
+  <text class="label" x="530" y="55">Propagation in fiber (conceptual)</text>
+
+  <text class="small" x="542" y="120">Different internal angles → different optical path</text>
+  <text class="eq" x="542" y="145">ΔOPL(θ) = nL(1/cosθ − 1)</text>
+  <text class="eq" x="542" y="170">phase(θ) = 2π·ΔOPL(θ)/λ</text>
+  <text class="small" x="542" y="198">(plus bends/stress → mixes angles/modes)</text>
+
+  <!-- Arrow spectrum -> fiber -->
+  <line class="arrow" x1="500" y1="160" x2="530" y2="160"/>
+  <polygon points="530,160 520,155 520,165" fill="#000"/>
+
+  <!-- OUTPUT FIELD (near field) -->
+  <rect class="box" x="650" y="250" width="160" height="160"/>
+  <text class="label" x="650" y="235">Output facet</text>
+  <text class="eq" x="662" y="275">U<tspan baseline-shift="sub">out</tspan>(x,y)</text>
+
+  <!-- Speckle hint -->
+  <circle class="speck" cx="680" cy="305" r="3"/>
+  <circle class="speck" cx="720" cy="290" r="2"/>
+  <circle class="speck" cx="760" cy="318" r="4"/>
+  <circle class="speck" cx="700" cy="352" r="2"/>
+  <circle class="speck" cx="790" cy="350" r="3"/>
+  <circle class="speck" cx="740" cy="380" r="2"/>
+  <circle class="speck" cx="675" cy="385" r="4"/>
+  <circle class="speck" cx="805" cy="305" r="2"/>
+
+  <!-- Arrow fiber -> output -->
+  <path class="arrow" d="M 680 225 C 720 235, 720 240, 730 250"/>
+  <polygon points="730,250 719,248 726,238" fill="#000"/>
+
+  <!-- Re-FFT at the output -->
+  <rect class="box" x="450" y="290" width="70" height="56"/>
+  <text class="label" x="470" y="324">FFT</text>
+
+  <!-- Arrow output -> FFT -->
+  <line class="arrow" x1="650" y1="330" x2="520" y2="330"/>
+  <polygon points="520,330 530,325 530,335" fill="#000"/>
+
+  <!-- Output angular spectrum -->
+  <rect class="box" x="260" y="250" width="160" height="160"/>
+  <text class="label" x="260" y="235">Angles leaving facet</text>
+  <text class="eq" x="270" y="275">A<tspan baseline-shift="sub">out</tspan>(k<tspan baseline-shift="sub">x</tspan>,k<tspan baseline-shift="sub">y</tspan>)</text>
+
+  <line class="thin" x1="340" y1="265" x2="340" y2="395"/>
+  <line class="thin" x1="275" y1="330" x2="405" y2="330"/>
+
+  <line class="thin" x1="340" y1="330" x2="390" y2="300"/>
+  <line class="thin" x1="340" y1="330" x2="385" y2="365"/>
+  <line class="thin" x1="340" y1="330" x2="300" y2="295"/>
+  <line class="thin" x1="340" y1="330" x2="290" y2="360"/>
+
+  <!-- Note about incoherent wavelength sum -->
+  <line class="thin dash" x1="60" y1="30" x2="840" y2="30"/>
+  <text class="small" x="60" y="440">If different wavelengths are mutually incoherent:  I<tspan baseline-shift="sub">total</tspan>(x,y) = Σ<tspan baseline-shift="sub">j</tspan> |U<tspan baseline-shift="sub">out</tspan>(x,y; λ<tspan baseline-shift="sub">j</tspan>)|²</text>
+</svg>

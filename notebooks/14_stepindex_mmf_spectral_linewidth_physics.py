@@ -574,6 +574,188 @@ plt.tight_layout()
 plt.show()
 
 # %% [markdown]
+# #### 4.3.1b Angular-spectrum / plane-wave picture (your sketch)
+#
+# Your sketch is basically the **angular spectrum method** applied in a ray-like way:
+#
+# 1. Start with a complex field $U_{\mathrm{in}}(x,y)$ at the input face.
+# 2. Fourier transform it to get an angular (plane-wave) representation.
+# 3. Let different angles accumulate different phase (different optical path length).
+# 4. Inverse transform to get the exit-plane field $U_{\mathrm{out}}(x,y)$, then compute intensity $I=|U|^2$.
+#
+# The big conceptual “knob” is **basis choice**:
+#
+# - In a *uniform* medium, plane waves are eigenfunctions, so propagation is diagonal in $(k_x,k_y)$.
+# - In a *waveguide*, the guided eigenfunctions $u_m(x,y)$ are the eigenmodes, so propagation is diagonal in the mode index:
+#
+# $$
+# U_{\mathrm{out}}(x,y;\lambda)
+# =
+# \sum_m c_m(\lambda)\,u_m(x,y)\,e^{i\,\beta_m(\lambda)\,L}.
+# $$
+#
+# In high-$V$ step-index MMF, it is still useful to map “mode groups” to “families of ray angles” for intuition:
+# larger internal angle $\theta$ tends to mean larger optical path / delay.
+#
+# **Your “do we remember the rays after interference?” question:**
+#
+# Once you have the **complex field** on the output facet, $U_{\mathrm{out}}(x,y)$, you already have *all* the information
+# needed to propagate further. If you want the “bundle of leaving angles”, you simply Fourier transform again:
+#
+# $$
+# A_{\mathrm{out}}(k_x,k_y)=\mathcal{F}\{U_{\mathrm{out}}(x,y)\}.
+# $$
+#
+# That angular spectrum is the wave-optics version of “rays leaving the facet”. You can then:
+#
+# - apply a free-space propagation kernel,
+# - clip it with an objective pupil,
+# - or image the near field vs far field (different relay choices).
+#
+# Diagram (matches your mental picture):
+#
+# ![](../docs/figures/angular_spectrum_plane_wave_pipeline.svg)
+#
+# Below is a **toy** numerical example of that pipeline. It is not a step-index eigenmode solver; it is meant to connect:
+#
+# - “field at a face” $\leftrightarrow$ “distribution of angles”
+# - “angle-dependent optical path” $\rightarrow$ “phase scrambling”
+# - “exit-plane field” $\rightarrow$ “exit angles” (FFT again)
+#
+# %%
+# Toy demo: angular spectrum -> apply angle-dependent phase -> recombine.
+#
+# We include a fixed random "mixing phase" in k-space as a proxy for bends/stress-induced mode coupling.
+# The wavelength dependence comes from the angle-dependent optical path term.
+
+n_grid_as = 256
+core_radius_um_as = fiber.core_diameter_um / 2.0
+x_um_as, y_um_as, mask_as, dx_um_as = make_core_grid(n=n_grid_as, core_radius_um=core_radius_um_as)
+
+# Simple launch: flat-top amplitude, uniform phase.
+u_in = mask_as.astype(np.complex128)
+
+# k-space grid (rad/µm)
+k_axis = 2.0 * math.pi * np.fft.fftfreq(n_grid_as, d=dx_um_as)
+kx, ky = np.meshgrid(k_axis, k_axis, indexing="xy")
+k_perp = np.sqrt(kx * kx + ky * ky)
+
+na = float(fiber.na)
+n_core = float(fiber.n_core)
+
+rng = np.random.default_rng(0)
+phi_mix = rng.uniform(0.0, 2.0 * math.pi, size=(n_grid_as, n_grid_as))
+mix = np.exp(1j * phi_mix)
+
+def pupil_mask_for_lambda(lambda_nm: float) -> np.ndarray:
+    # Internal guided-angle cutoff proxy:
+    #   sin(theta) <= NA / n_core  ->  k_perp <= k0 * NA
+    lambda_um = float(lambda_nm) * 1e-3
+    k0 = 2.0 * math.pi / lambda_um
+    return (k_perp <= (k0 * na)).astype(np.float64)
+
+def propagate_one_lambda(*, lambda_nm: float, length_m: float) -> np.ndarray:
+    lambda_um = float(lambda_nm) * 1e-3
+    k0 = 2.0 * math.pi / lambda_um  # rad/µm
+    L_um = float(length_m) * 1e6
+
+    # Map k_perp to an internal-angle proxy.
+    # The clip avoids tiny negative values from floating error.
+    sin_theta = np.clip(k_perp / (n_core * k0), 0.0, 0.999999)
+    cos_theta = np.sqrt(1.0 - sin_theta * sin_theta)
+
+    # Ray-picture extra optical path relative to axial:
+    #   ΔOPL(theta) = n L (1/cos(theta) - 1)
+    delta_phi = (n_core * k0) * L_um * (1.0 / cos_theta - 1.0)
+
+    H = pupil_mask_for_lambda(lambda_nm) * mix * np.exp(1j * delta_phi)
+
+    U_in = np.fft.fft2(u_in)
+    U_out = np.fft.ifft2(U_in * H)
+    return U_out
+
+def intensity(u: np.ndarray) -> np.ndarray:
+    return u.real * u.real + u.imag * u.imag
+
+def normalize_to_core_mean(I: np.ndarray) -> np.ndarray:
+    mean = float(np.mean(I[mask_as]))
+    return I / mean if mean > 0 else I
+
+# Choose a "toy" length so decorrelation happens over ~0.1–0.5 nm.
+length_toy_m = 0.12
+lambda_a_nm = float(lambda0_nm)
+delta_lambda_nm = 0.25
+lambda_b_nm = lambda_a_nm + delta_lambda_nm
+
+u_out_a = propagate_one_lambda(lambda_nm=lambda_a_nm, length_m=length_toy_m)
+u_out_b = propagate_one_lambda(lambda_nm=lambda_b_nm, length_m=length_toy_m)
+
+I_in_n = normalize_to_core_mean(intensity(u_in))
+I_a_n = normalize_to_core_mean(intensity(u_out_a))
+I_b_n = normalize_to_core_mean(intensity(u_out_b))
+
+# Correlation vs delta-lambda (toy, fast)
+delta_lams = np.linspace(0.0, 1.0, 51)
+flat_a = I_a_n[mask_as].ravel()
+flat_a = (flat_a - float(np.mean(flat_a))) / float(np.std(flat_a))
+
+corrs = []
+for dlam in delta_lams:
+    u_tmp = propagate_one_lambda(lambda_nm=lambda_a_nm + float(dlam), length_m=length_toy_m)
+    I_tmp = normalize_to_core_mean(intensity(u_tmp))
+    flat = I_tmp[mask_as].ravel()
+    flat = (flat - float(np.mean(flat))) / float(np.std(flat))
+    corrs.append(float(np.mean(flat_a * flat)))
+
+# Show: input -> A_in -> output patterns -> A_out -> correlation curve.
+U_in_k = np.fft.fftshift(np.fft.fft2(u_in))
+U_out_k = np.fft.fftshift(np.fft.fft2(u_out_a))
+
+k_axis_s = np.fft.fftshift(k_axis)
+k_extent = [k_axis_s[0], k_axis_s[-1], k_axis_s[0], k_axis_s[-1]]
+x_extent = [x_um_as.min(), x_um_as.max(), y_um_as.min(), y_um_as.max()]
+
+fig, axes = plt.subplots(2, 3, figsize=(12.2, 7.4), constrained_layout=True)
+
+ax = axes[0, 0]
+ax.imshow(I_in_n, origin="lower", extent=x_extent)
+ax.set_title("Input intensity (flat-top launch)")
+ax.set_xlabel("x [µm]")
+ax.set_ylabel("y [µm]")
+
+ax = axes[0, 1]
+ax.imshow(np.log10(1e-12 + np.abs(U_in_k)), origin="lower", extent=k_extent)
+ax.set_title(r"$\log_{10}|A_{\mathrm{in}}(k_x,k_y)|$ (angular spectrum)")
+ax.set_xlabel(r"$k_x$ [rad/µm]")
+ax.set_ylabel(r"$k_y$ [rad/µm]")
+
+ax = axes[0, 2]
+ax.imshow(I_a_n, origin="lower", extent=x_extent)
+ax.set_title(f"Output intensity at λ={lambda_a_nm:.2f} nm")
+ax.set_xlabel("x [µm]")
+ax.set_ylabel("y [µm]")
+
+ax = axes[1, 0]
+ax.imshow(I_b_n, origin="lower", extent=x_extent)
+ax.set_title(f"Output intensity at λ={lambda_b_nm:.2f} nm (δλ={delta_lambda_nm:.2f} nm)")
+ax.set_xlabel("x [µm]")
+ax.set_ylabel("y [µm]")
+
+ax = axes[1, 1]
+ax.imshow(np.log10(1e-12 + np.abs(U_out_k)), origin="lower", extent=k_extent)
+ax.set_title(r"$\log_{10}|A_{\mathrm{out}}(k_x,k_y)|$ (angles leaving the facet)")
+ax.set_xlabel(r"$k_x$ [rad/µm]")
+ax.set_ylabel(r"$k_y$ [rad/µm]")
+
+ax = axes[1, 2]
+ax.plot(delta_lams, corrs)
+ax.set_title("Pattern correlation vs δλ (toy length)")
+ax.set_xlabel("δλ [nm]")
+ax.set_ylabel("corr [a.u.]")
+
+plt.show()
+
+# %% [markdown]
 # #### 4.3.2 Why does the toy pulse broadening plot look “spiky”?
 # 
 # The clean textbook cartoon is “a short pulse broadens into a smooth blob of width $\Delta\tau$”.
@@ -1769,6 +1951,7 @@ pd.DataFrame({"L_cav_um": cavity_um, "Δλ_FSR_nm (n=3.5)": spacing})
 # \tau_c \sim 1/\Delta\nu,\qquad
 # L_c = c\tau_c.
 # $$
+
 
 
 

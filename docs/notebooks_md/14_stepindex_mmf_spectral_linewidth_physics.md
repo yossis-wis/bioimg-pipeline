@@ -591,6 +591,194 @@ plt.show()
 
 </details>
 
+#### 4.3.1b Angular-spectrum / plane-wave picture (your sketch)
+
+Your sketch is basically the **angular spectrum method** applied in a ray-like way:
+
+1. Start with a complex field $U_{\mathrm{in}}(x,y)$ at the input face.
+2. Fourier transform it to get an angular (plane-wave) representation.
+3. Let different angles accumulate different phase (different optical path length).
+4. Inverse transform to get the exit-plane field $U_{\mathrm{out}}(x,y)$, then compute intensity $I=|U|^2$.
+
+The big conceptual “knob” is **basis choice**:
+
+- In a *uniform* medium, plane waves are eigenfunctions, so propagation is diagonal in $(k_x,k_y)$.
+- In a *waveguide*, the guided eigenfunctions $u_m(x,y)$ are the eigenmodes, so propagation is diagonal in the mode index:
+
+$$
+U_{\mathrm{out}}(x,y;\lambda)
+=
+\sum_m c_m(\lambda)\,u_m(x,y)\,e^{i\,\beta_m(\lambda)\,L}.
+$$
+
+In high-$V$ step-index MMF, it is still useful to map “mode groups” to “families of ray angles” for intuition:
+larger internal angle $\theta$ tends to mean larger optical path / delay.
+
+**Your “do we remember the rays after interference?” question:**
+
+Once you have the **complex field** on the output facet, $U_{\mathrm{out}}(x,y)$, you already have *all* the information
+needed to propagate further. If you want the “bundle of leaving angles”, you simply Fourier transform again:
+
+$$
+A_{\mathrm{out}}(k_x,k_y)=\mathcal{F}\{U_{\mathrm{out}}(x,y)\}.
+$$
+
+That angular spectrum is the wave-optics version of “rays leaving the facet”. You can then:
+
+- apply a free-space propagation kernel,
+- clip it with an objective pupil,
+- or image the near field vs far field (different relay choices).
+
+Diagram (matches your mental picture):
+
+![](../figures/angular_spectrum_plane_wave_pipeline.svg)
+
+Below is a **toy** numerical example of that pipeline. It is not a step-index eigenmode solver; it is meant to connect:
+
+- “field at a face” $\leftrightarrow$ “distribution of angles”
+- “angle-dependent optical path” $\rightarrow$ “phase scrambling”
+- “exit-plane field” $\rightarrow$ “exit angles” (FFT again)
+
+
+<details>
+<summary>Code cell 6</summary>
+
+```python
+# Toy demo: angular spectrum -> apply angle-dependent phase -> recombine.
+#
+# We include a fixed random "mixing phase" in k-space as a proxy for bends/stress-induced mode coupling.
+# The wavelength dependence comes from the angle-dependent optical path term.
+
+n_grid_as = 256
+core_radius_um_as = fiber.core_diameter_um / 2.0
+x_um_as, y_um_as, mask_as, dx_um_as = make_core_grid(n=n_grid_as, core_radius_um=core_radius_um_as)
+
+# Simple launch: flat-top amplitude, uniform phase.
+u_in = mask_as.astype(np.complex128)
+
+# k-space grid (rad/µm)
+k_axis = 2.0 * math.pi * np.fft.fftfreq(n_grid_as, d=dx_um_as)
+kx, ky = np.meshgrid(k_axis, k_axis, indexing="xy")
+k_perp = np.sqrt(kx * kx + ky * ky)
+
+na = float(fiber.na)
+n_core = float(fiber.n_core)
+
+rng = np.random.default_rng(0)
+phi_mix = rng.uniform(0.0, 2.0 * math.pi, size=(n_grid_as, n_grid_as))
+mix = np.exp(1j * phi_mix)
+
+def pupil_mask_for_lambda(lambda_nm: float) -> np.ndarray:
+    # Internal guided-angle cutoff proxy:
+    #   sin(theta) <= NA / n_core  ->  k_perp <= k0 * NA
+    lambda_um = float(lambda_nm) * 1e-3
+    k0 = 2.0 * math.pi / lambda_um
+    return (k_perp <= (k0 * na)).astype(np.float64)
+
+def propagate_one_lambda(*, lambda_nm: float, length_m: float) -> np.ndarray:
+    lambda_um = float(lambda_nm) * 1e-3
+    k0 = 2.0 * math.pi / lambda_um  # rad/µm
+    L_um = float(length_m) * 1e6
+
+    # Map k_perp to an internal-angle proxy.
+    # The clip avoids tiny negative values from floating error.
+    sin_theta = np.clip(k_perp / (n_core * k0), 0.0, 0.999999)
+    cos_theta = np.sqrt(1.0 - sin_theta * sin_theta)
+
+    # Ray-picture extra optical path relative to axial:
+    #   ΔOPL(theta) = n L (1/cos(theta) - 1)
+    delta_phi = (n_core * k0) * L_um * (1.0 / cos_theta - 1.0)
+
+    H = pupil_mask_for_lambda(lambda_nm) * mix * np.exp(1j * delta_phi)
+
+    U_in = np.fft.fft2(u_in)
+    U_out = np.fft.ifft2(U_in * H)
+    return U_out
+
+def intensity(u: np.ndarray) -> np.ndarray:
+    return u.real * u.real + u.imag * u.imag
+
+def normalize_to_core_mean(I: np.ndarray) -> np.ndarray:
+    mean = float(np.mean(I[mask_as]))
+    return I / mean if mean > 0 else I
+
+# Choose a "toy" length so decorrelation happens over ~0.1–0.5 nm.
+length_toy_m = 0.12
+lambda_a_nm = float(lambda0_nm)
+delta_lambda_nm = 0.25
+lambda_b_nm = lambda_a_nm + delta_lambda_nm
+
+u_out_a = propagate_one_lambda(lambda_nm=lambda_a_nm, length_m=length_toy_m)
+u_out_b = propagate_one_lambda(lambda_nm=lambda_b_nm, length_m=length_toy_m)
+
+I_in_n = normalize_to_core_mean(intensity(u_in))
+I_a_n = normalize_to_core_mean(intensity(u_out_a))
+I_b_n = normalize_to_core_mean(intensity(u_out_b))
+
+# Correlation vs delta-lambda (toy, fast)
+delta_lams = np.linspace(0.0, 1.0, 51)
+flat_a = I_a_n[mask_as].ravel()
+flat_a = (flat_a - float(np.mean(flat_a))) / float(np.std(flat_a))
+
+corrs = []
+for dlam in delta_lams:
+    u_tmp = propagate_one_lambda(lambda_nm=lambda_a_nm + float(dlam), length_m=length_toy_m)
+    I_tmp = normalize_to_core_mean(intensity(u_tmp))
+    flat = I_tmp[mask_as].ravel()
+    flat = (flat - float(np.mean(flat))) / float(np.std(flat))
+    corrs.append(float(np.mean(flat_a * flat)))
+
+# Show: input -> A_in -> output patterns -> A_out -> correlation curve.
+U_in_k = np.fft.fftshift(np.fft.fft2(u_in))
+U_out_k = np.fft.fftshift(np.fft.fft2(u_out_a))
+
+k_axis_s = np.fft.fftshift(k_axis)
+k_extent = [k_axis_s[0], k_axis_s[-1], k_axis_s[0], k_axis_s[-1]]
+x_extent = [x_um_as.min(), x_um_as.max(), y_um_as.min(), y_um_as.max()]
+
+fig, axes = plt.subplots(2, 3, figsize=(12.2, 7.4), constrained_layout=True)
+
+ax = axes[0, 0]
+ax.imshow(I_in_n, origin="lower", extent=x_extent)
+ax.set_title("Input intensity (flat-top launch)")
+ax.set_xlabel("x [µm]")
+ax.set_ylabel("y [µm]")
+
+ax = axes[0, 1]
+ax.imshow(np.log10(1e-12 + np.abs(U_in_k)), origin="lower", extent=k_extent)
+ax.set_title(r"$\log_{10}|A_{\mathrm{in}}(k_x,k_y)|$ (angular spectrum)")
+ax.set_xlabel(r"$k_x$ [rad/µm]")
+ax.set_ylabel(r"$k_y$ [rad/µm]")
+
+ax = axes[0, 2]
+ax.imshow(I_a_n, origin="lower", extent=x_extent)
+ax.set_title(f"Output intensity at λ={lambda_a_nm:.2f} nm")
+ax.set_xlabel("x [µm]")
+ax.set_ylabel("y [µm]")
+
+ax = axes[1, 0]
+ax.imshow(I_b_n, origin="lower", extent=x_extent)
+ax.set_title(f"Output intensity at λ={lambda_b_nm:.2f} nm (δλ={delta_lambda_nm:.2f} nm)")
+ax.set_xlabel("x [µm]")
+ax.set_ylabel("y [µm]")
+
+ax = axes[1, 1]
+ax.imshow(np.log10(1e-12 + np.abs(U_out_k)), origin="lower", extent=k_extent)
+ax.set_title(r"$\log_{10}|A_{\mathrm{out}}(k_x,k_y)|$ (angles leaving the facet)")
+ax.set_xlabel(r"$k_x$ [rad/µm]")
+ax.set_ylabel(r"$k_y$ [rad/µm]")
+
+ax = axes[1, 2]
+ax.plot(delta_lams, corrs)
+ax.set_title("Pattern correlation vs δλ (toy length)")
+ax.set_xlabel("δλ [nm]")
+ax.set_ylabel("corr [a.u.]")
+
+plt.show()
+```
+
+</details>
+
 #### 4.3.2 Why does the toy pulse broadening plot look “spiky”?
 
 The clean textbook cartoon is “a short pulse broadens into a smooth blob of width $\Delta\tau$”.
@@ -624,7 +812,7 @@ then those spikes get so dense that you mostly see a **smooth envelope** spannin
 The plots below build this up in steps: discrete delays → convolution → continuum envelope.
 
 <details>
-<summary>Code cell 6</summary>
+<summary>Code cell 7</summary>
 
 ```python
 # Cartoon: pulse broadening as convolution with a "modal delay" impulse response.
@@ -744,7 +932,7 @@ It matters because the “0.008 nm” number ultimately depends on $\Delta\mathr
 The good news: for NA≈0.22 in silica, it’s a **few‑percent** effect.
 
 <details>
-<summary>Code cell 7</summary>
+<summary>Code cell 8</summary>
 
 ```python
 na_grid = np.linspace(0.05, 0.40, 80)
@@ -777,7 +965,7 @@ The slider below lets you vary the fiber length $L$ and see:
 (If Plotly is not installed, this section will be skipped.)
 
 <details>
-<summary>Code cell 8</summary>
+<summary>Code cell 9</summary>
 
 ```python
 # Interactive: ΔOPL and Δλc vs NA for several fiber lengths
@@ -1044,7 +1232,7 @@ These are excellent animated explanations (not required, but often a faster way 
 
 
 <details>
-<summary>Code cell 9</summary>
+<summary>Code cell 10</summary>
 
 ```python
 # Toy phasor-sum picture: same paths, different wavelengths
@@ -1234,7 +1422,7 @@ A one-page scaling summary (useful for meeting notes):
 ![](../figures/delta_lambda_c_scaling.svg)
 
 <details>
-<summary>Code cell 10</summary>
+<summary>Code cell 11</summary>
 
 ```python
 # Compute the predicted spectral decorrelation width from ΔOPL
@@ -1327,7 +1515,7 @@ Another view (same math, different picture): a wavelength shift creates a **phas
 That’s exactly the “two spikes give independent speckle” statement.
 
 <details>
-<summary>Code cell 11</summary>
+<summary>Code cell 12</summary>
 
 ```python
 # Evaluate delta-phi swing across the spread for a few delta-lambda values.
@@ -1353,7 +1541,7 @@ pd.DataFrame(
 This is a very direct “why 0.01 nm matters” plot.
 
 <details>
-<summary>Code cell 12</summary>
+<summary>Code cell 13</summary>
 
 ```python
 fig, ax = plt.subplots(figsize=(7.8, 4.2))
@@ -1390,7 +1578,7 @@ We assign each mode a random delay offset $\Delta\mathrm{OPL}_k$ spanning $[0,\D
 This is not an exact physical distribution, but it is enough to demonstrate the key scaling.
 
 <details>
-<summary>Code cell 13</summary>
+<summary>Code cell 14</summary>
 
 ```python
 # Make a small grid representing the fiber core.
@@ -1449,7 +1637,7 @@ C0
 We pick a few separations around the predicted $\Delta\lambda_c$ and show correlation.
 
 <details>
-<summary>Code cell 14</summary>
+<summary>Code cell 15</summary>
 
 ```python
 separations_nm = [0.0, 0.002, 0.005, float(dlam_c_nm), 0.01, 0.02]
@@ -1482,7 +1670,7 @@ plt.show()
 This is the closest thing to a “proof by picture” that $\Delta\lambda_c$ is the right scale.
 
 <details>
-<summary>Code cell 15</summary>
+<summary>Code cell 16</summary>
 
 ```python
 delta_grid_nm = np.concatenate(
@@ -1525,7 +1713,7 @@ This is intentionally “mechanical”: a slider that flips between precomputed 
 You can add more frames (more δλ samples) if you want finer control.
 
 <details>
-<summary>Code cell 16</summary>
+<summary>Code cell 17</summary>
 
 ```python
 if not HAS_PLOTLY:
@@ -1621,7 +1809,7 @@ $$
 where $w_k$ are normalized spectral weights.
 
 <details>
-<summary>Code cell 17</summary>
+<summary>Code cell 18</summary>
 
 ```python
 def predicted_contrast_equal_bins(*, source_span_nm: float, corr_width_nm: float) -> float:
@@ -1654,7 +1842,7 @@ df_C
 ### 10.1 Plot: predicted C vs instantaneous linewidth (for this fiber)
 
 <details>
-<summary>Code cell 18</summary>
+<summary>Code cell 19</summary>
 
 ```python
 fig, ax = plt.subplots(figsize=(7.8, 4.2))
@@ -1696,7 +1884,7 @@ If the intermodal delay spread $\Delta\tau$ is much larger than $\tau_c$, interf
 **Caution:** this does *not* replace the speckle-correlation-width picture; it’s an additional sanity check.
 
 <details>
-<summary>Code cell 19</summary>
+<summary>Code cell 20</summary>
 
 ```python
 # Convert Δλ=2 nm at 640 nm to Δν, τ_c, L_c
@@ -1741,7 +1929,7 @@ In the scaling, smaller `modal_delay_scale` → smaller $\Delta\mathrm{OPL}$ →
 This section quantifies how sensitive the conclusion is to that knob.
 
 <details>
-<summary>Code cell 20</summary>
+<summary>Code cell 21</summary>
 
 ```python
 scales = [1.0, 0.3, 0.1, 0.03]
@@ -1784,7 +1972,7 @@ For $L_{\mathrm{cav}}\sim 0.3$–$1\,\mathrm{mm}$ and $\lambda\sim 640\,\mathrm{
 **0.02–0.2 nm**, so a 2 nm envelope could contain **~10–100 modes**.
 
 <details>
-<summary>Code cell 21</summary>
+<summary>Code cell 22</summary>
 
 ```python
 def fsr_spacing_nm(*, lambda0_nm: float, n_cav: float, L_cav_um: float) -> float:
