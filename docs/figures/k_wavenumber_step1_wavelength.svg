@@ -16,8 +16,11 @@
 
   <!-- Axes -->
   <line class="axis" x1="80" y1="130" x2="840" y2="130"/>
+  <line class="axis" x1="80" y1="200" x2="80" y2="60"/>
+  <polygon points="80,60 74,72 86,72" fill="#000"/>
+  <text class="small" x="18" y="68">E [a.u.]</text>
   <polygon points="840,130 828,124 828,136" fill="#000"/>
-  <text class="small" x="850" y="135">x</text>
+  <text class="small" x="850" y="135">x (m)</text>
 
   <line class="thin dash" x1="80" y1="130" x2="840" y2="130"/>
   <text class="small" x="86" y="123">0</text>

@@ -334,12 +334,14 @@ Style guidance (optics-journal style):
 ### 1) Planning only
 
 > Read the attached flattened repo snapshot (or GitHub state). Propose a plan to achieve: <goal>.
+> Follow docs/MATH_STYLE.md for math and docs/figures/STYLE_GUIDE.md for figure/plot styling.
 > List files to change/create/delete and exact verification commands.
 > Do not write code yet.
 
 ### 2) Implementation (zip overlay)
 
 > Implement the approved plan.
+> Follow docs/MATH_STYLE.md for math and docs/figures/STYLE_GUIDE.md for figure/plot styling.
 > Output a zip overlay containing only changed/new tracked files.
 > Also list every file included in the zip and the verification commands.
 > Do not include any outputs, local configs, or data-bench files.
@@ -347,6 +349,7 @@ Style guidance (optics-journal style):
 ### 3) Implementation (unified diff)
 
 > Implement the approved plan.
+> Follow docs/MATH_STYLE.md for math and docs/figures/STYLE_GUIDE.md for figure/plot styling.
 > Output a single unified diff (`git diff` style).
 > No refactors unless necessary.
 > Include verification commands.

@@ -175,6 +175,8 @@ def check_notebook_math_syntax(path: Path, text: str, errors: list[str]) -> None
         ("\\)", "Do not use \\( ... \\) in this repo; GitHub shows backslashes literally."),
         ("\\[", "Do not use \\[ ... \\] in this repo; GitHub shows backslashes literally."),
         ("\\]", "Do not use \\[ ... \\] in this repo; GitHub shows backslashes literally."),
+        ("\\theta_\\max", "Avoid \\theta_\\max (KaTeX parses \\max as a function in some renderers). Use \\theta_{\\max} or \\theta_{\\mathrm{max}}."),
+        ("\\theta_\\min", "Avoid \\theta_\\min (KaTeX parses \\min as a function in some renderers). Use \\theta_{\\min} or \\theta_{\\mathrm{min}}."),
     ]
     for token, msg in forbidden:
         if token in text:

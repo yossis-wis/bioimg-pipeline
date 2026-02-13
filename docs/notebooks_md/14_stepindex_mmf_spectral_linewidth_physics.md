@@ -299,23 +299,18 @@ $$
 
 ---
 
-### Intuition: what the division by $n_{\mathrm{core}}$ is really saying
+### Intuition: why does increasing $n_{\mathrm{core}}$ reduce $\theta_{\max}$ (for fixed NA)?
 
-The fiber limits how much **transverse** momentum you can have:
-
-$$
-k_{\perp,\max} = k_0\,\mathrm{NA},\qquad k_0=\frac{2\pi}{\lambda}.
-$$
-
-Inside the core, the total wavevector magnitude is $|k|=n_{\mathrm{core}}k_0$, so:
+From the result above,
 
 $$
-\sin\theta_{\max}=\frac{k_{\perp,\max}}{|k|}
-= \frac{k_0\,\mathrm{NA}}{n_{\mathrm{core}}k_0}
-= \frac{\mathrm{NA}}{n_{\mathrm{core}}}.
+\sin(\theta_{\max}) = \frac{\mathrm{NA}}{n_{\mathrm{core}}}.
 $$
 
-Why we care: once $\theta_{\max}$ is set, **everything else** in this notebook flows from the fact that path length scales like $1/\cos\theta$.
+So if you hold NA fixed and increase $n_{\mathrm{core}}$, the **internal** acceptance cone shrinks:
+rays get closer to the axis (less zig‑zag), which later reduces $\Delta\mathrm{OPL}$.
+
+(We’ll revisit this same statement again *after* we define $k$ in the interlude, using a $k$‑vector picture.)
 
 <details>
 <summary>Code cell 3</summary>
@@ -419,7 +414,7 @@ The dimensionless factor
 $$
 \frac{\sqrt{n_\mathrm{core}^2-n_\mathrm{clad}^2}}{n_\mathrm{core}}
 = \frac{\mathrm{NA}}{n_\mathrm{core}}
-= \sin\theta_\max,
+= \sin(\theta_{\max}),
 $$
 
 is the **maximum guided internal ray angle** (in sine form).
@@ -429,13 +424,13 @@ To get a *path-length* spread you need the geometry factor $1/\cos\theta$:
 $$
 \mathrm{OPL}(\theta)=n_\mathrm{core}\,\frac{L}{\cos\theta},
 \qquad
-\Delta\mathrm{OPL}=n_\mathrm{core}L\left(\frac{1}{\cos\theta_\max}-1\right).
+\Delta\mathrm{OPL}=n_\mathrm{core}L\left(\frac{1}{\cos(\theta_{\max})}-1\right).
 $$
 
 For a step-index fiber, total internal reflection gives:
 
 $$
-\cos\theta_\max = \frac{n_\mathrm{clad}}{n_\mathrm{core}},
+\cos(\theta_{\max}) = \frac{n_\mathrm{clad}}{n_\mathrm{core}},
 $$
 
 so you can also write the exact expression as:
@@ -458,7 +453,7 @@ where the last step uses $\mathrm{NA}^2=n_\mathrm{core}^2-n_\mathrm{clad}^2\appr
 
 - ΔOPL scales **linearly** with fiber length $L$.
 - ΔOPL scales roughly like **NA²** (bigger acceptance angle → more zig‑zag).
-- For fixed NA, increasing $n$ makes $\theta_\max\approx \mathrm{NA}/n$ smaller, reducing ΔOPL.
+- For fixed NA, increasing $n$ makes $\theta_{\max}\approx \mathrm{NA}/n$ smaller, reducing ΔOPL.
 
 <details>
 <summary>Code cell 4</summary>
@@ -507,7 +502,6 @@ pd.DataFrame(
 
 </details>
 
-
 ### 4.3 Physical picture: ΔOPL ↔ pulse broadening (impulse response)
 
 ![](../figures/modal_dispersion_pulse_broadening.svg)
@@ -530,58 +524,227 @@ producing an output pulse whose duration is on the order of $\Delta\tau$.
 - A real femtosecond pulse has a **large bandwidth**, so in addition to modal dispersion you will also have
   *chromatic* dispersion; here we are isolating the step-index modal contribution.
 
+#### 4.3.1 What do we mean by “modes” here? (not longitudinal modes)
+
+There are two very different uses of the word **mode** in optics:
+
+- **Longitudinal modes** are *frequency* resonances of a cavity (you only get them if you put mirrors on the fiber ends).
+  That is **not** what we mean here.
+- **Spatial (guided) modes** are the *transverse* eigenfunctions of a waveguide.
+  A step‑index MMF supports **many** guided spatial modes; each has its own propagation constant $\beta_k$
+  (and therefore its own group delay).
+
+A free‑space TEM$_{00}$ beam is “single‑mode” in the *free‑space* sense, but it still has a finite **angular spectrum**
+(you can write it as a superposition of many plane‑wave angles). When you launch it into a **multimode** fiber,
+it generally overlaps with **many** guided modes, so you excite a **distribution** of $\{\beta_k\}$ and delays.
+
+Ray picture vs wave picture (how they connect):
+
+- In the **wave** picture, a “mode” is one of the guided field patterns $u_k(x,y)$.
+- In the **geometric ray** picture (high‑$V$ limit), higher‑order modes correspond roughly to larger internal angles $\theta$
+  and therefore longer zig‑zag paths. A single mode is *not literally one ray*, but you can often map **mode groups ↔ ray angles**
+  for intuition.
+
+For the default fiber here ($a\approx 200\,\mu\mathrm{m}$, NA≈0.22, $\lambda\approx 640\,\mathrm{nm}$),
+the normalized frequency is large ($V\approx 2\pi a\,\mathrm{NA}/\lambda\sim 400$), so the number of guided spatial modes is huge
+(order $V^2/2\sim 10^5$). That is why the “continuum of angles / smooth envelope” intuition is often valid.
+
+**Optional visual:** here are a few example *transverse* mode shapes (a disk‑basis surrogate used elsewhere in this repo).
+
+(These are not exact LP modes — they are just a clean orthonormal basis on a circular core, good for intuition.)
+
 <details>
 <summary>Code cell 5</summary>
 
 ```python
-# Toy “impulse response” broadening from modal delays
-# (Cartoon model: many delayed replicas of the same input envelope.)
-rng = np.random.default_rng(0)
-n_modes_toy = 250
-delays_s = rng.uniform(0.0, delta_tau_s, size=n_modes_toy)
-weights = rng.random(n_modes_toy)
-weights = weights / weights.sum()
+# Optional: what a few transverse (spatial) modes look like (disk-basis surrogate)
+n_grid_demo = 121
+core_radius_um_demo = fiber.core_diameter_um / 2.0
+x_um_demo, y_um_demo, mask_demo, dx_um_demo = make_core_grid(n=n_grid_demo, core_radius_um=core_radius_um_demo)
 
-# Time axis wide enough to show the whole delay spread
-t_s = np.linspace(-0.2 * delta_tau_s, 1.2 * delta_tau_s, 3000)
+modes_demo = disk_mode_indices(max_l=2, max_m=2, include_sin=True)[:6]
+mode_stack_demo = precompute_mode_stack(
+    modes_demo,
+    x_um=x_um_demo,
+    y_um=y_um_demo,
+    core_radius_um=core_radius_um_demo,
+    mask=mask_demo,
+)
 
-# Input envelope: choose something “short” compared to Δτ so the broadening is obvious
-fwhm_in_ps = 1.0
-sigma_in_s = (fwhm_in_ps * 1e-12) / (2.0 * np.sqrt(2.0 * np.log(2.0)))
-input_env = np.exp(-0.5 * (t_s / sigma_in_s) ** 2)
+fig, axes = plt.subplots(2, 3, figsize=(10.2, 6.2))
+axes = axes.ravel()
+extent = [-core_radius_um_demo, core_radius_um_demo, -core_radius_um_demo, core_radius_um_demo]
 
-# Output: weighted sum of delayed replicas
-output_env = np.zeros_like(t_s)
-for d_s, w in zip(delays_s, weights):
-    output_env += w * np.exp(-0.5 * ((t_s - d_s) / sigma_in_s) ** 2)
+for ax, mode, u in zip(axes, modes_demo, mode_stack_demo):
+    im = ax.imshow(u * u, origin="lower", extent=extent)
+    ax.set_title(mode.label)
+    ax.set_xlabel("x [µm]")
+    ax.set_ylabel("y [µm]")
+    ax.set_aspect("equal")
+    ax.set_xticks([-200, 0, 200])
+    ax.set_yticks([-200, 0, 200])
 
-# Normalize for display
-input_env = input_env / input_env.max()
-output_env = output_env / output_env.max()
-
-fig, ax = plt.subplots(figsize=(7.8, 3.6))
-ax.plot(t_s * 1e12, input_env, label='input envelope (toy)')
-ax.plot(t_s * 1e12, output_env, label='output after modal delays (toy)')
-ax.axvline(0.0, linestyle='--', alpha=0.3)
-ax.axvline(delta_tau_s * 1e12, linestyle='--', alpha=0.3, label='Δτ')
-ax.set_xlabel('time (ps)')
-ax.set_ylabel('normalized amplitude (a.u.)')
-ax.set_title('Cartoon of pulse broadening from a delay spread Δτ')
-ax.grid(True, alpha=0.3)
-ax.legend()
+fig.suptitle("Examples of transverse (spatial) modes in a circular core (disk-basis surrogate)")
+plt.tight_layout()
 plt.show()
-
-# ### 4.4 How accurate is the small-angle approximation for NA=0.22?
-# 
-# It matters because the “0.008 nm” number ultimately depends on $\Delta\mathrm{OPL}$.
-# 
-# The good news: for NA≈0.22 in silica, it’s a **few-percent** effect.
 ```
 
 </details>
 
+#### 4.3.2 Why does the toy pulse broadening plot look “spiky”?
+
+The clean textbook cartoon is “a short pulse broadens into a smooth blob of width $\Delta\tau$”.
+The *spiky* look happens when you make the discrete nature of the modes visible.
+
+A simple (intensity‑envelope) model is:
+
+$$
+g(t)=\sum_k w_k\,\delta\!\left(t-\tau_k\right),
+\qquad
+\sum_k w_k = 1,
+$$
+
+where $g(t)$ is the **impulse response** (a set of delayed spikes), and $\tau_k$ are the mode group delays.
+Then the output envelope is the convolution:
+
+$$
+I_{\mathrm{out}}(t) = (I_{\mathrm{in}} * g)(t)
+= \sum_k w_k\, I_{\mathrm{in}}(t-\tau_k).
+$$
+
+So if $I_{\mathrm{in}}(t)$ is extremely short (a “delta‑like” pulse), the output literally looks like the spike train $g(t)$.
+If you instead:
+
+- excite **many** modes (tens of thousands in a real MMF),
+- use a detector with finite time resolution, or
+- average over wavelength/polarization/speckle,
+
+then those spikes get so dense that you mostly see a **smooth envelope** spanning $[0,\Delta\tau]$.
+
+The plots below build this up in steps: discrete delays → convolution → continuum envelope.
+
 <details>
 <summary>Code cell 6</summary>
+
+```python
+# Cartoon: pulse broadening as convolution with a "modal delay" impulse response.
+#
+# We'll build two versions:
+#   1) a *discrete* set of mode delays (can look spiky for very short pulses)
+#   2) a *smooth* "continuum" delay distribution (the usual textbook envelope)
+
+rng = np.random.default_rng(0)
+
+# Time axis (seconds) covering [0, Δτ] plus a little margin
+t_s = np.linspace(-0.05 * delta_tau_s, 1.05 * delta_tau_s, 4000)
+dt_s = float(t_s[1] - t_s[0])
+
+def delay_pdf_sine(tau_s: np.ndarray, *, delta_tau_s: float) -> np.ndarray:
+    """A simple smooth delay PDF on [0, Δτ] for visualization (peaks mid‑range).
+
+    This is *not* a rigorous step‑index mode density; it's just an easy-to-read envelope.
+    """
+    x = tau_s / float(delta_tau_s)
+    pdf = np.where((x >= 0.0) & (x <= 1.0), np.sin(np.pi * x), 0.0)
+    area = float(np.trapz(pdf, tau_s))
+    return pdf / area if area > 0 else pdf
+
+def sample_delays_from_sine_pdf_s(*, n: int, delta_tau_s: float, rng: np.random.Generator) -> np.ndarray:
+    """Sample delays from p(x) ∝ sin(πx) on x∈[0,1] using the closed‑form inverse CDF."""
+    u = rng.uniform(0.0, 1.0, size=int(n))
+    x = np.arccos(1.0 - 2.0 * u) / np.pi  # x in [0,1]
+    return float(delta_tau_s) * x
+
+def gaussian_env(t_s: np.ndarray, *, fwhm_ps: float) -> np.ndarray:
+    """Unit-peak Gaussian envelope with FWHM in ps."""
+    sigma_s = (float(fwhm_ps) * 1e-12) / (2.0 * np.sqrt(2.0 * np.log(2.0)))
+    return np.exp(-0.5 * (t_s / sigma_s) ** 2)
+
+# 1) Define a smooth "continuum" impulse response g_cont(t)
+g_pdf = delay_pdf_sine(t_s, delta_tau_s=delta_tau_s)
+g_cont = g_pdf / np.max(g_pdf)
+
+# 2) Define a discrete set of mode delays τ_k (toy)
+n_modes_toy = 250
+delays_s = sample_delays_from_sine_pdf_s(n=n_modes_toy, delta_tau_s=delta_tau_s, rng=rng)
+weights = np.ones(n_modes_toy, dtype=float) / float(n_modes_toy)
+
+# --- Plot A: impulse response (discrete spikes) vs smooth envelope ---
+fig, ax = plt.subplots(figsize=(7.8, 3.6))
+ax.plot(t_s * 1e12, g_cont, label="smooth envelope (continuum)")
+ax.vlines(delays_s * 1e12, 0.0, 0.12, alpha=0.6, label=f"discrete delays (N={n_modes_toy})")
+ax.axvline(0.0, linestyle="--", alpha=0.3)
+ax.axvline(delta_tau_s * 1e12, linestyle="--", alpha=0.3, label="Δτ")
+ax.set_title("Modal impulse response g(t): discrete modes vs a smooth envelope")
+ax.set_xlabel("time [ps]")
+ax.set_ylabel("relative weight [a.u.]")
+ax.grid(True, alpha=0.3)
+ax.legend(loc="upper right")
+plt.show()
+
+# --- Plot B: convolution with a short input pulse ---
+input_fwhm_ps = 1.0
+input_env = gaussian_env(t_s, fwhm_ps=input_fwhm_ps)
+
+# Discrete output: sum of shifted envelopes (I_out = Σ w_k I_in(t-τ_k))
+output_discrete = np.zeros_like(t_s)
+for d_s, w in zip(delays_s, weights):
+    output_discrete += w * gaussian_env(t_s - d_s, fwhm_ps=input_fwhm_ps)
+
+# Continuous output: I_out = I_in * g_pdf
+output_cont = np.convolve(input_env, g_pdf, mode="same") * dt_s
+
+# Normalize for display
+input_env_n = input_env / np.max(input_env)
+output_discrete_n = output_discrete / np.max(output_discrete)
+output_cont_n = output_cont / np.max(output_cont)
+
+fig, ax = plt.subplots(figsize=(7.8, 3.6))
+ax.plot(t_s * 1e12, input_env_n, label=f"input (FWHM={input_fwhm_ps:g} ps)")
+ax.plot(t_s * 1e12, output_discrete_n, label="output (discrete modes)")
+ax.plot(t_s * 1e12, output_cont_n, linestyle="--", label="output (continuum envelope)")
+ax.axvline(0.0, linestyle="--", alpha=0.3)
+ax.axvline(delta_tau_s * 1e12, linestyle="--", alpha=0.3, label="Δτ")
+ax.set_title("Pulse broadening cartoon: spiky discrete sum vs smooth continuum")
+ax.set_xlabel("time [ps]")
+ax.set_ylabel("normalized intensity envelope [a.u.]")
+ax.grid(True, alpha=0.3)
+ax.legend(loc="upper right")
+plt.show()
+
+# --- Plot C: more modes → visually smoother (same short input pulse) ---
+n_list = [30, 250, 1000]
+fig, ax = plt.subplots(figsize=(7.8, 3.6))
+ax.plot(t_s * 1e12, output_cont_n, linestyle="--", label="continuum envelope (reference)")
+for n_modes in n_list:
+    rng_n = np.random.default_rng(int(n_modes))  # deterministic per curve
+    delays_n = sample_delays_from_sine_pdf_s(n=n_modes, delta_tau_s=delta_tau_s, rng=rng_n)
+    out_n = np.zeros_like(t_s)
+    for d_s in delays_n:
+        out_n += (1.0 / float(n_modes)) * gaussian_env(t_s - d_s, fwhm_ps=input_fwhm_ps)
+    out_n = out_n / np.max(out_n)
+    ax.plot(t_s * 1e12, out_n, label=f"discrete sum (N={n_modes})")
+
+ax.axvline(0.0, linestyle="--", alpha=0.3)
+ax.axvline(delta_tau_s * 1e12, linestyle="--", alpha=0.3, label="Δτ")
+ax.set_title("As N_modes increases, the discrete sum becomes visually smooth")
+ax.set_xlabel("time [ps]")
+ax.set_ylabel("normalized intensity envelope [a.u.]")
+ax.grid(True, alpha=0.3)
+ax.legend(loc="upper right")
+plt.show()
+```
+
+</details>
+
+### 4.4 How accurate is the small-angle approximation for NA=0.22?
+
+It matters because the “0.008 nm” number ultimately depends on $\Delta\mathrm{OPL}$.
+
+The good news: for NA≈0.22 in silica, it’s a **few‑percent** effect.
+
+<details>
+<summary>Code cell 7</summary>
 
 ```python
 na_grid = np.linspace(0.05, 0.40, 80)
@@ -614,7 +777,7 @@ The slider below lets you vary the fiber length $L$ and see:
 (If Plotly is not installed, this section will be skipped.)
 
 <details>
-<summary>Code cell 7</summary>
+<summary>Code cell 8</summary>
 
 ```python
 # Interactive: ΔOPL and Δλc vs NA for several fiber lengths
@@ -711,15 +874,67 @@ This interlude is meant to make those explicit — **slowly**, with pictures tha
 
 ![](../figures/k_wavenumber_step2_k_definition.svg)
 
-**Picture 3 — phase is $k$ times optical path length (OPL)**
+**Picture 3 — phase accumulates as $\phi = k\,\mathrm{OPL}$**
 
 ![](../figures/k_wavenumber_step3_phase_opl.svg)
+# Key takeaways (slow + explicit):
 
-Key takeaways:
+- In this repo, **λ means the vacuum wavelength** (what your laser spec sheet reports).
+  The (vacuum) wavenumber is:
 
-- $k(\lambda) \equiv 2\pi/\lambda$ (units: rad/m) is the **spatial frequency** of the optical carrier.
-- Optical phase along a path is $\phi(\lambda)=k(\lambda)\,\mathrm{OPL}$, where $\mathrm{OPL}=\int n\,ds$ (meters).
-- So changing wavelength changes $k$, and therefore changes phase.
+  $$
+  k(\lambda) \equiv \frac{2\pi}{\lambda}
+  \qquad \text{(units: rad/m).}
+  $$
+
+  (Many optics books would call this $k_0$; we’ll just write $k$ and keep the refractive index inside OPL.)
+
+- In a medium with refractive index $n$, the phase advances faster. A convenient way to write the accumulated phase is:
+
+  $$
+  \phi(\lambda) = k(\lambda)\,\mathrm{OPL},
+  $$
+
+  where **optical path length** (OPL) is measured in **meters**.
+
+- OPL is easiest to learn in three steps:
+
+  1) **Constant index $n$ along the whole path:**  $\mathrm{OPL}=n\,\ell$ ($\ell$ = geometric path length).
+  
+  2) **Step‑index MMF ray in the core:**  $n(s)=n_{\mathrm{core}}$ is constant, but the ray travels a longer geometric distance
+     $\ell(\theta)=L/\cos(\theta)$, so:
+
+     $$
+     \mathrm{OPL}(\theta)=n_{\mathrm{core}}\,\frac{L}{\cos(\theta)}.
+     $$
+
+  3) **Most general definition (works even if $n$ varies):**
+
+     $$
+     \mathrm{OPL} \equiv \int_{\text{path}} n(s)\,\mathrm{d}s,
+     $$
+
+     where $s$ is just “distance along the path” (so $\mathrm{d}s$ is a little path‑length element).
+
+- Relative phase between two paths is therefore:
+
+  $$
+  \Delta\phi(\lambda) = \frac{2\pi}{\lambda}\,\Delta\mathrm{OPL}.
+  $$
+
+- A 1D monochromatic wave at a fixed time can be written as:
+
+  $$
+  E(x)=A\cos\big(kx+\phi_0\big).
+  $$
+
+  If you like the “phase function” notation, define $\varphi(k,x,\phi_0)=kx+\phi_0$, so
+  $E=A\cos\big(\varphi(k,x,\phi_0)\big)$.
+
+**Visual reminder: shorter wavelength → larger $k$ (more oscillations per meter)**
+
+![](../figures/k_wavenumber_keytakeaways_multiple_wavelengths.svg)
+
 
 <details>
 <summary>Optional: one “all-in-one” summary diagram for <i>k</i></summary>
@@ -727,6 +942,34 @@ Key takeaways:
 ![](../figures/k_wavenumber_definition.svg)
 
 </details>
+
+#### Aside: revisiting Step 1 with a $k$‑vector picture (why $\mathrm{NA}/n_{\mathrm{core}}$ shows up)
+
+Now that $k$ is defined, we can restate the same $\sin(\theta_{\max})=\mathrm{NA}/n_{\mathrm{core}}$ result in a compact
+“wavevector budget” form.
+
+Using the repo convention that $k=2\pi/\lambda$ is the **vacuum** wavenumber:
+
+- In the core, the magnitude of the wavevector is $|k_{\mathrm{core}}| = n_{\mathrm{core}}\,k$.
+- For a guided mode, the smallest axial propagation constant is $\beta_{\min}=n_{\mathrm{clad}}\,k$,
+  so the **largest transverse component** in the core is:
+
+  $$
+  k_{\perp,\max} = \sqrt{|k_{\mathrm{core}}|^2-\beta_{\min}^2}
+  = k\,\sqrt{n_{\mathrm{core}}^2-n_{\mathrm{clad}}^2}
+  = k\,\mathrm{NA}.
+  $$
+
+Divide by $|k_{\mathrm{core}}|$ to convert transverse wavevector into an internal angle:
+
+$$
+\sin(\theta_{\max}) = \frac{k_{\perp,\max}}{|k_{\mathrm{core}}|}
+= \frac{k\,\mathrm{NA}}{n_{\mathrm{core}}\,k}
+= \frac{\mathrm{NA}}{n_{\mathrm{core}}}.
+$$
+
+This is the same statement as before — just written in “$k$‑space” instead of “Snell’s law” geometry.
+
 
 ---
 
@@ -801,7 +1044,7 @@ These are excellent animated explanations (not required, but often a faster way 
 
 
 <details>
-<summary>Code cell 8</summary>
+<summary>Code cell 9</summary>
 
 ```python
 # Toy phasor-sum picture: same paths, different wavelengths
@@ -991,7 +1234,7 @@ A one-page scaling summary (useful for meeting notes):
 ![](../figures/delta_lambda_c_scaling.svg)
 
 <details>
-<summary>Code cell 9</summary>
+<summary>Code cell 10</summary>
 
 ```python
 # Compute the predicted spectral decorrelation width from ΔOPL
@@ -1084,7 +1327,7 @@ Another view (same math, different picture): a wavelength shift creates a **phas
 That’s exactly the “two spikes give independent speckle” statement.
 
 <details>
-<summary>Code cell 10</summary>
+<summary>Code cell 11</summary>
 
 ```python
 # Evaluate delta-phi swing across the spread for a few delta-lambda values.
@@ -1110,7 +1353,7 @@ pd.DataFrame(
 This is a very direct “why 0.01 nm matters” plot.
 
 <details>
-<summary>Code cell 11</summary>
+<summary>Code cell 12</summary>
 
 ```python
 fig, ax = plt.subplots(figsize=(7.8, 4.2))
@@ -1147,7 +1390,7 @@ We assign each mode a random delay offset $\Delta\mathrm{OPL}_k$ spanning $[0,\D
 This is not an exact physical distribution, but it is enough to demonstrate the key scaling.
 
 <details>
-<summary>Code cell 12</summary>
+<summary>Code cell 13</summary>
 
 ```python
 # Make a small grid representing the fiber core.
@@ -1206,7 +1449,7 @@ C0
 We pick a few separations around the predicted $\Delta\lambda_c$ and show correlation.
 
 <details>
-<summary>Code cell 13</summary>
+<summary>Code cell 14</summary>
 
 ```python
 separations_nm = [0.0, 0.002, 0.005, float(dlam_c_nm), 0.01, 0.02]
@@ -1239,7 +1482,7 @@ plt.show()
 This is the closest thing to a “proof by picture” that $\Delta\lambda_c$ is the right scale.
 
 <details>
-<summary>Code cell 14</summary>
+<summary>Code cell 15</summary>
 
 ```python
 delta_grid_nm = np.concatenate(
@@ -1282,7 +1525,7 @@ This is intentionally “mechanical”: a slider that flips between precomputed 
 You can add more frames (more δλ samples) if you want finer control.
 
 <details>
-<summary>Code cell 15</summary>
+<summary>Code cell 16</summary>
 
 ```python
 if not HAS_PLOTLY:
@@ -1378,7 +1621,7 @@ $$
 where $w_k$ are normalized spectral weights.
 
 <details>
-<summary>Code cell 16</summary>
+<summary>Code cell 17</summary>
 
 ```python
 def predicted_contrast_equal_bins(*, source_span_nm: float, corr_width_nm: float) -> float:
@@ -1411,7 +1654,7 @@ df_C
 ### 10.1 Plot: predicted C vs instantaneous linewidth (for this fiber)
 
 <details>
-<summary>Code cell 17</summary>
+<summary>Code cell 18</summary>
 
 ```python
 fig, ax = plt.subplots(figsize=(7.8, 4.2))
@@ -1453,7 +1696,7 @@ If the intermodal delay spread $\Delta\tau$ is much larger than $\tau_c$, interf
 **Caution:** this does *not* replace the speckle-correlation-width picture; it’s an additional sanity check.
 
 <details>
-<summary>Code cell 18</summary>
+<summary>Code cell 19</summary>
 
 ```python
 # Convert Δλ=2 nm at 640 nm to Δν, τ_c, L_c
@@ -1498,7 +1741,7 @@ In the scaling, smaller `modal_delay_scale` → smaller $\Delta\mathrm{OPL}$ →
 This section quantifies how sensitive the conclusion is to that knob.
 
 <details>
-<summary>Code cell 19</summary>
+<summary>Code cell 20</summary>
 
 ```python
 scales = [1.0, 0.3, 0.1, 0.03]
@@ -1541,7 +1784,7 @@ For $L_{\mathrm{cav}}\sim 0.3$–$1\,\mathrm{mm}$ and $\lambda\sim 640\,\mathrm{
 **0.02–0.2 nm**, so a 2 nm envelope could contain **~10–100 modes**.
 
 <details>
-<summary>Code cell 20</summary>
+<summary>Code cell 21</summary>
 
 ```python
 def fsr_spacing_nm(*, lambda0_nm: float, n_cav: float, L_cav_um: float) -> float:
