@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="380" viewBox="0 0 900 380">
+  <title>Angular spectrum method: Step 2 — FFT to angular spectrum (plane-wave coefficients)</title>
+
+  <defs>
+    <style>
+      .box   { stroke: #000; stroke-width: 2; fill: none; }
+      .thin  { stroke: #000; stroke-width: 1.2; fill: none; }
+      .dash  { stroke-dasharray: 6 4; opacity: 0.35; }
+      .arrow { stroke: #000; stroke-width: 2.2; fill: none; }
+      .label { font-family: Arial, Helvetica, sans-serif; font-size: 16px; fill: #000; }
+      .eq    { font-family: Arial, Helvetica, sans-serif; font-size: 15px; fill: #000; }
+      .small { font-family: Arial, Helvetica, sans-serif; font-size: 13px; fill: #000; }
+      .dot   { fill: #000; opacity: 0.85; }
+    </style>
+  </defs>
+
+  <text class="label" x="40" y="40">Step 2: FFT to an angular (plane-wave) representation</text>
+  <text class="eq" x="40" y="70">A<tspan baseline-shift="sub">in</tspan>(k<tspan baseline-shift="sub">x</tspan>,k<tspan baseline-shift="sub">y</tspan>) = FFT{U<tspan baseline-shift="sub">in</tspan>(x,y)}</text>
+
+  <!-- Input facet box -->
+  <rect class="box" x="60" y="120" width="200" height="200"/>
+  <text class="label" x="60" y="105">Input facet</text>
+  <text class="small" x="72" y="145">U<tspan baseline-shift="sub">in</tspan>(x,y)</text>
+
+  <circle class="dot" cx="100" cy="160" r="3"/>
+  <circle class="dot" cx="160" cy="200" r="2"/>
+  <circle class="dot" cx="210" cy="175" r="3"/>
+  <circle class="dot" cx="135" cy="250" r="2"/>
+  <circle class="dot" cx="230" cy="265" r="3"/>
+  <circle class="dot" cx="185" cy="285" r="2"/>
+
+  <!-- FFT block -->
+  <rect class="box" x="290" y="200" width="70" height="56"/>
+  <text class="label" x="310" y="234">FFT</text>
+
+  <line class="arrow" x1="260" y1="228" x2="290" y2="228"/>
+  <polygon points="290,228 280,223 280,233" fill="#000"/>
+
+  <!-- k-space box -->
+  <rect class="box" x="390" y="120" width="260" height="200"/>
+  <text class="label" x="390" y="105">Angular spectrum</text>
+  <text class="small" x="402" y="145">A<tspan baseline-shift="sub">in</tspan>(k<tspan baseline-shift="sub">x</tspan>,k<tspan baseline-shift="sub">y</tspan) = |A|·exp(iψ)</text>
+
+  <!-- axes -->
+  <line class="thin" x1="520" y1="160" x2="520" y2="300"/>
+  <line class="thin" x1="420" y1="230" x2="620" y2="230"/>
+  <text class="small" x="625" y="234">k<tspan baseline-shift="sub">x</tspan></text>
+  <text class="small" x="523" y="156">k<tspan baseline-shift="sub">y</tspan></text>
+
+  <!-- discrete points (each point is one plane wave) -->
+  <circle class="dot" cx="560" cy="205" r="3"/>
+  <circle class="dot" cx="495" cy="190" r="3"/>
+  <circle class="dot" cx="470" cy="255" r="3"/>
+  <circle class="dot" cx="585" cy="270" r="3"/>
+  <circle class="dot" cx="530" cy="240" r="3"/>
+
+  <!-- tiny phasor arrows next to two points -->
+  <line class="arrow" x1="565" y1="205" x2="582" y2="195"/>
+  <polygon points="582,195 572,194 578,202" fill="#000"/>
+
+  <line class="arrow" x1="500" y1="190" x2="485" y2="175"/>
+  <polygon points="485,175 487,185 494,178" fill="#000"/>
+
+  <!-- Notes -->
+  <text class="eq" x="690" y="150">Each (k<tspan baseline-shift="sub">x</tspan>,k<tspan baseline-shift="sub">y</tspan>) ↔ a plane wave</text>
+  <text class="small" x="690" y="175">Direction set by (k<tspan baseline-shift="sub">x</tspan>,k<tspan baseline-shift="sub">y</tspan>)</text>
+  <text class="small" x="690" y="195">Complex weight sets magnitude + phase</text>
+
+  <text class="eq" x="690" y="235">Angle mapping (in a uniform medium):</text>
+  <text class="small" x="690" y="258">k<tspan baseline-shift="sub">0</tspan> = 2π/λ</text>
+  <text class="small" x="690" y="278">k<tspan baseline-shift="sub">x</tspan> = k<tspan baseline-shift="sub">0</tspan> sin(θ) cos(ϕ)</text>
+  <text class="small" x="690" y="298">k<tspan baseline-shift="sub">y</tspan> = k<tspan baseline-shift="sub">0</tspan> sin(θ) sin(ϕ)</text>
+
+  <line class="dash thin" x1="650" y1="120" x2="650" y2="320"/>
+</svg>

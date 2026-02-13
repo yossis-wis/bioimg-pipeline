@@ -600,36 +600,102 @@ Your sketch is basically the **angular spectrum method** applied in a ray-like w
 3. Let different angles accumulate different phase (different optical path length).
 4. Inverse transform to get the exit-plane field $U_{\mathrm{out}}(x,y)$, then compute intensity $I=|U|^2$.
 
-The big conceptual “knob” is **basis choice**:
+Below I’ll slow this down and draw the *same idea* in small steps, with **magnitude**, **phase**, and **intensity**
+made explicit.
 
-- In a *uniform* medium, plane waves are eigenfunctions, so propagation is diagonal in $(k_x,k_y)$.
-- In a *waveguide*, the guided eigenfunctions $u_m(x,y)$ are the eigenmodes, so propagation is diagonal in the mode index:
+(Notation: I’ll use $(\theta,\varphi)$ for *direction angles* of a plane wave, and $\phi$ for *complex phase*.)
+
+---
+
+##### Step 1 — complex field at the input facet
+
+![](../figures/angular_spectrum_step1_input_field.svg)
+
+The key point is that a “speckle field” is not an intensity pattern; it is a **complex** field:
 
 $$
-U_{\mathrm{out}}(x,y;\lambda)
-=
-\sum_m c_m(\lambda)\,u_m(x,y)\,e^{i\,\beta_m(\lambda)\,L}.
+U_{\mathrm{in}}(x,y)=|U_{\mathrm{in}}(x,y)|\,e^{i\phi_{\mathrm{in}}(x,y)},
+\qquad
+I_{\mathrm{in}}(x,y)=|U_{\mathrm{in}}(x,y)|^2.
 $$
 
-In high-$V$ step-index MMF, it is still useful to map “mode groups” to “families of ray angles” for intuition:
-larger internal angle $\theta$ tends to mean larger optical path / delay.
+---
 
-**Your “do we remember the rays after interference?” question:**
+##### Step 2 — FFT to the angular spectrum (a pile of plane waves)
 
-Once you have the **complex field** on the output facet, $U_{\mathrm{out}}(x,y)$, you already have *all* the information
-needed to propagate further. If you want the “bundle of leaving angles”, you simply Fourier transform again:
+![](../figures/angular_spectrum_step2_fft_to_angles.svg)
+
+The 2D Fourier transform gives complex weights for plane waves:
+
+$$
+A_{\mathrm{in}}(k_x,k_y)=\mathcal{F}\{U_{\mathrm{in}}(x,y)\}.
+$$
+
+Each point in $(k_x,k_y)$ corresponds to a plane wave direction; the complex value $A_{\mathrm{in}}$ stores its
+**magnitude** and **phase**.
+
+---
+
+##### Step 3 — propagation: angles → different optical path → different phase
+
+![](../figures/angular_spectrum_step3_phase_accumulation.svg)
+
+Two complementary “bases”:
+
+- **Mode basis (waveguide-correct):**
+
+  $$
+  U_{\mathrm{out}}(x,y;\lambda)
+  =
+  \sum_m c_m(\lambda)\,u_m(x,y)\,e^{i\,\beta_m(\lambda)\,L}.
+  $$
+
+- **Angle/ray proxy (intuitive in high-$V$ MMF):** larger internal $\theta$ tends to mean larger optical path / delay,
+  so it is reasonable to model a phase term $\Delta\phi(\theta,\lambda)$.
+
+---
+
+##### Step 4 — inverse FFT: recombine plane waves (interference makes the pattern)
+
+![](../figures/angular_spectrum_step4_ifft_output_interference.svg)
+
+Conceptually, the inverse FFT is just “sum all plane waves with their new phases”.
+This is where constructive/destructive interference happens point-by-point.
+
+---
+
+##### Step 5 — “do we remember the rays after interference?”
+
+Yes: once you have the **complex field** at the output facet, you already have *all* the information needed to propagate further.
+If you want the “bundle of leaving angles”, FFT again:
 
 $$
 A_{\mathrm{out}}(k_x,k_y)=\mathcal{F}\{U_{\mathrm{out}}(x,y)\}.
 $$
 
-That angular spectrum is the wave-optics version of “rays leaving the facet”. You can then:
+![](../figures/angular_spectrum_step5_output_angles_fft.svg)
 
-- apply a free-space propagation kernel,
-- clip it with an objective pupil,
-- or image the near field vs far field (different relay choices).
+That angular spectrum is the wave-optics version of “rays leaving the facet”.
 
-Diagram (matches your mental picture):
+---
+
+##### Mini-examples: 1, 2, 3 plane waves (connects directly to your doodles)
+
+**1 plane wave:** no interference → uniform intensity.
+
+![](../figures/angular_spectrum_plane_waves_1.svg)
+
+**2 plane waves:** interference fringes; wavelength changes rotate the relative phasor angle.
+
+![](../figures/angular_spectrum_plane_waves_2.svg)
+
+**3 plane waves:** more spatial complexity; many plane waves with random phases → speckle.
+
+![](../figures/angular_spectrum_plane_waves_3.svg)
+
+---
+
+##### One-page summary of the full pipeline
 
 ![](../figures/angular_spectrum_plane_wave_pipeline.svg)
 
@@ -702,12 +768,16 @@ def normalize_to_core_mean(I: np.ndarray) -> np.ndarray:
     mean = float(np.mean(I[mask_as]))
     return I / mean if mean > 0 else I
 
-# Choose a "toy" length so decorrelation happens over ~0.1–0.5 nm.
+# Choose a short "toy" length so decorrelation is visible without zoom.
+# We'll also compare to a longer length to show that the decorrelation scale shrinks ~1/L.
 length_toy_m = 0.12
+length_long_m = 3.0
+
 lambda_a_nm = float(lambda0_nm)
 delta_lambda_nm = 0.25
 lambda_b_nm = lambda_a_nm + delta_lambda_nm
 
+# Use the toy length for the two example output intensity panels.
 u_out_a = propagate_one_lambda(lambda_nm=lambda_a_nm, length_m=length_toy_m)
 u_out_b = propagate_one_lambda(lambda_nm=lambda_b_nm, length_m=length_toy_m)
 
@@ -715,18 +785,26 @@ I_in_n = normalize_to_core_mean(intensity(u_in))
 I_a_n = normalize_to_core_mean(intensity(u_out_a))
 I_b_n = normalize_to_core_mean(intensity(u_out_b))
 
-# Correlation vs delta-lambda (toy, fast)
-delta_lams = np.linspace(0.0, 1.0, 51)
-flat_a = I_a_n[mask_as].ravel()
-flat_a = (flat_a - float(np.mean(flat_a))) / float(np.std(flat_a))
+# Correlation vs delta-lambda (compare lengths)
+delta_lams = np.linspace(0.0, 1.0, 101)
 
-corrs = []
-for dlam in delta_lams:
-    u_tmp = propagate_one_lambda(lambda_nm=lambda_a_nm + float(dlam), length_m=length_toy_m)
-    I_tmp = normalize_to_core_mean(intensity(u_tmp))
-    flat = I_tmp[mask_as].ravel()
-    flat = (flat - float(np.mean(flat))) / float(np.std(flat))
-    corrs.append(float(np.mean(flat_a * flat)))
+def corr_with_ref(*, I_ref: np.ndarray, length_m: float) -> list[float]:
+    flat_ref = I_ref[mask_as].ravel()
+    flat_ref = (flat_ref - float(np.mean(flat_ref))) / float(np.std(flat_ref))
+    out: list[float] = []
+    for dlam in delta_lams:
+        u_tmp = propagate_one_lambda(lambda_nm=lambda_a_nm + float(dlam), length_m=length_m)
+        I_tmp = normalize_to_core_mean(intensity(u_tmp))
+        flat = I_tmp[mask_as].ravel()
+        flat = (flat - float(np.mean(flat))) / float(np.std(flat))
+        out.append(float(np.mean(flat_ref * flat)))
+    return out
+
+corrs_toy = corr_with_ref(I_ref=I_a_n, length_m=length_toy_m)
+
+u_out_long_a = propagate_one_lambda(lambda_nm=lambda_a_nm, length_m=length_long_m)
+I_long_a_n = normalize_to_core_mean(intensity(u_out_long_a))
+corrs_long = corr_with_ref(I_ref=I_long_a_n, length_m=length_long_m)
 
 # Show: input -> A_in -> output patterns -> A_out -> correlation curve.
 U_in_k = np.fft.fftshift(np.fft.fft2(u_in))
@@ -769,15 +847,48 @@ ax.set_xlabel(r"$k_x$ [rad/µm]")
 ax.set_ylabel(r"$k_y$ [rad/µm]")
 
 ax = axes[1, 2]
-ax.plot(delta_lams, corrs)
-ax.set_title("Pattern correlation vs δλ (toy length)")
+ax.plot(delta_lams, corrs_toy, label=f"L={length_toy_m:.2f} m (toy)")
+ax.plot(delta_lams, corrs_long, label=f"L={length_long_m:.1f} m")
+ax.set_title("Pattern correlation vs δλ (length dependence)")
 ax.set_xlabel("δλ [nm]")
 ax.set_ylabel("corr [a.u.]")
+ax.legend(frameon=False, fontsize=9)
 
 plt.show()
 ```
 
 </details>
+
+**About the high correlation you noticed (and whether “0.01 nm is enough”)**
+
+The *qualitative* takeaway from the correlation curve is:
+
+- The spectral decorrelation scale shrinks strongly with fiber length (roughly $\propto 1/L$).
+- It also depends on how much of the fiber NA you actually excite: underfilling the angle distribution reduces the delay spread,
+  so patterns stay correlated over larger $\delta\lambda$.
+
+So “is $\delta\lambda = 0.01\ \mathrm{nm}$ enough?” is not a universal yes/no — it depends on the delay spread of your setup.
+A crude ray-picture estimate is
+
+$$
+\Delta\lambda_c \sim \frac{\lambda^2}{\Delta\mathrm{OPL}},
+\qquad
+\Delta\mathrm{OPL} \approx nL\left(\frac{1}{\cos(\theta_{\max})}-1\right).
+$$
+
+Finally, **speckle averaging** requires *many* independent spectral “looks”.
+If the source has spectral width $\Delta\lambda_{\mathrm{src}}$, a rough scaling is
+
+$$
+N_\lambda \approx \frac{\Delta\lambda_{\mathrm{src}}}{\Delta\lambda_c},
+\qquad
+C \approx \frac{1}{\sqrt{N_\lambda}},
+$$
+
+where $C$ is speckle contrast (very rough; partial correlations reduce the effective $N_\lambda$).
+A linewidth of $0.01\ \mathrm{nm}$ typically gives $N_\lambda \sim \mathcal{O}(1)$ for meter-scale fibers, so it usually does *not*
+average speckle much by itself.
+
 
 #### 4.3.2 Why does the toy pulse broadening plot look “spiky”?
 

@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="360" viewBox="0 0 900 360">
+  <title>Plane-wave picture: one plane wave through a fiber (no interference)</title>
+
+  <defs>
+    <style>
+      .box   { stroke: #000; stroke-width: 2; fill: none; }
+      .thin  { stroke: #000; stroke-width: 1.2; fill: none; }
+      .arrow { stroke: #000; stroke-width: 2.2; fill: none; }
+      .label { font-family: Arial, Helvetica, sans-serif; font-size: 16px; fill: #000; }
+      .eq    { font-family: Arial, Helvetica, sans-serif; font-size: 15px; fill: #000; }
+      .small { font-family: Arial, Helvetica, sans-serif; font-size: 13px; fill: #000; }
+      .wf    { stroke: #000; stroke-width: 1.2; opacity: 0.7; }
+    </style>
+  </defs>
+
+  <text class="label" x="40" y="40">Example: 1 plane wave</text>
+  <text class="small" x="40" y="65">A single (k<tspan baseline-shift="sub">x</tspan>,k<tspan baseline-shift="sub">y</tspan>) component → a single ray angle θ</text>
+
+  <!-- Input plane wave (wavefronts) -->
+  <text class="label" x="60" y="110">Input</text>
+  <text class="small" x="60" y="132">A<tspan baseline-shift="sub">1</tspan>, phase φ<tspan baseline-shift="sub">1</tspan></text>
+
+  <line class="wf" x1="90" y1="250" x2="150" y2="190"/>
+  <line class="wf" x1="110" y1="270" x2="170" y2="210"/>
+  <line class="wf" x1="130" y1="290" x2="190" y2="230"/>
+  <line class="wf" x1="150" y1="310" x2="210" y2="250"/>
+
+  <line class="arrow" x1="120" y1="220" x2="200" y2="160"/>
+  <polygon points="200,160 190,160 196,168" fill="#000"/>
+
+  <!-- Fiber (side view) -->
+  <rect class="box" x="260" y="150" width="380" height="120"/>
+  <text class="label" x="260" y="135">Fiber</text>
+
+  <!-- Ray path -->
+  <polyline class="arrow" points="270,210 350,160 430,210 510,160 590,210 635,180" fill="none"/>
+  <polygon points="635,180 625,178 631,186" fill="#000"/>
+
+  <text class="small" x="300" y="292">accumulated phase: φ<tspan baseline-shift="sub">1</tspan> + Δφ(θ<tspan baseline-shift="sub">1</tspan>,λ)</text>
+
+  <!-- Output -->
+  <text class="label" x="690" y="110">Output</text>
+  <text class="small" x="690" y="132">same angle, new phase</text>
+
+  <line class="wf" x1="700" y1="190" x2="760" y2="250"/>
+  <line class="wf" x1="720" y1="170" x2="780" y2="230"/>
+  <line class="wf" x1="740" y1="150" x2="800" y2="210"/>
+  <line class="wf" x1="760" y1="130" x2="820" y2="190"/>
+
+  <line class="arrow" x1="690" y1="160" x2="770" y2="220"/>
+  <polygon points="770,220 760,217 764,225" fill="#000"/>
+
+  <text class="eq" x="690" y="292">I(x,y) = |A<tspan baseline-shift="sub">1</tspan>|² (uniform)</text>
+  <text class="small" x="690" y="314">No interference ⇒ no speckle</text>
+</svg>

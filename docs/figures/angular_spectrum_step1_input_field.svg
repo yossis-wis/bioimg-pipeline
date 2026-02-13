@@ -1,0 +1,78 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="360" viewBox="0 0 900 360">
+  <title>Angular spectrum method: Step 1 — Complex field at the input facet (magnitude, phase, intensity)</title>
+
+  <defs>
+    <style>
+      .box   { stroke: #000; stroke-width: 2; fill: none; }
+      .thin  { stroke: #000; stroke-width: 1.2; fill: none; }
+      .arrow { stroke: #000; stroke-width: 2.2; fill: none; }
+      .label { font-family: Arial, Helvetica, sans-serif; font-size: 16px; fill: #000; }
+      .eq    { font-family: Arial, Helvetica, sans-serif; font-size: 15px; fill: #000; }
+      .small { font-family: Arial, Helvetica, sans-serif; font-size: 13px; fill: #000; }
+      .dot   { fill: #000; opacity: 0.85; }
+    </style>
+  </defs>
+
+  <text class="label" x="40" y="40">Step 1: complex field at the input facet</text>
+  <text class="eq" x="40" y="70">U<tspan baseline-shift="sub">in</tspan>(x,y) = |U<tspan baseline-shift="sub">in</tspan>(x,y)| · exp(i φ<tspan baseline-shift="sub">in</tspan>(x,y))</text>
+  <text class="eq" x="40" y="92">I<tspan baseline-shift="sub">in</tspan>(x,y) = |U<tspan baseline-shift="sub">in</tspan>(x,y)|²</text>
+
+  <!-- Three "views" of the same field -->
+  <text class="label" x="70" y="130">Magnitude</text>
+  <text class="small" x="70" y="148">|U<tspan baseline-shift="sub">in</tspan>(x,y)|</text>
+  <rect class="box" x="60" y="160" width="220" height="160"/>
+
+  <!-- dots with varying radius to hint amplitude -->
+  <circle class="dot" cx="95" cy="195" r="2"/>
+  <circle class="dot" cx="140" cy="225" r="4"/>
+  <circle class="dot" cx="210" cy="210" r="3"/>
+  <circle class="dot" cx="120" cy="285" r="3"/>
+  <circle class="dot" cx="245" cy="260" r="4"/>
+  <circle class="dot" cx="200" cy="295" r="2"/>
+  <circle class="dot" cx="170" cy="255" r="2.5"/>
+  <circle class="dot" cx="255" cy="200" r="2"/>
+
+  <text class="label" x="360" y="130">Phase</text>
+  <text class="small" x="360" y="148">φ<tspan baseline-shift="sub">in</tspan>(x,y)  (angles of phasors)</text>
+  <rect class="box" x="340" y="160" width="220" height="160"/>
+
+  <!-- little arrows to hint local phase -->
+  <line class="arrow" x1="375" y1="200" x2="395" y2="190"/>
+  <polygon points="395,190 385,187 388,197" fill="#000"/>
+  <line class="arrow" x1="420" y1="235" x2="440" y2="235"/>
+  <polygon points="440,235 430,230 430,240" fill="#000"/>
+  <line class="arrow" x1="505" y1="210" x2="490" y2="195"/>
+  <polygon points="490,195 492,205 499,198" fill="#000"/>
+  <line class="arrow" x1="390" y1="285" x2="380" y2="305"/>
+  <polygon points="380,305 386,296 394,300" fill="#000"/>
+  <line class="arrow" x1="535" y1="275" x2="555" y2="290"/>
+  <polygon points="555,290 546,283 543,292" fill="#000"/>
+
+  <text class="label" x="650" y="130">Intensity</text>
+  <text class="small" x="650" y="148">I<tspan baseline-shift="sub">in</tspan>(x,y) = |U|²</text>
+  <rect class="box" x="620" y="160" width="220" height="160"/>
+
+  <!-- dots with larger radii to hint squared magnitude -->
+  <circle class="dot" cx="655" cy="195" r="2"/>
+  <circle class="dot" cx="700" cy="225" r="6"/>
+  <circle class="dot" cx="770" cy="210" r="4"/>
+  <circle class="dot" cx="680" cy="285" r="4"/>
+  <circle class="dot" cx="805" cy="260" r="6"/>
+  <circle class="dot" cx="760" cy="295" r="2"/>
+  <circle class="dot" cx="730" cy="255" r="3"/>
+  <circle class="dot" cx="815" cy="200" r="2"/>
+
+  <!-- Small phasor inset -->
+  <text class="small" x="620" y="70">At one point (x<tspan baseline-shift="sub">0</tspan>,y<tspan baseline-shift="sub">0</tspan>):</text>
+  <text class="small" x="620" y="90">U = |U|·exp(iφ)</text>
+
+  <line class="thin" x1="760" y1="60" x2="760" y2="110"/>
+  <line class="thin" x1="735" y1="85" x2="785" y2="85"/>
+  <text class="small" x="787" y="89">Re</text>
+  <text class="small" x="763" y="58">Im</text>
+
+  <line class="arrow" x1="760" y1="85" x2="780" y2="70"/>
+  <polygon points="780,70 770,69 776,77" fill="#000"/>
+  <text class="small" x="782" y="72">|U|</text>
+  <text class="small" x="772" y="80">φ</text>
+</svg>

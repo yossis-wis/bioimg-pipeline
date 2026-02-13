@@ -1,0 +1,87 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="420" viewBox="0 0 900 420">
+  <title>Plane-wave picture: two plane waves through a fiber (interference fringes)</title>
+
+  <defs>
+    <style>
+      .box   { stroke: #000; stroke-width: 2; fill: none; }
+      .thin  { stroke: #000; stroke-width: 1.2; fill: none; }
+      .arrow { stroke: #000; stroke-width: 2.2; fill: none; }
+      .label { font-family: Arial, Helvetica, sans-serif; font-size: 16px; fill: #000; }
+      .eq    { font-family: Arial, Helvetica, sans-serif; font-size: 15px; fill: #000; }
+      .small { font-family: Arial, Helvetica, sans-serif; font-size: 13px; fill: #000; }
+      .wf    { stroke: #000; stroke-width: 1.2; opacity: 0.7; }
+    </style>
+  </defs>
+
+  <text class="label" x="40" y="40">Example: 2 plane waves → interference</text>
+  <text class="small" x="40" y="65">Two (k<tspan baseline-shift="sub">x</tspan>,k<tspan baseline-shift="sub">y</tspan>) components accumulate different phase, then sum at the output.</text>
+
+  <!-- Input -->
+  <text class="label" x="60" y="110">Input</text>
+  <text class="small" x="60" y="132">A<tspan baseline-shift="sub">1</tspan>, φ<tspan baseline-shift="sub">1</tspan> and A<tspan baseline-shift="sub">2</tspan>, φ<tspan baseline-shift="sub">2</tspan></text>
+
+  <!-- plane wave 1 wavefronts -->
+  <line class="wf" x1="80" y1="240" x2="150" y2="190"/>
+  <line class="wf" x1="100" y1="260" x2="170" y2="210"/>
+  <line class="wf" x1="120" y1="280" x2="190" y2="230"/>
+  <line class="wf" x1="140" y1="300" x2="210" y2="250"/>
+  <line class="arrow" x1="110" y1="210" x2="200" y2="150"/>
+  <polygon points="200,150 190,150 196,158" fill="#000"/>
+
+  <!-- plane wave 2 wavefronts -->
+  <line class="wf" x1="80" y1="170" x2="155" y2="205"/>
+  <line class="wf" x1="80" y1="145" x2="155" y2="180"/>
+  <line class="wf" x1="80" y1="120" x2="155" y2="155"/>
+  <line class="arrow" x1="120" y1="170" x2="205" y2="200"/>
+  <polygon points="205,200 196,194 194,204" fill="#000"/>
+
+  <!-- Fiber -->
+  <rect class="box" x="260" y="150" width="380" height="140"/>
+  <text class="label" x="260" y="135">Fiber</text>
+
+  <!-- Two ray paths -->
+  <polyline class="arrow" points="270,220 350,160 430,220 510,160 590,220 635,190" fill="none"/>
+  <polygon points="635,190 625,188 631,196" fill="#000"/>
+
+  <polyline class="arrow" points="270,220 360,200 450,220 540,200 630,220" fill="none"/>
+  <polygon points="630,220 620,215 620,225" fill="#000"/>
+
+  <text class="small" x="300" y="318">phases: φ<tspan baseline-shift="sub">1</tspan>+Δφ(θ<tspan baseline-shift="sub">1</tspan>,λ),   φ<tspan baseline-shift="sub">2</tspan>+Δφ(θ<tspan baseline-shift="sub">2</tspan>,λ)</text>
+
+  <!-- Output intensity sketch -->
+  <rect class="box" x="690" y="150" width="170" height="140"/>
+  <text class="label" x="690" y="135">Output intensity</text>
+  <text class="small" x="700" y="170">fringes</text>
+
+  <!-- axes inside output plot -->
+  <line class="thin" x1="705" y1="270" x2="845" y2="270"/>
+  <line class="thin" x1="705" y1="175" x2="705" y2="270"/>
+  <text class="small" x="848" y="274">x</text>
+  <text class="small" x="708" y="173">I</text>
+
+  <!-- fringes curve (schematic) -->
+  <polyline class="thin" points="705,240 720,210 735,240 750,210 765,240 780,210 795,240 810,210 825,240 840,210" fill="none"/>
+
+  <!-- Phasor inset -->
+  <text class="label" x="690" y="322">At one point:</text>
+  <text class="eq" x="690" y="346">U = A<tspan baseline-shift="sub">1</tspan>e<tspan baseline-shift="super">iφ</tspan><tspan baseline-shift="sub">1</tspan> + A<tspan baseline-shift="sub">2</tspan>e<tspan baseline-shift="super">iφ</tspan><tspan baseline-shift="sub">2</tspan></text>
+
+  <!-- complex plane -->
+  <line class="thin" x1="830" y1="325" x2="830" y2="395"/>
+  <line class="thin" x1="800" y1="360" x2="860" y2="360"/>
+  <text class="small" x="862" y="364">Re</text>
+  <text class="small" x="833" y="323">Im</text>
+
+  <!-- phasors -->
+  <line class="arrow" x1="830" y1="360" x2="852" y2="340"/>
+  <polygon points="852,340 842,339 848,347" fill="#000"/>
+  <text class="small" x="854" y="342">A<tspan baseline-shift="sub">1</tspan></text>
+
+  <line class="arrow" x1="830" y1="360" x2="848" y2="382"/>
+  <polygon points="848,382 842,373 838,381" fill="#000"/>
+  <text class="small" x="850" y="387">A<tspan baseline-shift="sub">2</tspan></text>
+
+  <line class="arrow" x1="830" y1="360" x2="860" y2="360"/>
+  <polygon points="860,360 850,355 850,365" fill="#000"/>
+  <text class="small" x="862" y="357">sum</text>
+</svg>

@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="400" viewBox="0 0 900 400">
+  <title>Angular spectrum method: Step 4 — IFFT recombines plane waves (interference) to form the output field</title>
+
+  <defs>
+    <style>
+      .box   { stroke: #000; stroke-width: 2; fill: none; }
+      .thin  { stroke: #000; stroke-width: 1.2; fill: none; }
+      .dash  { stroke-dasharray: 6 4; opacity: 0.35; }
+      .arrow { stroke: #000; stroke-width: 2.2; fill: none; }
+      .label { font-family: Arial, Helvetica, sans-serif; font-size: 16px; fill: #000; }
+      .eq    { font-family: Arial, Helvetica, sans-serif; font-size: 15px; fill: #000; }
+      .small { font-family: Arial, Helvetica, sans-serif; font-size: 13px; fill: #000; }
+      .dot   { fill: #000; opacity: 0.85; }
+    </style>
+  </defs>
+
+  <text class="label" x="40" y="40">Step 4: inverse FFT → output facet field (interference of many plane waves)</text>
+
+  <text class="eq" x="40" y="72">U<tspan baseline-shift="sub">out</tspan>(x,y) = IFFT{A<tspan baseline-shift="sub">out</tspan>(k<tspan baseline-shift="sub">x</tspan>,k<tspan baseline-shift="sub">y</tspan>)}</text>
+  <text class="eq" x="40" y="94">I<tspan baseline-shift="sub">out</tspan>(x,y) = |U<tspan baseline-shift="sub">out</tspan>(x,y)|²</text>
+
+  <!-- k-space box -->
+  <rect class="box" x="60" y="120" width="260" height="220"/>
+  <text class="label" x="60" y="105">Angular spectrum (after)</text>
+  <text class="small" x="72" y="145">A<tspan baseline-shift="sub">out</tspan>(k<tspan baseline-shift="sub">x</tspan>,k<tspan baseline-shift="sub">y</tspan)</text>
+
+  <line class="thin" x1="190" y1="160" x2="190" y2="310"/>
+  <line class="thin" x1="90" y1="235" x2="290" y2="235"/>
+  <circle class="dot" cx="250" cy="190" r="3"/>
+  <circle class="dot" cx="140" cy="270" r="3"/>
+  <circle class="dot" cx="220" cy="260" r="3"/>
+  <circle class="dot" cx="165" cy="200" r="3"/>
+
+  <!-- IFFT box -->
+  <rect class="box" x="340" y="202" width="80" height="56"/>
+  <text class="label" x="356" y="236">IFFT</text>
+
+  <line class="arrow" x1="320" y1="230" x2="340" y2="230"/>
+  <polygon points="340,230 330,225 330,235" fill="#000"/>
+
+  <!-- Output facet box -->
+  <rect class="box" x="450" y="120" width="220" height="220"/>
+  <text class="label" x="450" y="105">Output facet</text>
+  <text class="small" x="462" y="145">U<tspan baseline-shift="sub">out</tspan>(x,y)</text>
+
+  <!-- dots to hint a speckle-like complex field -->
+  <circle class="dot" cx="480" cy="170" r="3"/>
+  <circle class="dot" cx="520" cy="200" r="2"/>
+  <circle class="dot" cx="600" cy="190" r="4"/>
+  <circle class="dot" cx="560" cy="260" r="3"/>
+  <circle class="dot" cx="635" cy="250" r="2"/>
+  <circle class="dot" cx="500" cy="285" r="4"/>
+  <circle class="dot" cx="620" cy="305" r="3"/>
+  <circle class="dot" cx="470" cy="235" r="2"/>
+
+  <text class="eq" x="700" y="160">Interference at each point:</text>
+  <text class="small" x="700" y="185">U(x,y) = Σ<tspan baseline-shift="sub">j</tspan> A<tspan baseline-shift="sub">j</tspan> · exp(i k<tspan baseline-shift="sub">j</tspan>·r)</text>
+  <text class="small" x="700" y="205">I = |U|²  (constructive / destructive)</text>
+
+  <text class="small" x="700" y="250">Many plane waves + random phases → speckle</text>
+</svg>

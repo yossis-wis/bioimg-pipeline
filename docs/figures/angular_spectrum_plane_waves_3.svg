@@ -1,0 +1,95 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="440" viewBox="0 0 900 440">
+  <title>Plane-wave picture: three plane waves through a fiber (more complex interference)</title>
+
+  <defs>
+    <style>
+      .box   { stroke: #000; stroke-width: 2; fill: none; }
+      .thin  { stroke: #000; stroke-width: 1.2; fill: none; }
+      .arrow { stroke: #000; stroke-width: 2.2; fill: none; }
+      .label { font-family: Arial, Helvetica, sans-serif; font-size: 16px; fill: #000; }
+      .eq    { font-family: Arial, Helvetica, sans-serif; font-size: 15px; fill: #000; }
+      .small { font-family: Arial, Helvetica, sans-serif; font-size: 13px; fill: #000; }
+      .wf    { stroke: #000; stroke-width: 1.2; opacity: 0.7; }
+    </style>
+  </defs>
+
+  <text class="label" x="40" y="40">Example: 3 plane waves → “speckle starts to look speckle-like”</text>
+  <text class="small" x="40" y="65">Adding more plane waves increases spatial complexity. Many plane waves with random phases → fully developed speckle.</text>
+
+  <!-- Input -->
+  <text class="label" x="60" y="110">Input</text>
+  <text class="small" x="60" y="132">A<tspan baseline-shift="sub">1</tspan>, A<tspan baseline-shift="sub">2</tspan>, A<tspan baseline-shift="sub">3</tspan> with phases φ<tspan baseline-shift="sub">1</tspan>, φ<tspan baseline-shift="sub">2</tspan>, φ<tspan baseline-shift="sub">3</tspan></text>
+
+  <!-- plane wave 1 -->
+  <line class="wf" x1="80" y1="255" x2="150" y2="205"/>
+  <line class="wf" x1="100" y1="275" x2="170" y2="225"/>
+  <line class="wf" x1="120" y1="295" x2="190" y2="245"/>
+  <line class="arrow" x1="110" y1="225" x2="200" y2="165"/>
+  <polygon points="200,165 190,165 196,173" fill="#000"/>
+
+  <!-- plane wave 2 -->
+  <line class="wf" x1="80" y1="175" x2="155" y2="210"/>
+  <line class="wf" x1="80" y1="150" x2="155" y2="185"/>
+  <line class="arrow" x1="120" y1="175" x2="205" y2="205"/>
+  <polygon points="205,205 196,199 194,209" fill="#000"/>
+
+  <!-- plane wave 3 (nearly axial) -->
+  <line class="wf" x1="120" y1="150" x2="120" y2="310"/>
+  <line class="wf" x1="140" y1="150" x2="140" y2="310"/>
+  <line class="arrow" x1="130" y1="200" x2="200" y2="200"/>
+  <polygon points="200,200 190,195 190,205" fill="#000"/>
+
+  <!-- Fiber -->
+  <rect class="box" x="260" y="150" width="380" height="160"/>
+  <text class="label" x="260" y="135">Fiber</text>
+
+  <!-- three ray paths -->
+  <polyline class="arrow" points="270,230 350,160 430,230 510,160 590,230 635,195" fill="none"/>
+  <polygon points="635,195 625,193 631,201" fill="#000"/>
+
+  <polyline class="arrow" points="270,230 355,205 440,230 525,205 610,230" fill="none"/>
+  <polygon points="610,230 600,225 600,235" fill="#000"/>
+
+  <polyline class="arrow" points="270,230 635,230" fill="none"/>
+  <polygon points="635,230 625,225 625,235" fill="#000"/>
+
+  <text class="small" x="300" y="338">three different angles ⇒ three different phase accumulations</text>
+
+  <!-- Output intensity sketch -->
+  <rect class="box" x="690" y="150" width="170" height="160"/>
+  <text class="label" x="690" y="135">Output intensity</text>
+  <text class="small" x="700" y="170">more complex</text>
+
+  <line class="thin" x1="705" y1="290" x2="845" y2="290"/>
+  <line class="thin" x1="705" y1="175" x2="705" y2="290"/>
+  <text class="small" x="848" y="294">x</text>
+  <text class="small" x="708" y="173">I</text>
+
+  <!-- wiggly curve -->
+  <polyline class="thin" points="705,255 720,240 735,265 750,225 765,270 780,235 795,275 810,220 825,265 840,245" fill="none"/>
+
+  <!-- Phasor sum -->
+  <text class="label" x="690" y="345">At one point:</text>
+  <text class="eq" x="690" y="368">U = Σ<tspan baseline-shift="sub">j=1..3</tspan> A<tspan baseline-shift="sub">j</tspan> e<tspan baseline-shift="super">iφ</tspan><tspan baseline-shift="sub">j</tspan></text>
+
+  <line class="thin" x1="830" y1="340" x2="830" y2="430"/>
+  <line class="thin" x1="790" y1="385" x2="870" y2="385"/>
+  <text class="small" x="872" y="389">Re</text>
+  <text class="small" x="833" y="338">Im</text>
+
+  <line class="arrow" x1="830" y1="385" x2="860" y2="360"/>
+  <polygon points="860,360 850,359 856,367" fill="#000"/>
+  <text class="small" x="862" y="362">A<tspan baseline-shift="sub">1</tspan></text>
+
+  <line class="arrow" x1="830" y1="385" x2="850" y2="415"/>
+  <polygon points="850,415 844,406 840,414" fill="#000"/>
+  <text class="small" x="852" y="420">A<tspan baseline-shift="sub">2</tspan></text>
+
+  <line class="arrow" x1="830" y1="385" x2="800" y2="355"/>
+  <polygon points="800,355 802,365 809,358" fill="#000"/>
+  <text class="small" x="776" y="357">A<tspan baseline-shift="sub">3</tspan></text>
+
+  <line class="arrow" x1="830" y1="385" x2="868" y2="385"/>
+  <polygon points="868,385 858,380 858,390" fill="#000"/>
+  <text class="small" x="870" y="382">sum</text>
+</svg>
