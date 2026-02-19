@@ -54,7 +54,6 @@ def test_filter_spots_to_required_nuclei() -> None:
                 "background": 0.0,
                 "spot_channel": 1,
                 "output_dir": "runA",
-                "input_path": "fileA.ims",
                 "nucleus_label": 1,
             },
             {
@@ -64,7 +63,6 @@ def test_filter_spots_to_required_nuclei() -> None:
                 "background": 0.0,
                 "spot_channel": 2,
                 "output_dir": "runA",
-                "input_path": "fileA.ims",
                 "nucleus_label": 1,
             },
             # Nucleus 2 has only channel 1
@@ -75,7 +73,6 @@ def test_filter_spots_to_required_nuclei() -> None:
                 "background": 0.0,
                 "spot_channel": 1,
                 "output_dir": "runA",
-                "input_path": "fileA.ims",
                 "nucleus_label": 2,
             },
             # Unassigned (label 0)
@@ -86,7 +83,6 @@ def test_filter_spots_to_required_nuclei() -> None:
                 "background": 0.0,
                 "spot_channel": 2,
                 "output_dir": "runA",
-                "input_path": "fileA.ims",
                 "nucleus_label": 0,
             },
         ]

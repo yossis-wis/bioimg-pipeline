@@ -197,6 +197,38 @@ def main() -> int:
         ),
     )
     p.add_argument(
+        "--spot-channels",
+        type=str,
+        default=None,
+        help=(
+            "Optional comma-separated list of spot_channel values to render as atlas columns. "
+            "Example: --spot-channels 2 renders only protein spots, while still allowing "
+            "--require-channels 1,2 to enforce DNA+protein co-occurrence."
+        ),
+    )
+    p.add_argument(
+        "--context-channel",
+        type=int,
+        default=None,
+        help=(
+            "Optional spot channel to show as an extra zoomed-out top row (and mark the brightest spot per nucleus). "
+            "If omitted and co-occurrence filtering is enabled, defaults to the smallest required channel "
+            "(often the DNA-locus channel)."
+        ),
+    )
+    p.add_argument(
+        "--context-window-radius-px",
+        type=int,
+        default=30,
+        help="Radius (pixels) for the zoomed-out context row crop (default: 30).",
+    )
+    p.add_argument(
+        "--context-marker-radius-px",
+        type=int,
+        default=4,
+        help="Marker radius (pixels) for the context row spot circle (default: 4).",
+    )
+    p.add_argument(
         "--no-require-cooccurrence",
         action="store_true",
         help=(
@@ -260,6 +292,19 @@ def main() -> int:
             if len(channels_present) >= 2:
                 require_spot_channels = tuple(channels_present)
 
+    # Optional: restrict which spot channels are rendered as columns in the deck.
+    include_spot_channels: Optional[tuple[int, ...]] = None
+    if args.spot_channels:
+        include_spot_channels = _parse_channels_csv(str(args.spot_channels))
+
+    # Context row (zoomed out) default: when co-occurrence is enabled, show the smallest required channel.
+    context_channel: Optional[int] = int(args.context_channel) if args.context_channel is not None else None
+    if context_channel is None and require_spot_channels:
+        context_channel = min(int(c) for c in require_spot_channels)
+
+    context_window_radius_px = int(args.context_window_radius_px)
+    context_marker_radius_px = int(args.context_marker_radius_px)
+
     fixed_clim = None
     if args.fixed_clim:
         parts = [p.strip() for p in str(args.fixed_clim).split(",")]
@@ -282,6 +327,10 @@ def main() -> int:
         u0_min=float(u0_default),
         u0_min_by_channel=u0_by_channel,
         require_spot_channels=require_spot_channels,
+        include_spot_channels=include_spot_channels,
+        context_spot_channel=context_channel,
+        context_window_radius_px=context_window_radius_px,
+        context_marker_radius_px=context_marker_radius_px,
         sort_by=str(args.sort_by),
         fixed_clim=fixed_clim,
         fixed_percentiles=fixed_percentiles,

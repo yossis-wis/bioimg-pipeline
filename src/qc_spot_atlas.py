@@ -36,7 +36,7 @@ import yaml
 # this module works headlessly, while notebooks keep an interactive backend.
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
-from matplotlib.patches import Rectangle
+from matplotlib.patches import Circle, Rectangle
 
 from image_io import PlaneSelection, read_image_2d
 
@@ -101,6 +101,25 @@ class SpotAtlasParams:
     # *each* of these spot_channel values. This is useful for multi-channel
     # co-localization QC (e.g. DNA + protein spots).
     require_spot_channels: Optional[Tuple[int, ...]] = None
+
+    # Optional: restrict which spot channels are *rendered* as columns in the deck.
+    #
+    # This is orthogonal to ``require_spot_channels``:
+    # - ``require_spot_channels`` filters *nuclei* (co-occurrence requirement).
+    # - ``include_spot_channels`` filters which spots become atlas columns.
+    #
+    # Example (DNA+protein co-occurrence QC):
+    #   - require_spot_channels = (1, 2)   (nuclei must contain both)
+    #   - include_spot_channels = (2,)     (show only protein spots as columns)
+    include_spot_channels: Optional[Tuple[int, ...]] = None
+
+    # Optional top context row: show a zoomed-out crop from a reference spot channel
+    # (typically the DNA-locus channel) and mark the reference spot location.
+    #
+    # If ``context_spot_channel`` is None, the context row is omitted.
+    context_spot_channel: Optional[int] = None
+    context_window_radius_px: int = 30
+    context_marker_radius_px: int = 4
 
     sort_by: str = "intensity"  # intensity | snr | random | input_path
     random_seed: int = 0
@@ -188,6 +207,48 @@ def _extract_centered_window(img: np.ndarray, y: int, x: int, radius: int) -> np
     x0 = int(x) - r
     x1 = int(x) + r + 1
     return img[y0:y1, x0:x1]
+
+
+def _extract_centered_window_with_padding(
+    img: np.ndarray,
+    y: int,
+    x: int,
+    radius: int,
+    *,
+    pad_value: float = 0.0,
+) -> np.ndarray:
+    """Extract a centered window with zero-padding at the borders.
+
+    Unlike :func:`_extract_centered_window`, this helper is *not* used for
+    photometry QC. It's only for the zoomed-out context row, where we prefer to
+    show as much neighborhood context as possible even if a spot is near the
+    image edge.
+    """
+
+    r = int(radius)
+    h, w = img.shape[:2]
+    out = np.full((2 * r + 1, 2 * r + 1), pad_value, dtype=img.dtype)
+
+    y0 = int(y) - r
+    x0 = int(x) - r
+    y1 = int(y) + r + 1
+    x1 = int(x) + r + 1
+
+    src_y0 = max(y0, 0)
+    src_x0 = max(x0, 0)
+    src_y1 = min(y1, h)
+    src_x1 = min(x1, w)
+
+    dst_y0 = src_y0 - y0
+    dst_x0 = src_x0 - x0
+    dst_y1 = dst_y0 + (src_y1 - src_y0)
+    dst_x1 = dst_x0 + (src_x1 - src_x0)
+
+    if src_y1 > src_y0 and src_x1 > src_x0:
+        out[dst_y0:dst_y1, dst_x0:dst_x1] = img[src_y0:src_y1, src_x0:src_x1]
+
+    return out
+
 
 
 def _disk_mask(radius_px: int, window_size: int) -> np.ndarray:
@@ -313,10 +374,10 @@ def _mask_outline_xy(mask: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
 class _LRUImageCache:
     def __init__(self, max_items: int):
         self.max_items = int(max_items)
-        self._store: Dict[Tuple[Any, ...], Tuple[np.ndarray, np.ndarray]] = {}
+        self._store: Dict[Tuple[Any, ...], Tuple[np.ndarray, ...]] = {}
         self._order: list[Tuple[Any, ...]] = []
 
-    def get(self, key: Tuple[Any, ...]) -> Optional[Tuple[np.ndarray, np.ndarray]]:
+    def get(self, key: Tuple[Any, ...]) -> Optional[Tuple[np.ndarray, ...]]:
         if key not in self._store:
             return None
         # bump
@@ -327,7 +388,7 @@ class _LRUImageCache:
         self._order.append(key)
         return self._store[key]
 
-    def put(self, key: Tuple[Any, ...], value: Tuple[np.ndarray, np.ndarray]) -> None:
+    def put(self, key: Tuple[Any, ...], value: Tuple[np.ndarray, ...]) -> None:
         if key in self._store:
             try:
                 self._order.remove(key)
@@ -472,7 +533,7 @@ def _filter_spots_to_required_nuclei(
 ) -> pd.DataFrame:
     """Restrict spots to nuclei containing all required spot channels.
 
-    A nucleus identity is defined as (input_path, nucleus_label) to avoid label
+    A nucleus identity is defined as (output_dir, nucleus_label) to avoid label
     collisions across different input files.
     """
 
@@ -480,7 +541,7 @@ def _filter_spots_to_required_nuclei(
     if not required:
         return df
 
-    needed_cols = {"input_path", "nucleus_label", "spot_channel"}
+    needed_cols = {"output_dir", "nucleus_label", "spot_channel"}
     missing = [c for c in needed_cols if c not in df.columns]
     if missing:
         raise ValueError(
@@ -501,18 +562,61 @@ def _filter_spots_to_required_nuclei(
 
     # Compute, for each nucleus identity, which spot channels appear.
     ch_sets = (
-        out.groupby(["input_path", "nucleus_label"], sort=False)["spot_channel"]
+        out.groupby(["output_dir", "nucleus_label"], sort=False)["spot_channel"]
         .apply(lambda s: set(s.dropna().astype(int)))
         .rename("spot_channels_present")
     )
 
     ok = ch_sets.apply(lambda present: required.issubset(present))
-    nuclei = ch_sets[ok].reset_index().loc[:, ["input_path", "nucleus_label"]]
+    nuclei = ch_sets[ok].reset_index().loc[:, ["output_dir", "nucleus_label"]]
     if nuclei.empty:
         return out.iloc[0:0].copy()
 
     # Filter spots down to those nuclei.
-    return out.merge(nuclei, on=["input_path", "nucleus_label"], how="inner")
+    return out.merge(nuclei, on=["output_dir", "nucleus_label"], how="inner")
+
+
+def _best_spot_by_nucleus(
+    df: pd.DataFrame,
+    *,
+    spot_channel: int,
+) -> Dict[Tuple[str, int], Tuple[float, float]]:
+    """Return (output_dir, nucleus_label) -> (y_px, x_px) for the brightest spot.
+
+    We take the *maximum u0* (stored in the contract column ``intensity``) within
+    each nucleus for the given ``spot_channel``. This is useful for atlas QC
+    where we want to mark (e.g.) the most likely DNA-locus spot while browsing
+    protein spots.
+
+    Notes
+    -----
+    - Nucleus identity uses ``output_dir`` to avoid label collisions across runs.
+    - Nuclei with label <= 0 are ignored.
+    """
+
+    if df.empty:
+        return {}
+
+    if "nucleus_label" not in df.columns:
+        return {}
+
+    out = df.copy()
+    out["spot_channel"] = out["spot_channel"].astype(int)
+    out["nucleus_label"] = out["nucleus_label"].astype(int)
+
+    out = out[(out["spot_channel"] == int(spot_channel)) & (out["nucleus_label"] > 0)].copy()
+    if out.empty:
+        return {}
+
+    # For each nucleus, keep the brightest (max intensity) spot.
+    idx = out.groupby(["output_dir", "nucleus_label"], sort=False)["intensity"].idxmax()
+    best = out.loc[idx, ["output_dir", "nucleus_label", "y_px", "x_px"]].copy()
+
+    mapping: Dict[Tuple[str, int], Tuple[float, float]] = {}
+    for _, r in best.iterrows():
+        key = (str(Path(str(r["output_dir"]))), int(r["nucleus_label"]))
+        mapping[key] = (float(r["y_px"]), float(r["x_px"]))
+    return mapping
 
 
 def render_atlas_page_png(
@@ -523,6 +627,7 @@ def render_atlas_page_png(
     image_cache: _LRUImageCache,
     manifest_cache: Dict[str, Dict[str, Any]],
     fixed_clim_state: Dict[str, Tuple[float, float]],
+    context_spots_by_nucleus: Optional[Dict[Tuple[str, int], Tuple[float, float]]] = None,
 ) -> bytes:
     """Render a single atlas page (one slide image) and return PNG bytes."""
 
@@ -537,14 +642,25 @@ def render_atlas_page_png(
 
     extent_full = (0.5, win + 0.5, win + 0.5, 0.5)
 
+    # Optional extra context row (top): zoomed-out crop from a reference channel.
+    use_context = params.context_spot_channel not in (None, 0, "none", "None")
+    ctx_channel = int(params.context_spot_channel) if use_context else 0
+    ctx_r = int(params.context_window_radius_px) if use_context else 0
+    ctx_win = 2 * ctx_r + 1 if use_context else 0
+    extent_ctx = (0.5, ctx_win + 0.5, ctx_win + 0.5, 0.5) if use_context else extent_full
+
+    n_tile_rows = 8 if use_context else 7
+    base_row = 1 if use_context else 0
+    legend_row = n_tile_rows
+
     fig = plt.figure(figsize=params.figure_size_in, dpi=int(params.dpi), facecolor="white")
     gs = GridSpec(
-        nrows=8,
+        nrows=n_tile_rows + 1,
         ncols=int(params.spots_per_slide),
         figure=fig,
         wspace=0.0,
         hspace=0.0,
-        height_ratios=[1, 1, 1, 1, 1, 1, 1, 0.7],
+        height_ratios=[1] * n_tile_rows + [0.7],
     )
 
     cmap = "gray_r"  # match MATLAB's flipud(gray)
@@ -552,7 +668,7 @@ def render_atlas_page_png(
     for col in range(int(params.spots_per_slide)):
         if col >= len(spots_batch):
             # still create empty axes to keep layout stable
-            for rr in range(7):
+            for rr in range(n_tile_rows):
                 ax = fig.add_subplot(gs[rr, col])
                 ax.axis("off")
             continue
@@ -562,6 +678,7 @@ def render_atlas_page_png(
         bkg = float(row.get("background", 0.0))
         y_px = int(round(float(row["y_px"])))
         x_px = int(round(float(row["x_px"])))
+        nucleus_label = int(row.get("nucleus_label", 0))
 
         out_dir = Path(str(row["output_dir"]))
         out_key = str(out_dir)
@@ -575,10 +692,12 @@ def render_atlas_page_png(
 
         sel_spot = _plane_selection_from_manifest(manifest, spot_channel)
         sel_nuc = _plane_selection_from_manifest(manifest, nuc_channel) if nuc_channel else None
+        sel_ctx = _plane_selection_from_manifest(manifest, ctx_channel) if use_context else None
 
         cache_key = (
             str(input_path),
             int(spot_channel),
+            int(ctx_channel),
             int(sel_spot.ims_resolution_level),
             int(sel_spot.ims_time_index),
             int(sel_spot.ims_z_index),
@@ -588,12 +707,35 @@ def render_atlas_page_png(
         if cached is None:
             img_spot = read_image_2d(input_path, sel_spot)
             img_nuc = read_image_2d(input_path, sel_nuc) if sel_nuc else np.zeros_like(img_spot)
-            image_cache.put(cache_key, (img_nuc, img_spot))
+
+            if use_context:
+                if ctx_channel == spot_channel:
+                    img_ctx = img_spot
+                elif nuc_channel is not None and ctx_channel == int(nuc_channel):
+                    img_ctx = img_nuc
+                else:
+                    if sel_ctx is None:
+                        raise ValueError("context_spot_channel set but context plane selection is None")
+                    img_ctx = read_image_2d(input_path, sel_ctx)
+            else:
+                img_ctx = img_spot
+
+            image_cache.put(cache_key, (img_nuc, img_spot, img_ctx))
         else:
-            img_nuc, img_spot = cached
+            img_nuc, img_spot, img_ctx = cached
 
         nuc_crop = _extract_centered_window(img_nuc, y_px, x_px, win_r)
         spot_crop = _extract_centered_window(img_spot, y_px, x_px, win_r)
+
+        ctx_crop: Optional[np.ndarray]
+        ctx_vmin: float
+        ctx_vmax: float
+        if use_context:
+            ctx_crop = _extract_centered_window_with_padding(img_ctx, y_px, x_px, ctx_r)
+            ctx_vmin, ctx_vmax = _robust_clim(ctx_crop, params.fixed_percentiles[0], params.fixed_percentiles[1])
+        else:
+            ctx_crop = None
+            ctx_vmin, ctx_vmax = 0.0, 1.0
 
         # Fixed clim (global across the deck unless user specified explicit fixed_clim)
         if params.fixed_clim is not None:
@@ -638,8 +780,38 @@ def render_atlas_page_png(
                 spine.set_linewidth(2.0)
                 spine.set_edgecolor(border_color)
 
-        # Row 0: nuclei (context) + aperture outline
-        ax0 = fig.add_subplot(gs[0, col])
+        # Optional Row 0: zoomed-out context crop (reference channel) with DNA spot marker.
+        if use_context and ctx_crop is not None:
+            ax_ctx = fig.add_subplot(gs[0, col])
+            ax_ctx.imshow(
+                ctx_crop,
+                cmap=cmap,
+                vmin=ctx_vmin,
+                vmax=ctx_vmax,
+                interpolation="nearest",
+                extent=extent_ctx,
+            )
+
+            if context_spots_by_nucleus is not None and nucleus_label > 0:
+                key = (out_key, nucleus_label)
+                if key in context_spots_by_nucleus:
+                    ref_y, ref_x = context_spots_by_nucleus[key]
+                    x_ref = (ctx_r + 1) + (float(ref_x) - float(x_px))
+                    y_ref = (ctx_r + 1) + (float(ref_y) - float(y_px))
+                    ax_ctx.add_patch(
+                        Circle(
+                            (x_ref, y_ref),
+                            radius=float(params.context_marker_radius_px),
+                            fill=False,
+                            edgecolor="yellow",
+                            linewidth=1.0,
+                        )
+                    )
+
+            _style_ax(ax_ctx)
+
+        # Row: nuclei (context) + aperture outline
+        ax0 = fig.add_subplot(gs[base_row + 0, col])
         ax0.imshow(
             nuc_crop,
             cmap=cmap,
@@ -652,8 +824,8 @@ def render_atlas_page_png(
             ax0.plot(outline_x, outline_y, color="yellow", linewidth=1.0)
         _style_ax(ax0)
 
-        # Row 1: full spot (fixed)
-        ax1 = fig.add_subplot(gs[1, col])
+        # Row: full spot (fixed)
+        ax1 = fig.add_subplot(gs[base_row + 1, col])
         ax1.imshow(
             spot_crop,
             cmap=cmap,
@@ -664,8 +836,8 @@ def render_atlas_page_png(
         )
         _style_ax(ax1)
 
-        # Row 2: mid spot (fixed)
-        ax2 = fig.add_subplot(gs[2, col])
+        # Row: mid spot (fixed)
+        ax2 = fig.add_subplot(gs[base_row + 2, col])
         ax2.imshow(
             spot_mid,
             cmap=cmap,
@@ -676,8 +848,8 @@ def render_atlas_page_png(
         )
         _style_ax(ax2)
 
-        # Row 3: tight spot (fixed) + outline
-        ax3 = fig.add_subplot(gs[3, col])
+        # Row: tight spot (fixed) + outline
+        ax3 = fig.add_subplot(gs[base_row + 3, col])
         ax3.imshow(
             spot_tight,
             cmap=cmap,
@@ -690,8 +862,8 @@ def render_atlas_page_png(
             ax3.plot(outline_x - tight.start, outline_y - tight.start, color="yellow", linewidth=1.0)
         _style_ax(ax3)
 
-        # Row 4: full spot (adaptive)
-        ax4 = fig.add_subplot(gs[4, col])
+        # Row: full spot (adaptive)
+        ax4 = fig.add_subplot(gs[base_row + 4, col])
         ax4.imshow(
             spot_crop,
             cmap=cmap,
@@ -702,8 +874,8 @@ def render_atlas_page_png(
         )
         _style_ax(ax4)
 
-        # Row 5: mid spot (adaptive)
-        ax5 = fig.add_subplot(gs[5, col])
+        # Row: mid spot (adaptive)
+        ax5 = fig.add_subplot(gs[base_row + 5, col])
         ax5.imshow(
             spot_mid,
             cmap=cmap,
@@ -714,8 +886,8 @@ def render_atlas_page_png(
         )
         _style_ax(ax5)
 
-        # Row 6: tight spot (adaptive) + outline
-        ax6 = fig.add_subplot(gs[6, col])
+        # Row: tight spot (adaptive) + outline
+        ax6 = fig.add_subplot(gs[base_row + 6, col])
         ax6.imshow(
             spot_tight,
             cmap=cmap,
@@ -729,7 +901,7 @@ def render_atlas_page_png(
         _style_ax(ax6)
 
     # Legend row spans all columns
-    ax_leg = fig.add_subplot(gs[7, :])
+    ax_leg = fig.add_subplot(gs[legend_row, :])
     ax_leg.set_xlim(0, 9)
     ax_leg.set_ylim(0, 1)
     ax_leg.axis("off")
@@ -798,13 +970,15 @@ def build_spot_atlas_pptx(
     out_pptx = Path(out_pptx).expanduser().resolve()
     out_pptx.parent.mkdir(parents=True, exist_ok=True)
 
-    df = _filter_spots_by_u0(spots_df, params)
+    # 1) Photometry (u0) filter: supports global + per-channel thresholds.
+    df_all = _filter_spots_by_u0(spots_df, params)
 
+    # 2) Optional nucleus-level co-occurrence filter.
     if params.require_spot_channels:
-        df = _filter_spots_to_required_nuclei(df, required_spot_channels=params.require_spot_channels)
+        df_all = _filter_spots_to_required_nuclei(df_all, required_spot_channels=params.require_spot_channels)
 
-    if df.empty:
-        chs = []
+    if df_all.empty:
+        chs: list[int] = []
         try:
             chs = sorted({int(c) for c in spots_df["spot_channel"].dropna().unique()})
         except Exception:
@@ -814,6 +988,23 @@ def build_spot_atlas_pptx(
         if params.require_spot_channels:
             extra = f" and requiring nuclei with channels={tuple(int(c) for c in params.require_spot_channels)}"
         raise ValueError(f"No spots remain after filtering ({filt_desc}){extra}")
+
+    # 3) Context marker mapping (e.g., DNA channel) computed on the *full* filtered set.
+    context_spots_by_nucleus: Optional[Dict[Tuple[str, int], Tuple[float, float]]] = None
+    if params.context_spot_channel not in (None, 0, "none", "None"):
+        context_spots_by_nucleus = _best_spot_by_nucleus(df_all, spot_channel=int(params.context_spot_channel))
+
+    # 4) Optional: choose which spot channels are rendered as atlas columns.
+    df = df_all
+    include_desc = ""
+    if params.include_spot_channels:
+        include = sorted({int(c) for c in params.include_spot_channels})
+        include_desc = "show " + ",".join(f"ch{c}" for c in include)
+        df = df.copy()
+        df["spot_channel"] = df["spot_channel"].astype(int)
+        df = df[df["spot_channel"].isin(include)].copy()
+        if df.empty:
+            raise ValueError(f"No spots remain after include_spot_channels filter ({include_desc}).")
 
     df = _sort_spots(df, params)
 
@@ -842,7 +1033,7 @@ def build_spot_atlas_pptx(
         for start in range(0, len(g_df), int(params.spots_per_slide)):
             batch = g_df.iloc[start : start + int(params.spots_per_slide)]
 
-            parts = []
+            parts: list[str] = []
             if title_prefix:
                 parts.append(title_prefix)
             if g_name is not None:
@@ -850,12 +1041,23 @@ def build_spot_atlas_pptx(
             parts.append(
                 f"spots {start + 1}-{min(start + int(params.spots_per_slide), len(g_df))} / {len(g_df)}"
             )
-            channels_in_group = []
+
+            # For the u0 filter text, prefer the co-occurrence channels (if set) so
+            # the title reflects *both* spot types even if we only render one channel.
+            channels_in_group: list[int] = []
             try:
                 channels_in_group = sorted({int(c) for c in g_df["spot_channel"].dropna().unique()})
             except Exception:
                 channels_in_group = []
-            parts.append(_format_u0_filter(params, channels_in_group))
+
+            channels_for_title = channels_in_group
+            if params.require_spot_channels:
+                channels_for_title = sorted({int(c) for c in params.require_spot_channels})
+
+            parts.append(_format_u0_filter(params, channels_for_title))
+            if include_desc:
+                parts.append(include_desc)
+
             page_title = "  |  ".join(parts)
 
             png = render_atlas_page_png(
@@ -865,6 +1067,7 @@ def build_spot_atlas_pptx(
                 image_cache=image_cache,
                 manifest_cache=manifest_cache,
                 fixed_clim_state=fixed_clim_state,
+                context_spots_by_nucleus=context_spots_by_nucleus,
             )
 
             slide = pres.slides.add_slide(blank)
@@ -879,4 +1082,3 @@ def build_spot_atlas_pptx(
 
     pres.save(str(out_pptx))
     return out_pptx
-
