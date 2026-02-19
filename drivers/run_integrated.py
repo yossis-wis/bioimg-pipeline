@@ -13,7 +13,12 @@ from typing import Any, Dict, Optional
 
 import numpy as np
 import pandas as pd
-import pyarrow  # noqa: F401
+try:
+    import pyarrow  # noqa: F401
+except ModuleNotFoundError:  # pragma: no cover
+    # Keep module importable in minimal environments; the driver will error
+    # at runtime if parquet I/O is requested without pyarrow.
+    pyarrow = None  # type: ignore[assignment]
 import tifffile
 import yaml
 
@@ -34,6 +39,138 @@ from slice1_nuclei_kernel import Slice1NucleiParams, segment_nuclei_stardist  # 
 from stardist_utils import StardistModelRef, load_stardist2d  # noqa: E402
 from vis_utils import create_cutout_montage, write_qc_overlay  # noqa: E402
 from pixel_size_utils import infer_pixel_size_nm_mean  # noqa: E402
+
+
+
+_SLICE0_CFG_KEY_TO_FIELD = {
+    # Legacy config keys (top-level) -> Slice0Params field names
+    "spot_zR": "zR",
+    "spot_lambda_nm": "lambda_nm",
+    "spot_pixel_size_nm": "pixel_size_nm",
+    "spot_radius_nm": "spot_radius_nm",
+    "spot_do_median_filter": "do_median_filter",
+    "spot_do_subpixel_localization": "do_subpixel_localization",
+    "spot_q_min": "q_min",
+    "spot_se_size": "se_size",
+    "spot_u0_min": "u0_min",
+}
+
+
+def _coerce_slice0_overrides(overrides: Dict[str, Any]) -> Dict[str, Any]:
+    """Coerce a config override dict into Slice0Params field names.
+
+    Supports either:
+    - Slice0Params field names directly (e.g. ``q_min``)
+    - The legacy config key names used in YAML (e.g. ``spot_q_min``)
+
+    Unknown keys raise ValueError to avoid silent typos in YAML.
+    """
+
+    if overrides is None:
+        return {}
+    if not isinstance(overrides, dict):
+        raise ValueError(f"spot_params overrides must be a dict; got {type(overrides)}")
+
+    field_names = set(Slice0Params.__dataclass_fields__.keys())
+    out: Dict[str, Any] = {}
+    for k, v in overrides.items():
+        if k in field_names:
+            out[k] = v
+            continue
+        if k in _SLICE0_CFG_KEY_TO_FIELD:
+            out[_SLICE0_CFG_KEY_TO_FIELD[k]] = v
+            continue
+        raise ValueError(
+            "Unknown Slice0Params override key: "
+            f"{k!r}. Expected a Slice0Params field name or one of: "
+            f"{sorted(_SLICE0_CFG_KEY_TO_FIELD.keys())}"
+        )
+    return out
+
+
+def _build_slice0_params_for_channel(
+    cfg: Dict[str, Any],
+    *,
+    pixel_size_nm: float,
+    channel: int,
+) -> Slice0Params:
+    """Build Slice0Params for a given spot channel.
+
+    This implements the approved plan's requirement to support per-channel LoG
+    settings by merging:
+
+        defaults_from_cfg (top-level spot_* keys)
+        → spot_params_by_channel[channel] overrides (if provided)
+
+    The per-channel override dict may use either Slice0Params field names
+    (e.g. ``q_min``) or the legacy YAML keys (e.g. ``spot_q_min``).
+    """
+
+    base = {
+        "zR": float(cfg.get("spot_zR", 344.5)),
+        "lambda_nm": float(cfg.get("spot_lambda_nm", 667.0)),
+        "pixel_size_nm": float(pixel_size_nm),
+
+        # Optional TrackMate-style overrides
+        "spot_radius_nm": (
+            float(cfg["spot_radius_nm"]) if cfg.get("spot_radius_nm", None) is not None else None
+        ),
+        "do_median_filter": bool(cfg.get("spot_do_median_filter", False)),
+        "do_subpixel_localization": bool(cfg.get("spot_do_subpixel_localization", False)),
+
+        # TrackMate threshold + maxima neighborhood
+        "q_min": float(cfg.get("spot_q_min", 1.0)),
+        "se_size": int(cfg.get("spot_se_size", 3)),
+
+        # Downstream photometry threshold (can be set to 0 for “LoG-only” output).
+        "u0_min": float(cfg.get("spot_u0_min", 30.0)),
+    }
+
+    by_ch_raw = cfg.get("spot_params_by_channel", None)
+    if by_ch_raw not in (None, "", False):
+        if not isinstance(by_ch_raw, dict):
+            raise ValueError(
+                "spot_params_by_channel must be a mapping like {1: {...}, 2: {...}}"
+            )
+
+        # Keys may arrive as strings from YAML; coerce to int.
+        # Unknown keys inside overrides raise early for safety.
+        for ch_key, override_raw in by_ch_raw.items():
+            try:
+                ch_int = int(ch_key)
+            except Exception as exc:
+                raise ValueError(
+                    f"spot_params_by_channel key {ch_key!r} is not an int channel index"
+                ) from exc
+            if ch_int != int(channel):
+                continue
+            if override_raw in (None, ""):
+                break
+            overrides = _coerce_slice0_overrides(override_raw)
+            base.update(overrides)
+            break
+
+    # Coerce a few known numeric fields (YAML may provide ints, strings, etc.)
+    base["zR"] = float(base["zR"])
+    base["lambda_nm"] = float(base["lambda_nm"])
+    base["pixel_size_nm"] = float(base["pixel_size_nm"])
+    if base.get("spot_radius_nm", None) is not None:
+        base["spot_radius_nm"] = float(base["spot_radius_nm"])  # type: ignore[assignment]
+    base["q_min"] = float(base["q_min"])
+    base["se_size"] = int(base["se_size"])
+    base["u0_min"] = float(base["u0_min"])
+    base["do_median_filter"] = bool(base["do_median_filter"])
+    base["do_subpixel_localization"] = bool(base["do_subpixel_localization"])
+
+    return Slice0Params(**base)
+
+
+def _require_pyarrow() -> None:
+    if pyarrow is None:
+        raise RuntimeError(
+            "pyarrow is required for parquet I/O (spots.parquet / spots_aggregate.parquet). "
+            "Install pyarrow in your environment to run this driver."
+        )
 
 
 
@@ -351,29 +488,27 @@ def _run_integrated_single(
     print(f"[pixel_size] using spot_pixel_size_nm={float(pixel_size_nm):.3f} nm/px (source={px_source})")
 
     print("Running spot detection (inside nuclei)...")
-    spot_params = Slice0Params(
-        zR=float(cfg.get("spot_zR", 344.5)),
-        lambda_nm=float(cfg.get("spot_lambda_nm", 667.0)),
-        pixel_size_nm=float(pixel_size_nm),
-
-        # Optional TrackMate-style overrides (all optional; defaults keep previous behavior).
-        spot_radius_nm=(float(cfg["spot_radius_nm"]) if cfg.get("spot_radius_nm", None) is not None else None),
-        do_median_filter=bool(cfg.get("spot_do_median_filter", False)),
-        do_subpixel_localization=bool(cfg.get("spot_do_subpixel_localization", False)),
-
-        # TrackMate "threshold" (LoG quality threshold).
-        q_min=float(cfg.get("spot_q_min", 1.0)),
-
-        # TrackMate local maxima is 3×3; we keep this configurable but default to 3.
-        se_size=int(cfg.get("spot_se_size", 3)),
-
-        # Downstream photometry threshold (UNCHANGED).
-        u0_min=float(cfg.get("spot_u0_min", 30.0)),
-    )
-
     spots_tables: list[pd.DataFrame] = []
     for ch, img_spot in spot_images:
-        df = detect_spots(img_spot, spot_params, valid_mask=valid_mask, nuclei_labels=nuclei_labels)
+        spot_params = _build_slice0_params_for_channel(cfg, pixel_size_nm=float(pixel_size_nm), channel=int(ch))
+
+        # Convenience print: TrackMate GUI uses “estimated blob diameter” = 2 × radius.
+        if spot_params.spot_radius_nm is not None:
+            radius_nm = float(spot_params.spot_radius_nm)
+        else:
+            radius_nm = float(np.sqrt(float(spot_params.lambda_nm) * float(spot_params.zR) / np.pi))
+        tm_diam_um = 2.0 * radius_nm / 1000.0
+        print(
+            f"[spots] channel {int(ch)}: TrackMate diameter ≈ {tm_diam_um:.3f} µm "
+            f"(radius={radius_nm:.1f} nm), q_min={float(spot_params.q_min):g}, u0_min={float(spot_params.u0_min):g}"
+        )
+
+        df = detect_spots(
+            img_spot,
+            spot_params,
+            valid_mask=valid_mask,
+            nuclei_labels=nuclei_labels,
+        )
         if not df.empty:
             df["spot_channel"] = int(ch)
         else:
@@ -382,6 +517,7 @@ def _run_integrated_single(
     spots_df = pd.concat(spots_tables, ignore_index=True) if spots_tables else pd.DataFrame()
 
     spots_path = out_dir / "spots.parquet"
+    _require_pyarrow()
     spots_df.to_parquet(spots_path, index=False)
 
     labels_path = out_dir / "nuclei_labels.tif"
@@ -655,6 +791,7 @@ def run_integrated(config_path: Path) -> Path:
     }
 
     if cfg.get("batch_aggregate_spots", False):
+        _require_pyarrow()
         aggregate_tables = []
         for entry in batch_entries:
             if entry.get("status") not in {"completed", "skipped"}:
@@ -717,5 +854,6 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
 
 

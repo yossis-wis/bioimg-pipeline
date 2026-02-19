@@ -39,6 +39,12 @@ spot_se_size: 3        # local-max neighborhood size (px)
 spot_q_min: 1.0         # LoG quality threshold (q_min)
 spot_u0_min: 30
 
+# Optional per-channel overrides (multi-channel spot detection)
+# spot_params_by_channel:
+#   1:
+#     spot_q_min: 6.182
+#     spot_u0_min: 0.0
+
 # --- Visual QC ---
 qc_cutout_size: 80
 qc_max_cutouts: 50
@@ -51,4 +57,5 @@ sim_width: 512
 sim_num_nuclei: 15
 sim_num_spots: 100
 sim_seed: 42
+
 

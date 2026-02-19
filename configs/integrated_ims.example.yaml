@@ -28,6 +28,8 @@ output_runs_dir: runs
 # Input Channels (1-based)
 # Check your Imaris file to see which channel is DAPI (Nuclei) vs FISH (Spots)
 # channel_spots can be a list, e.g. [2, 3]
+# NOTE: It is valid for channel_nuclei to also appear in channel_spots
+# (e.g. if your nuclei marker and DNA locus are both in the 488 channel).
 channel_nuclei: 1
 channel_spots: 2
 # Optional: path to precomputed nuclei labels (skip StarDist)
@@ -80,9 +82,27 @@ spot_q_min: 1.0         # LoG quality threshold (q_min)
 # Final acceptance threshold (UNCHANGED): u0 = mean(in5) - median(out0)
 spot_u0_min: 30
 
+# Optional per-channel overrides (multi-channel spot detection)
+# -----------------------------------------------------------
+# Use this when channel_spots is a list and you need different LoG / u0
+# thresholds for different spot types.
+#
+# Example for a 2-channel DNA+protein experiment:
+#   - DNA locus (LoG-only): TrackMate diameter 0.54 µm => radius 270 nm
+#   - TrackMate threshold (quality) = 6.182
+#
+# spot_params_by_channel:
+#   1:
+#     spot_radius_nm: 270.0
+#     spot_q_min: 6.182
+#     spot_u0_min: 0.0
+#   2:
+#     spot_u0_min: 30.0
+
 # --- Visual QC ---
 qc_cutout_size: 80
 qc_max_cutouts: 50
 qc_montage_cols: 10
 # qc_sample_seed: 0
+
 

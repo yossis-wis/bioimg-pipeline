@@ -6,7 +6,11 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 import pandas as pd
-import pyarrow  # noqa: F401
+try:
+    import pyarrow  # noqa: F401
+except ModuleNotFoundError:  # pragma: no cover
+    # Keep module importable in minimal environments; parquet I/O needs pyarrow.
+    pyarrow = None  # type: ignore[assignment]
 import yaml
 
 # Matplotlib: write PNGs without needing a display
@@ -21,6 +25,14 @@ import sys
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
 from qc_spot_atlas import SpotAtlasParams, build_spot_atlas_pptx  # noqa: E402
+
+
+def _require_pyarrow() -> None:
+    if pyarrow is None:
+        raise RuntimeError(
+            "pyarrow is required for reading/writing parquet (spots.parquet). "
+            "Install pyarrow in your environment to run this driver."
+        )
 
 
 def _data_root() -> Path:
@@ -50,6 +62,8 @@ def _load_yaml(path: Path) -> Dict[str, Any]:
 
 def _load_spots_from_batch_dir(batch_dir: Path) -> pd.DataFrame:
     batch_dir = batch_dir.expanduser().resolve()
+
+    _require_pyarrow()
 
     # Prefer the fast path if the integrated driver already wrote an aggregate.
     agg_path = batch_dir / "spots_aggregate.parquet"
@@ -98,6 +112,44 @@ def _load_spots_from_batch_dir(batch_dir: Path) -> pd.DataFrame:
     return pd.concat(tables, ignore_index=True)
 
 
+def _parse_channel_float_map(values: list[str]) -> tuple[float, dict[int, float]]:
+    """Parse repeated CLI values into (default, per_channel) thresholds.
+
+    Accepted forms (repeatable):
+
+    - ``<float>`` sets the default for all channels.
+    - ``<ch>=<float>`` or ``<ch>:<float>`` sets a channel-specific override.
+
+    If no default is provided, it defaults to 0.0.
+    """
+
+    default = 0.0
+    per: dict[int, float] = {}
+    for raw in values:
+        s = str(raw).strip()
+        if not s:
+            continue
+        if "=" in s:
+            ch_str, val_str = s.split("=", 1)
+            ch = int(ch_str.strip())
+            per[int(ch)] = float(val_str.strip())
+        elif ":" in s:
+            ch_str, val_str = s.split(":", 1)
+            ch = int(ch_str.strip())
+            per[int(ch)] = float(val_str.strip())
+        else:
+            # Backwards compatible: a bare number sets the default.
+            default = float(s)
+    return float(default), per
+
+
+def _parse_channels_csv(value: str) -> tuple[int, ...]:
+    parts = [p.strip() for p in str(value).split(",") if p.strip()]
+    if not parts:
+        return tuple()
+    return tuple(int(p) for p in parts)
+
+
 def main() -> int:
     p = argparse.ArgumentParser(
         description=(
@@ -123,7 +175,35 @@ def main() -> int:
         default=None,
         help="Optional grouping column, e.g. condition or spot_channel.",
     )
-    p.add_argument("--u0-min", type=float, default=30.0)
+    p.add_argument(
+        "--u0-min",
+        action="append",
+        default=[],
+        metavar="CHANNEL=VALUE",
+        help=(
+            "Per-channel u0 (intensity) threshold(s) for filtering before building the deck. "
+            "Repeat for multiple channels, e.g. --u0-min 1=0 --u0-min 2=30. "
+            "A bare number (e.g. --u0-min 30) sets the default for all channels. "
+            "If omitted, the default is 0."
+        ),
+    )
+    p.add_argument(
+        "--require-channels",
+        type=str,
+        default=None,
+        help=(
+            "Optional comma-separated list of spot_channel values that must be present in a nucleus. "
+            "If omitted, we default to requiring co-occurrence of all spot channels when multiple are present."
+        ),
+    )
+    p.add_argument(
+        "--no-require-cooccurrence",
+        action="store_true",
+        help=(
+            "Disable the default filter that restricts the deck to nuclei containing all spot channels "
+            "(e.g. both DNA and protein spots)."
+        ),
+    )
     p.add_argument("--spots-per-slide", type=int, default=15)
     p.add_argument(
         "--sort-by",
@@ -160,6 +240,26 @@ def main() -> int:
     if spots_df.empty:
         raise RuntimeError(f"No spots found under batch_dir={batch_dir}")
 
+    # u0 thresholds (default + per-channel overrides)
+    u0_default, u0_by_channel = _parse_channel_float_map(list(args.u0_min))
+
+    # Decide which channels must co-occur per nucleus.
+    require_spot_channels: Optional[tuple[int, ...]] = None
+    channels_present: list[int] = []
+    try:
+        channels_present = sorted({int(c) for c in spots_df["spot_channel"].dropna().unique()})
+    except Exception:
+        channels_present = []
+
+    if not bool(args.no_require_cooccurrence):
+        if args.require_channels:
+            require_spot_channels = _parse_channels_csv(str(args.require_channels))
+        else:
+            # Default behavior: if this is a multi-channel run, keep only nuclei
+            # that contain *all* spot channels (DNA + protein).
+            if len(channels_present) >= 2:
+                require_spot_channels = tuple(channels_present)
+
     fixed_clim = None
     if args.fixed_clim:
         parts = [p.strip() for p in str(args.fixed_clim).split(",")]
@@ -179,7 +279,9 @@ def main() -> int:
 
     params = SpotAtlasParams(
         spots_per_slide=int(args.spots_per_slide),
-        u0_min=float(args.u0_min),
+        u0_min=float(u0_default),
+        u0_min_by_channel=u0_by_channel,
+        require_spot_channels=require_spot_channels,
         sort_by=str(args.sort_by),
         fixed_clim=fixed_clim,
         fixed_percentiles=fixed_percentiles,
@@ -207,3 +309,4 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+

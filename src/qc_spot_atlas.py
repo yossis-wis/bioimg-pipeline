@@ -81,7 +81,27 @@ class SpotAtlasParams:
     adaptive_bkg_factor: float = 1.3
 
     # Filtering + ordering
-    u0_min: float = 30.0
+    #
+    # u0 (intensity) filtering
+    # -----------------------
+    #
+    # In the integrated workflow, u0 is the Slice0 photometry score:
+    #   u0 = mean(in5) - median(out0)
+    #
+    # This atlas supports *per-channel* filtering because DNA-locus spots and
+    # protein spots can have very different intensity distributions.
+    #
+    # - u0_min is the default threshold (applies when a channel has no override).
+    # - u0_min_by_channel overrides the default for specific spot_channel values.
+    #
+    u0_min: float = 0.0
+    u0_min_by_channel: Dict[int, float] = field(default_factory=dict)
+
+    # If set, restrict the atlas to nuclei that contain at least one spot from
+    # *each* of these spot_channel values. This is useful for multi-channel
+    # co-localization QC (e.g. DNA + protein spots).
+    require_spot_channels: Optional[Tuple[int, ...]] = None
+
     sort_by: str = "intensity"  # intensity | snr | random | input_path
     random_seed: int = 0
 
@@ -394,6 +414,107 @@ def _ensure_required_spots_columns(df: pd.DataFrame) -> None:
         )
 
 
+def _u0_threshold_for_channel(params: SpotAtlasParams, spot_channel: int) -> float:
+    """Return the u0 (intensity) threshold for a given spot channel."""
+
+    ch = int(spot_channel)
+    if params.u0_min_by_channel and ch in params.u0_min_by_channel:
+        return float(params.u0_min_by_channel[ch])
+    return float(params.u0_min)
+
+
+def _format_u0_filter(params: SpotAtlasParams, channels: Iterable[int]) -> str:
+    """Compact string describing per-channel u0 thresholds (for slide titles)."""
+
+    chs = sorted({int(c) for c in channels})
+    if not chs:
+        return f"u0 >= {float(params.u0_min):g}"
+
+    # If no per-channel overrides are set, keep the old title format.
+    if not params.u0_min_by_channel:
+        return f"u0 >= {float(params.u0_min):g}"
+
+    parts = []
+    for ch in chs:
+        thr = _u0_threshold_for_channel(params, ch)
+        parts.append(f"ch{ch}>={thr:g}")
+    return "u0 " + ",".join(parts)
+
+
+def _filter_spots_by_u0(df: pd.DataFrame, params: SpotAtlasParams) -> pd.DataFrame:
+    """Filter a spot table by per-channel u0 thresholds."""
+
+    if df.empty:
+        return df
+
+    out = df.copy()
+    out = out[np.isfinite(out["y_px"]) & np.isfinite(out["x_px"])].copy()
+
+    # Compute a per-row threshold from spot_channel.
+    try:
+        ch_series = out["spot_channel"].astype(int)
+    except Exception:
+        ch_series = out["spot_channel"].apply(lambda v: int(v))
+
+    thr_map = {int(k): float(v) for k, v in (params.u0_min_by_channel or {}).items()}
+    default_thr = float(params.u0_min)
+    thr = ch_series.map(thr_map).fillna(default_thr).astype(float)
+
+    u0 = out["intensity"].astype(float)
+    out = out[u0 >= thr].copy()
+    return out
+
+
+def _filter_spots_to_required_nuclei(
+    df: pd.DataFrame,
+    *,
+    required_spot_channels: Iterable[int],
+) -> pd.DataFrame:
+    """Restrict spots to nuclei containing all required spot channels.
+
+    A nucleus identity is defined as (input_path, nucleus_label) to avoid label
+    collisions across different input files.
+    """
+
+    required = {int(c) for c in required_spot_channels}
+    if not required:
+        return df
+
+    needed_cols = {"input_path", "nucleus_label", "spot_channel"}
+    missing = [c for c in needed_cols if c not in df.columns]
+    if missing:
+        raise ValueError(
+            "require_spot_channels needs columns: " + ", ".join(missing)
+        )
+
+    if df.empty:
+        return df
+
+    out = df.copy()
+    out["spot_channel"] = out["spot_channel"].astype(int)
+    out["nucleus_label"] = out["nucleus_label"].astype(int)
+
+    # Only consider spots assigned to a nucleus label > 0.
+    out = out[out["nucleus_label"] > 0].copy()
+    if out.empty:
+        return out
+
+    # Compute, for each nucleus identity, which spot channels appear.
+    ch_sets = (
+        out.groupby(["input_path", "nucleus_label"], sort=False)["spot_channel"]
+        .apply(lambda s: set(s.dropna().astype(int)))
+        .rename("spot_channels_present")
+    )
+
+    ok = ch_sets.apply(lambda present: required.issubset(present))
+    nuclei = ch_sets[ok].reset_index().loc[:, ["input_path", "nucleus_label"]]
+    if nuclei.empty:
+        return out.iloc[0:0].copy()
+
+    # Filter spots down to those nuclei.
+    return out.merge(nuclei, on=["input_path", "nucleus_label"], how="inner")
+
+
 def render_atlas_page_png(
     spots_batch: pd.DataFrame,
     *,
@@ -677,12 +798,22 @@ def build_spot_atlas_pptx(
     out_pptx = Path(out_pptx).expanduser().resolve()
     out_pptx.parent.mkdir(parents=True, exist_ok=True)
 
-    df = spots_df.copy()
-    df = df[np.isfinite(df["y_px"]) & np.isfinite(df["x_px"])].copy()
-    df = df[df["intensity"].astype(float) >= float(params.u0_min)].copy()
+    df = _filter_spots_by_u0(spots_df, params)
+
+    if params.require_spot_channels:
+        df = _filter_spots_to_required_nuclei(df, required_spot_channels=params.require_spot_channels)
 
     if df.empty:
-        raise ValueError(f"No spots remain after filtering intensity >= {params.u0_min}")
+        chs = []
+        try:
+            chs = sorted({int(c) for c in spots_df["spot_channel"].dropna().unique()})
+        except Exception:
+            chs = []
+        filt_desc = _format_u0_filter(params, chs)
+        extra = ""
+        if params.require_spot_channels:
+            extra = f" and requiring nuclei with channels={tuple(int(c) for c in params.require_spot_channels)}"
+        raise ValueError(f"No spots remain after filtering ({filt_desc}){extra}")
 
     df = _sort_spots(df, params)
 
@@ -719,7 +850,12 @@ def build_spot_atlas_pptx(
             parts.append(
                 f"spots {start + 1}-{min(start + int(params.spots_per_slide), len(g_df))} / {len(g_df)}"
             )
-            parts.append(f"u0 >= {params.u0_min:g}")
+            channels_in_group = []
+            try:
+                channels_in_group = sorted({int(c) for c in g_df["spot_channel"].dropna().unique()})
+            except Exception:
+                channels_in_group = []
+            parts.append(_format_u0_filter(params, channels_in_group))
             page_title = "  |  ".join(parts)
 
             png = render_atlas_page_png(
@@ -743,3 +879,4 @@ def build_spot_atlas_pptx(
 
     pres.save(str(out_pptx))
     return out_pptx
+

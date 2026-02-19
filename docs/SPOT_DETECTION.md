@@ -167,6 +167,46 @@ print the TrackMate-equivalent **blob diameter** implied by the current config.
 
 ---
 
+## Multi-channel spot detection (DNA + protein)
+
+The integrated driver supports multi-channel runs by allowing:
+
+- `channel_spots` to be a **list** (e.g. `[1, 2]`).
+- Per-channel overrides via `spot_params_by_channel`.
+
+For each spot channel `ch`, the driver constructs a `Slice0Params` instance by:
+
+1. Reading the top-level `spot_*` keys as defaults.
+2. Applying `spot_params_by_channel[ch]` (if provided).
+
+This is useful when your DNA-locus spots and protein spots have very different
+intensity distributions (so you want different $`u_{0,\min}`$), or when you
+want a “LoG-only” first pass for the DNA locus:
+
+- Set `spot_u0_min: 0.0` for that channel.
+- Keep `spot_q_min` set to your TrackMate LoG threshold.
+
+Example snippet (TrackMate diameter $`d_{\mathrm{TM}} = 0.54\,\mu\mathrm{m}`$,
+threshold 6.182):
+
+```yaml
+channel_spots: [1, 2]
+
+spot_params_by_channel:
+  1:  # DNA locus (mNeonGreen)
+    spot_radius_nm: 270.0   # radius = d/2 = 0.27 µm = 270 nm
+    spot_q_min: 6.182       # TrackMate “threshold” (quality)
+    spot_u0_min: 0.0        # LoG-only (no calibrated photometry threshold)
+  2:  # protein (e.g. Msn2-Halo)
+    spot_u0_min: 30.0       # keep your calibrated u0 threshold
+```
+
+Note: it is valid for `channel_nuclei` to also appear in `channel_spots`
+(e.g. if your nuclei marker and DNA locus signal share the same acquisition
+channel).
+
+---
+
 ## Attribution and licensing note
 
 The candidate-generation stage is implemented to be *behaviorally consistent* with TrackMate's
