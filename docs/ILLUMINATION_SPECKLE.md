@@ -155,6 +155,38 @@ creating frame-to-frame multiplicative noise that is hard to flat-field away.
 If you want the "static calibratable" strategy, it is usually more realistic with a **single-mode / clean free-space beam**
 where the dominant nonuniformity is a smooth Gaussian envelope (and any interference fringes are minimized by good baffling/tilts).
 
+
+### 3.4 Toy setup: discrete paths interfering at the fiber exit face
+
+![](figures/speckle_toy_exit_face_interference.svg)
+
+Sometimes it helps to replace the full “mode expansion” picture with a small discrete toy model at **one output pixel**.
+
+Assume:
+
+- $`P`$ guided paths / mode groups, with delays $`\tau_p`$ (equivalently optical paths $`\mathrm{OPL}_p`$), and
+- $`N`$ spectral lines with optical frequencies $`f_k`$ (or wavelengths $`\lambda_k`$).
+
+A convenient way to write the **instantaneous** complex field at that pixel is:
+
+```math
+E(t) = \sum_{k=1}^{N}\sum_{p=1}^{P} A_{k,p}\exp\!\left(i2\pi(f_k-f_0)\thinspace t\right)\exp\!\left(-i2\pi f_k\tau_p\right).
+```
+
+The camera measures intensity $I(t)=|E(t)|^2$ and (usually) effectively averages over time.
+If the averaging window is long compared to the beat periods $`1/|f_k-f_\ell|`$, the cross-frequency terms average away, leaving:
+
+```math
+\langle I\rangle_t
+= \sum_{k=1}^{N}\left|\sum_{p=1}^{P} A_{k,p}\exp\!\left(-i2\pi f_k\tau_p\right)\right|^2.
+```
+
+This “sum over wavelengths of per-wavelength path interference” structure is a clean bridge between:
+
+- a fiber intuition (“many guided paths with different delays”), and
+- the spectral-averaging argument ($`\Delta\lambda_{\mathrm{src}}`$ vs $`\Delta\lambda_c`$) used throughout the linewidth → speckle-reduction notebooks.
+
+
 ---
 
 ## 4) Two spatial-frequency regimes that matter for single-molecule spot detection
