@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="220" viewBox="0 0 900 220">
+  <title>Approach A: separate single-mode fiber outputs per wavelength, free-space combination to the microscope</title>
+
+  <defs>
+    <style>
+      .box   { stroke: #000; stroke-width: 2; fill: none; }
+      .thin  { stroke: #000; stroke-width: 1.2; fill: none; }
+      .dash  { stroke-dasharray: 6 4; opacity: 0.35; }
+      .arrow { stroke: #000; stroke-width: 2.2; fill: none; }
+      .label { font-family: Arial, Helvetica, sans-serif; font-size: 16px; fill: #000; }
+      .small { font-family: Arial, Helvetica, sans-serif; font-size: 13px; fill: #000; }
+    </style>
+  </defs>
+
+  <text class="label" x="40" y="28">Approach A: SM fiber per wavelength (FC/APC) → collimators → dichroic combiner → microscope</text>
+
+  <!-- Sources -->
+  <rect class="box" x="40" y="60" width="190" height="55"/>
+  <text class="small" x="52" y="86">640 nm (SM fiber)</text>
+  <text class="small" x="52" y="104">FC/APC output</text>
+
+  <rect class="box" x="40" y="140" width="190" height="55"/>
+  <text class="small" x="52" y="166">488 nm (SM fiber)</text>
+  <text class="small" x="52" y="184">FC/APC output</text>
+
+  <!-- Collimators -->
+  <rect class="box" x="270" y="70" width="120" height="35"/>
+  <text class="small" x="282" y="93">collimator</text>
+
+  <rect class="box" x="270" y="150" width="120" height="35"/>
+  <text class="small" x="282" y="173">collimator</text>
+
+  <!-- Arrows to collimators -->
+  <line class="arrow" x1="230" y1="87" x2="270" y2="87"/>
+  <polygon points="270,87 258,81 258,93" fill="#000"/>
+
+  <line class="arrow" x1="230" y1="167" x2="270" y2="167"/>
+  <polygon points="270,167 258,161 258,173" fill="#000"/>
+
+  <!-- Combiner -->
+  <rect class="box" x="430" y="105" width="130" height="55"/>
+  <text class="small" x="446" y="130">dichroic</text>
+  <text class="small" x="446" y="148">combiner</text>
+
+  <!-- Paths into combiner -->
+  <path class="arrow" d="M 390 87 C 410 87, 410 115, 430 115"/>
+  <polygon points="430,115 418,109 418,121" fill="#000"/>
+
+  <path class="arrow" d="M 390 167 C 410 167, 410 150, 430 150"/>
+  <polygon points="430,150 418,144 418,156" fill="#000"/>
+
+  <!-- To microscope -->
+  <rect class="box" x="620" y="105" width="240" height="55"/>
+  <text class="small" x="632" y="130">to microscope illumination input</text>
+  <text class="small" x="632" y="148">(widefield epi)</text>
+
+  <line class="arrow" x1="560" y1="132" x2="620" y2="132"/>
+  <polygon points="620,132 608,126 608,138" fill="#000"/>
+
+  <!-- Note -->
+  <line class="thin dash" x1="40" y1="210" x2="860" y2="210"/>
+  <text class="small" x="40" y="205">This approach is common and stable, but does not inherently reduce speckle for coherent sources (compared to the MMF + wide-linewidth concept).</text>
+</svg>

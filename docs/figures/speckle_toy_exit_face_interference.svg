@@ -1,5 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="900" height="360" viewBox="0 0 900 360">
-  <title>Toy model: discrete guided paths and discrete spectral lines interfering at the fiber exit face</title>
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="390" viewBox="0 0 900 390">
+  <title>Toy model: discrete guided paths and an instantaneous multi-spike spectrum interfering at one MMF output pixel</title>
 
   <defs>
     <style>
@@ -17,94 +17,103 @@
     </style>
   </defs>
 
-  <text class="label" x="40" y="28">Toy setup at the fiber exit face: P guided paths × N spectral lines → interference at one pixel</text>
+  <text class="label" x="40" y="28">Toy picture at the MMF exit: P guided paths × N simultaneous spectral spikes → interference at one pixel</text>
+  <text class="small" x="40" y="48">Key requirement for the “wide-linewidth” approach: many spikes are present at the same time (not a swept / scanned source).</text>
 
   <!-- LEFT PANEL: physical picture at the output facet -->
-  <rect class="box" x="40" y="50" width="410" height="280"/>
-  <text class="small" x="54" y="74">Output facet (choose one pixel r)</text>
+  <rect class="box" x="40" y="65" width="410" height="300"/>
+  <text class="small" x="54" y="89">Output facet (choose one pixel r)</text>
 
-  <!-- A tiny "spectrum" comb icon -->
-  <line class="thin" x1="70" y1="104" x2="150" y2="104"/>
-  <line class="thin" x1="78" y1="104" x2="78" y2="84"/>
-  <line class="thin" x1="92" y1="104" x2="92" y2="76"/>
-  <line class="thin" x1="106" y1="104" x2="106" y2="88"/>
-  <line class="thin" x1="120" y1="104" x2="120" y2="80"/>
-  <line class="thin" x1="134" y1="104" x2="134" y2="92"/>
-  <text class="small" x="160" y="98">spectrum: {f<tspan baseline-shift="sub">k</tspan>} (N lines)</text>
+  <!-- Spectrum comb icon -->
+  <text class="small" x="54" y="118">Instantaneous spectrum (multi-longitudinal-mode):</text>
+  <line class="thin" x1="54" y1="144" x2="220" y2="144"/>
+  <line class="thin" x1="70" y1="144" x2="70" y2="118"/>
+  <line class="thin" x1="86" y1="144" x2="86" y2="126"/>
+  <line class="thin" x1="102" y1="144" x2="102" y2="120"/>
+  <line class="thin" x1="118" y1="144" x2="118" y2="132"/>
+  <line class="thin" x1="134" y1="144" x2="134" y2="122"/>
+  <line class="thin" x1="150" y1="144" x2="150" y2="128"/>
+  <line class="thin" x1="166" y1="144" x2="166" y2="120"/>
+  <line class="thin" x1="182" y1="144" x2="182" y2="134"/>
+  <line class="thin" x1="198" y1="144" x2="198" y2="124"/>
+  <text class="small" x="232" y="140">{ f<tspan baseline-shift="sub">k</tspan> } (N spikes)</text>
 
-  <!-- Fiber endface (near-field) box -->
-  <rect class="thin" x="320" y="110" width="110" height="190"/>
-  <text class="small" x="320" y="104">fiber endface</text>
+  <!-- Fiber endface box -->
+  <rect class="thin" x="320" y="135" width="110" height="200"/>
+  <text class="small" x="320" y="129">MMF endface</text>
 
-  <!-- Speckle hint inside endface -->
-  <circle class="speck" cx="340" cy="140" r="3"/>
-  <circle class="speck" cx="365" cy="165" r="2"/>
-  <circle class="speck" cx="405" cy="150" r="4"/>
-  <circle class="speck" cx="350" cy="205" r="2"/>
-  <circle class="speck" cx="415" cy="215" r="3"/>
-  <circle class="speck" cx="380" cy="245" r="2"/>
-  <circle class="speck" cx="335" cy="265" r="3"/>
+  <!-- Speckle hint -->
+  <circle class="speck" cx="340" cy="165" r="3"/>
+  <circle class="speck" cx="365" cy="190" r="2"/>
+  <circle class="speck" cx="405" cy="175" r="4"/>
+  <circle class="speck" cx="350" cy="230" r="2"/>
+  <circle class="speck" cx="415" cy="240" r="3"/>
+  <circle class="speck" cx="380" cy="270" r="2"/>
+  <circle class="speck" cx="335" cy="295" r="3"/>
 
   <!-- Highlight one pixel -->
-  <rect x="360" y="202" width="12" height="12" fill="none" stroke="#000" stroke-width="2"/>
-  <text class="small" x="376" y="212">pixel r</text>
+  <rect x="360" y="227" width="12" height="12" fill="none" stroke="#000" stroke-width="2"/>
+  <text class="small" x="376" y="237">pixel r</text>
 
-  <!-- Three representative guided paths / mode groups feeding that pixel -->
-  <line class="arrow" x1="80" y1="140" x2="360" y2="208"/>
-  <polygon points="360,208 348,202 350,214" fill="#000"/>
-  <text class="small" x="90" y="132">path p=1 (delay τ<tspan baseline-shift="sub">1</tspan>)</text>
+  <!-- Three representative guided paths / mode groups -->
+  <line class="arrow" x1="78" y1="175" x2="360" y2="233"/>
+  <polygon points="360,233 348,227 350,239" fill="#000"/>
+  <text class="small" x="90" y="168">path p=1 (delay τ<tspan baseline-shift="sub">1</tspan>)</text>
 
-  <line class="arrow" x1="95" y1="200" x2="360" y2="208"/>
-  <polygon points="360,208 348,202 350,214" fill="#000"/>
-  <text class="small" x="105" y="194">path p=2 (delay τ<tspan baseline-shift="sub">2</tspan>)</text>
+  <line class="arrow" x1="95" y1="240" x2="360" y2="233"/>
+  <polygon points="360,233 348,227 350,239" fill="#000"/>
+  <text class="small" x="105" y="234">path p=2 (delay τ<tspan baseline-shift="sub">2</tspan>)</text>
 
-  <line class="arrow" x1="70" y1="255" x2="360" y2="208"/>
-  <polygon points="360,208 348,202 350,214" fill="#000"/>
-  <text class="small" x="80" y="272">path p=3 (delay τ<tspan baseline-shift="sub">3</tspan>)</text>
+  <line class="arrow" x1="70" y1="305" x2="360" y2="233"/>
+  <polygon points="360,233 348,227 350,239" fill="#000"/>
+  <text class="small" x="80" y="322">path p=3 (delay τ<tspan baseline-shift="sub">3</tspan>)</text>
 
-  <text class="small" x="54" y="320">Model one pixel as a many-path interferometer: E(t) = Σ<tspan baseline-shift="sub">k,p</tspan> E<tspan baseline-shift="sub">k,p</tspan>(t).</text>
+  <text class="small" x="54" y="354">One-pixel model: many-path interferometer, driven by a multi-spike spectrum.</text>
 
   <!-- RIGHT PANEL: phasor view + equations -->
-  <rect class="box" x="490" y="50" width="410" height="280"/>
-  <text class="small" x="504" y="74">Complex phasor view at that pixel</text>
+  <rect class="box" x="490" y="65" width="410" height="300"/>
+  <text class="small" x="504" y="89">Complex phasor view at pixel r</text>
 
-  <!-- Equation block (left side of panel) -->
-  <text class="small" x="504" y="104">Per wavelength k:</text>
-  <text class="eq" x="504" y="126">E<tspan baseline-shift="sub">k</tspan> = Σ<tspan baseline-shift="sub">p</tspan> A<tspan baseline-shift="sub">k,p</tspan> · exp( −i 2π f<tspan baseline-shift="sub">k</tspan> τ<tspan baseline-shift="sub">p</tspan> )</text>
-  <text class="small" x="504" y="152">Instantaneous field:</text>
-  <text class="eq" x="504" y="174">E(t) = Σ<tspan baseline-shift="sub">k</tspan> E<tspan baseline-shift="sub">k</tspan> · exp( i 2π (f<tspan baseline-shift="sub">k</tspan> − f<tspan baseline-shift="sub">0</tspan>) t )</text>
-  <text class="eq" x="504" y="198">I(t) = |E(t)|²</text>
-  <text class="small" x="504" y="224">Time-averaged (DC):</text>
-  <text class="eq" x="504" y="246">⟨I⟩<tspan baseline-shift="sub">t</tspan> = Σ<tspan baseline-shift="sub">k</tspan> |E<tspan baseline-shift="sub">k</tspan>|²  (beat terms average out)</text>
+  <!-- Equation block -->
+  <text class="small" x="504" y="120">Per spike k (at frequency f<tspan baseline-shift="sub">k</tspan>):</text>
+  <text class="eq" x="504" y="142">E<tspan baseline-shift="sub">k</tspan> = Σ<tspan baseline-shift="sub">p</tspan> A<tspan baseline-shift="sub">k,p</tspan> · exp( −i 2π f<tspan baseline-shift="sub">k</tspan> τ<tspan baseline-shift="sub">p</tspan> )</text>
 
-  <!-- Complex plane axes (right side of panel) -->
-  <line class="axis" x1="660" y1="210" x2="860" y2="210"/>
-  <polygon points="860,210 848,204 848,216" fill="#000"/>
-  <text class="small" x="868" y="215">Re</text>
+  <text class="small" x="504" y="168">Camera averages intensity over the exposure:</text>
+  <text class="eq" x="504" y="190">⟨I⟩<tspan baseline-shift="sub">t</tspan> ≈ Σ<tspan baseline-shift="sub">k</tspan> |E<tspan baseline-shift="sub">k</tspan>|²  (beat terms average out)</text>
 
-  <line class="axis" x1="760" y1="310" x2="760" y2="110"/>
-  <polygon points="760,110 754,122 766,122" fill="#000"/>
-  <text class="small" x="770" y="114">Im</text>
+  <text class="small" x="504" y="216">If spikes are effectively independent, speckle contrast scales roughly as:</text>
+  <text class="eq" x="504" y="238">C ≈ 1/√N<tspan baseline-shift="sub">eff</tspan></text>
 
-  <circle class="thin dash" cx="760" cy="210" r="70"/>
-  <line class="thin dash" x1="660" y1="210" x2="860" y2="210"/>
-  <line class="thin dash" x1="760" y1="110" x2="760" y2="310"/>
+  <text class="small" x="504" y="262">So we want: (i) many spikes present simultaneously, and (ii) a fiber with enough ΔOPL that spikes decorrelate.</text>
 
-  <!-- Three path phasors for one wavelength k (drawn from the origin) -->
-  <line class="phasor" x1="760" y1="210" x2="823.44" y2="239.58"/>
-  <polygon points="823.44,239.58 812.59,237.70 817.65,231.92" fill="#000"/>
-  <text class="small" x="828" y="245">p=1</text>
+  <!-- Complex plane axes -->
+  <line class="axis" x1="660" y1="255" x2="860" y2="255"/>
+  <polygon points="860,255 848,249 848,261" fill="#000"/>
+  <text class="small" x="868" y="260">Re</text>
 
-  <line class="phasor" x1="760" y1="210" x2="736.06" y2="144.22"/>
-  <polygon points="736.06,144.22 742.92,153.05 736.40,155.42" fill="#000"/>
-  <text class="small" x="700" y="140">p=2</text>
+  <line class="axis" x1="760" y1="345" x2="760" y2="175"/>
+  <polygon points="760,175 754,187 766,187" fill="#000"/>
+  <text class="small" x="770" y="179">Im</text>
 
-  <line class="phasor" x1="760" y1="210" x2="694.22" y2="233.94"/>
-  <polygon points="694.22,233.94 704.83,236.76 702.78,230.10" fill="#000"/>
-  <text class="small" x="665" y="245">p=3</text>
+  <circle class="thin dash" cx="760" cy="255" r="70"/>
+  <line class="thin dash" x1="660" y1="255" x2="860" y2="255"/>
+  <line class="thin dash" x1="760" y1="175" x2="760" y2="345"/>
 
-  <!-- Sum phasor (per wavelength) -->
-  <line class="sum" x1="760" y1="210" x2="733.72" y2="197.75"/>
-  <polygon points="733.72,197.75 745.10,197.44 740.80,206.31" fill="#000"/>
-  <text class="small" x="705" y="190">E<tspan baseline-shift="sub">k</tspan></text>
+  <!-- Three path phasors (for one spike k) -->
+  <line class="phasor" x1="760" y1="255" x2="823.44" y2="284.58"/>
+  <polygon points="823.44,284.58 812.59,282.70 817.65,276.92" fill="#000"/>
+  <text class="small" x="828" y="290">p=1</text>
+
+  <line class="phasor" x1="760" y1="255" x2="736.06" y2="189.22"/>
+  <polygon points="736.06,189.22 742.92,198.05 736.40,200.42" fill="#000"/>
+  <text class="small" x="700" y="185">p=2</text>
+
+  <line class="phasor" x1="760" y1="255" x2="694.22" y2="278.94"/>
+  <polygon points="694.22,278.94 704.83,281.76 702.78,275.10" fill="#000"/>
+  <text class="small" x="665" y="290">p=3</text>
+
+  <!-- Sum phasor (per spike) -->
+  <line class="sum" x1="760" y1="255" x2="733.72" y2="242.75"/>
+  <polygon points="733.72,242.75 745.10,242.44 740.80,251.31" fill="#000"/>
+  <text class="small" x="705" y="235">E<tspan baseline-shift="sub">k</tspan></text>
 </svg>
