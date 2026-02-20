@@ -186,6 +186,13 @@ This “sum over wavelengths of per-wavelength path interference” structure is
 - a fiber intuition (“many guided paths with different delays”), and
 - the spectral-averaging argument ($`\Delta\lambda_{\mathrm{src}}`$ vs $`\Delta\lambda_c`$) used throughout the linewidth → speckle-reduction notebooks.
 
+If you want a **slide-ready** version of this toy setup, generate the (gitignored) PowerPoint deck:
+
+```bash
+python scripts/generate_toy_exit_face_interference_deck.py \
+  --out reports/toy_exit_face_interference.pptx
+```
+
 
 ---
 
@@ -479,3 +486,4 @@ intensity becomes closer to an incoherent sum of modal intensities.
 Important nuance: a wide linewidth suppresses **interference speckle**, but it does not guarantee a perfectly
 flat **near-field** image of the fiber output. You can still see nonuniformity due to incomplete mode mixing,
 launch geometry, fiber bends/stress, polarization effects, and non-ideal fiber structure.
+

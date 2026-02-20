@@ -39,6 +39,9 @@ dependencies:
   # QC export
   - python-pptx=0.6.*
 
+  # Figure export helpers (SVG -> PNG for slide decks)
+  - cairosvg=2.*
+
   # Dev / notebooks
   - ipykernel=6.*
   - jupyterlab=4.*
@@ -56,4 +59,5 @@ dependencies:
       - csbdeep==0.8.1
       - tensorflow==2.13.0
       - keras==2.13.1
+
 

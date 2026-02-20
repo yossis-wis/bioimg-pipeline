@@ -18,6 +18,7 @@ REQUIRED_IMPORTS = [
     "matplotlib",
     "h5py",  # needed for reading Imaris .ims
     "pptx",  # python-pptx (spot atlas QC)
+    "cairosvg",  # rasterize SVG figures for slide export
     "numba",  # required by StarDist
     "stardist",
     "csbdeep",
@@ -172,4 +173,5 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
 
