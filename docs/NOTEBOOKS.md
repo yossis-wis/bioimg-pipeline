@@ -23,6 +23,7 @@ The canonical notebooks live in `notebooks/`:
 - `12_mmf_wide_linewidth_stepindex_slab_geometric_optics.py`: **multimode-only** wide-linewidth argument using a **slab + geometrical-optics** picture, with toy examples showing (1) mode superposition → speckle, (2) mode-weight effects, and (3) spectral diversity → speckle averaging.
 - `13_cni_2nm_stepindex_spectral_diversity_500us.py`: evaluate a **CNI FC-640-class** (2–3 nm linewidth) laser + **3 m step-index MMF** for **500 µs** exposures, focusing on **spectral diversity only** and mapping spectral scenarios → (speckle contrast C, Slice0 confusion-matrix proxy).
 - `14_stepindex_mmf_spectral_linewidth_physics.py`: derivations + intuition for **step-index MMF + spectral linewidth** (answers the margin math questions from notebook 13, adds coherence-time/length intuition from the whiteboard discussion, and includes a staff-scientist meeting checklist).
+- `15_phasor_random_walk_toy_model.py`: toy model for **phasor sums as a 2D random walk** (endpoint statistics, intensity distribution, and averaging), plus a bridge to the slide-type instantaneous phasor-sum script.
 
 ## Running notebooks
 
@@ -61,7 +62,7 @@ Canonical reference: `docs/MATH_STYLE.md`.
 ## GitHub-friendly Markdown mirrors (stable reading)
 
 GitHub does **not** render the Markdown cells inside Jupytext percent-format `notebooks/*.py` files.
-For the documentation-style optics notebooks (06–14), we keep a **generated** Markdown mirror (no cell outputs)
+For the documentation-style optics notebooks (06–15), we keep a **generated** Markdown mirror (no cell outputs)
 in:
 
 - `docs/notebooks_md/`
@@ -115,3 +116,4 @@ jupyter nbconvert --to html --execute \
   --output-dir notebooks/_build/html \
   notebooks/13_cni_2nm_stepindex_spectral_diversity_500us.ipynb
 ```
+
