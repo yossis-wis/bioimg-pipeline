@@ -17,12 +17,8 @@ python scripts/generate_toy_exit_face_interference_deck.py \
 from __future__ import annotations
 
 import argparse
+import sys
 from pathlib import Path
-
-from src.toy_exit_face_interference_deck import (
-    ToyExitFaceInterferenceDeckConfig,
-    generate_toy_exit_face_interference_deck,
-)
 
 
 def _parse_args() -> argparse.Namespace:
@@ -59,19 +55,38 @@ def _parse_args() -> argparse.Namespace:
 def main() -> int:
     args = _parse_args()
 
+    # Make `import src...` work even when the script is executed as
+    # `python scripts/...` from arbitrary working directories.
+    repo_root = Path(__file__).resolve().parents[1]
+    if str(repo_root) not in sys.path:
+        sys.path.insert(0, str(repo_root))
+
+    from src.toy_exit_face_interference_deck import (  # noqa: WPS433
+        ToyExitFaceInterferenceDeckConfig,
+        generate_toy_exit_face_interference_deck,
+    )
+
     n_list = tuple(int(x.strip()) for x in str(args.n_components).split(",") if x.strip())
     if not n_list:
         raise SystemExit("--n-components must contain at least one integer")
 
+    svg_path = Path(args.svg)
+    if not svg_path.is_absolute():
+        svg_path = repo_root / svg_path
+
+    out_path = Path(args.out)
+    if not out_path.is_absolute():
+        out_path = repo_root / out_path
+
     cfg = ToyExitFaceInterferenceDeckConfig(
-        svg_figure_path=Path(args.svg),
-        out_pptx_path=Path(args.out),
+        svg_figure_path=svg_path,
+        out_pptx_path=out_path,
         svg_raster_width_px=int(args.svg_width_px),
         n_components=n_list,
     )
 
-    out_path = generate_toy_exit_face_interference_deck(config=cfg)
-    print(f"Wrote: {out_path}")
+    written = generate_toy_exit_face_interference_deck(config=cfg)
+    print(f"Wrote: {written}")
     return 0
 
 
