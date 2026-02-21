@@ -1,3 +1,4 @@
+
 #!/usr/bin/env python3
 """export_notebooks_markdown.py
 
@@ -21,7 +22,7 @@ Design goals
 
 Usage
 -----
-Write mirrors for the documentation-style optics notebooks (06–15):
+Write mirrors for the documentation-style optics notebooks (06–16):
 
     python scripts/export_notebooks_markdown.py
 
@@ -50,8 +51,8 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_OUT_DIR = REPO_ROOT / "docs" / "notebooks_md"
 
-# Default export set: the doc-style optics notebooks (06–15).
-DEFAULT_NOTEBOOK_RE = re.compile(r"^(0[6-9]|1[0-5])_.*\.py$")
+# Default export set: the doc-style optics notebooks (06–16).
+DEFAULT_NOTEBOOK_RE = re.compile(r"^(0[6-9]|1[0-6])_.*\.py$")
 
 MARKDOWN_CELL_MARKER_RE = re.compile(r"^# %%\s*\[markdown\]\s*$")
 
@@ -193,7 +194,7 @@ def main() -> int:
     ap.add_argument(
         "notebooks",
         nargs="*",
-        help="Optional notebook paths (defaults to optics notebooks 06–15).",
+        help="Optional notebook paths (defaults to optics notebooks 06–16).",
     )
     ap.add_argument(
         "--out-dir",

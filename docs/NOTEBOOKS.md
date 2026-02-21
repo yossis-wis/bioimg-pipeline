@@ -1,3 +1,4 @@
+
 # Notebooks
 
 This repo stores notebooks as **Jupytext percent-format `.py` files**. Keeping notebooks in plain Python:
@@ -24,6 +25,7 @@ The canonical notebooks live in `notebooks/`:
 - `13_cni_2nm_stepindex_spectral_diversity_500us.py`: evaluate a **CNI FC-640-class** (2–3 nm linewidth) laser + **3 m step-index MMF** for **500 µs** exposures, focusing on **spectral diversity only** and mapping spectral scenarios → (speckle contrast C, Slice0 confusion-matrix proxy).
 - `14_stepindex_mmf_spectral_linewidth_physics.py`: derivations + intuition for **step-index MMF + spectral linewidth** (answers the margin math questions from notebook 13, adds coherence-time/length intuition from the whiteboard discussion, and includes a staff-scientist meeting checklist).
 - `15_phasor_random_walk_toy_model.py`: toy model for **phasor sums as a 2D random walk** (endpoint statistics, intensity distribution, and averaging), plus a bridge to the slide-type instantaneous phasor-sum script.
+- `16_instantaneous_intensity_time_traces.py`: visualize **instantaneous intensity** $I(t)=|E(t)|^2$ over a $160\thinspace\mathrm{ps}$ window (stacked traces + time×realization heatmap), and histogram the **time-average** $`\langle I\rangle_t`$ across many random phase initializations.
 
 ## Running notebooks
 
@@ -62,7 +64,7 @@ Canonical reference: `docs/MATH_STYLE.md`.
 ## GitHub-friendly Markdown mirrors (stable reading)
 
 GitHub does **not** render the Markdown cells inside Jupytext percent-format `notebooks/*.py` files.
-For the documentation-style optics notebooks (06–15), we keep a **generated** Markdown mirror (no cell outputs)
+For the documentation-style optics notebooks (06–16), we keep a **generated** Markdown mirror (no cell outputs)
 in:
 
 - `docs/notebooks_md/`

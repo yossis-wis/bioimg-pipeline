@@ -1,3 +1,4 @@
+
 # Notebook Markdown mirrors
 
 This folder contains **generated** Markdown mirrors of the documentation-style optics notebooks.
@@ -32,3 +33,4 @@ python scripts/export_notebooks_markdown.py --check
 - `13_cni_2nm_stepindex_spectral_diversity_500us.md`
 - `14_stepindex_mmf_spectral_linewidth_physics.md`
 - `15_phasor_random_walk_toy_model.md`
+- `16_instantaneous_intensity_time_traces.md`

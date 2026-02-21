@@ -1,4 +1,7 @@
+
 from __future__ import annotations
+
+from dataclasses import replace
 
 import numpy as np
 import pytest
@@ -7,6 +10,8 @@ from src.instantaneous_phasor_sum import (
     InstantaneousPhasorSumConfig,
     compute_phasors,
     parse_deltaL_mm,
+    time_average_intensity_analytic,
+    time_average_intensity_numeric,
 )
 
 
@@ -54,3 +59,48 @@ def test_equal_power_path_amplitude() -> None:
     cfg = InstantaneousPhasorSumConfig(n_wavelengths=3, deltaL_mm=(0.0, 25.0, 51.0), path_amp="equal_power")
     out = compute_phasors(cfg)
     assert pytest.approx(1.0 / np.sqrt(3.0), rel=1e-12) == out.A_path
+
+
+def test_ref_mode_does_not_change_intensity() -> None:
+    cfg = InstantaneousPhasorSumConfig(
+        lambda0_nm=640.0,
+        n_wavelengths=10,
+        T_ps=40.0,
+        dt_ps=1.0,
+        deltaL_mm=(0.0, 25.0, 51.0),
+        path_amp="equal_power",
+        ref="lowest",
+        order="by_wavelength",
+        seed=2,
+        add_random_initial_phase=True,
+    )
+    out_a = compute_phasors(cfg)
+    out_b = compute_phasors(replace(cfg, ref="below_lowest"))
+
+    # Changing the envelope reference is a global phase rotation of E(t); intensity is invariant.
+    assert np.allclose(out_a.intensity, out_b.intensity, rtol=0.0, atol=1e-9)
+
+
+def test_time_average_analytic_matches_numeric_over_full_period() -> None:
+    # Use the canonical period alignment: Δf = 1/T and sample t on an integer grid over [0, T].
+    cfg = InstantaneousPhasorSumConfig(
+        lambda0_nm=640.0,
+        n_wavelengths=20,
+        T_ps=160.0,
+        dt_ps=1.0,
+        deltaL_mm=(0.0, 25.0, 51.0),
+        path_amp="equal_power",
+        ref="lowest",
+        order="by_wavelength",
+        seed=7,
+        add_random_initial_phase=True,
+    )
+    out = compute_phasors(cfg)
+
+    avg_num = time_average_intensity_numeric(out, exclude_endpoint=True)
+    avg_an = time_average_intensity_analytic(cfg)
+
+    # With discrete sampling over a full period, this should match to numerical precision.
+    assert np.isfinite(avg_num)
+    assert np.isfinite(avg_an)
+    assert np.allclose(avg_num, avg_an, rtol=0.0, atol=5e-10)
