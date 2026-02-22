@@ -1,5 +1,9 @@
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 # Draft email: multi-vendor inquiry (wide-linewidth 640-ish lasers for speckle-reduced **widefield epi**)
+=======
+# Draft email: multi-vendor inquiry (wide-linewidth 640-ish lasers for speckle-reduced **widefield epi**) — concise
+>>>>>>> Stashed changes
 =======
 # Draft email: multi-vendor inquiry (wide-linewidth 640-ish lasers for speckle-reduced **widefield epi**) — concise
 >>>>>>> Stashed changes
@@ -11,6 +15,7 @@ Vendors of interest (examples): Oxxius, 89 North, CNI, Thorlabs, Omicron, Lasert
 ## Email draft (copy/paste) — ≤10 sentences
 
 **To:** [sales / applications contact at COMPANY]  
+<<<<<<< Updated upstream
 <<<<<<< Updated upstream
 **Subject:** Question: **broadest instantaneous linewidth** 640-ish source for speckle-reduced **widefield epi** (500 µs) via MMF
 
@@ -55,6 +60,20 @@ By “broad,” I mean **simultaneously present** many spectral spikes (order 10
 
 Quick spec summary:
 
+=======
+**Subject:** Main question: **broadest instantaneous linewidth** 635–655 nm source for speckle-free **widefield epi** at 500 µs
+
+Hi [Name],
+
+I’m trying to get **speckle-free widefield epi** illumination (**not** TIRF, **not** HILO) on a Nikon Ti2-E at **500 µs** exposures, and I’m looking for the best 640-ish laser option you have.
+
+**Main question:** in the **635–655 nm** class, what **multimode** source has your **largest instantaneous spectral linewidth (FWHM)** (ideally centered ~646–650 nm and spanning as much of 635–655 nm as possible)?
+
+By “broad,” I mean **simultaneously present** many spectral spikes (order 100+), with roughly comparable / Gaussian-like spike powers — because more simultaneous spikes should average out more independent speckle patterns within one exposure — **not** swept/tuned, and **not** a spectrum dominated by 1–2 spikes.
+
+Quick spec summary:
+
+>>>>>>> Stashed changes
 | Item | Target |
 |---|---|
 | Geometry | **Widefield epi** (uniform ROI), **not** TIRF, **not** HILO |
@@ -83,6 +102,9 @@ Could you help with any of the following (data or a brief yes/no is fine)?
 Procurement-wise, I mainly need the **laser(s)**, but an integrated, **user-upgradable multi-line engine** (common MMF output) would be preferred.
 
 If helpful, I can forward a short 1–2 page supporting note with a diagram + an explicit measurement checklist for your applications engineer.
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
 
 Best regards,  

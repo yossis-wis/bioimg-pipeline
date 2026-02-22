@@ -83,7 +83,11 @@
   <rect class="dash" x="330" y="330" width="240" height="66" rx="0" ry="0"/>
   <text class="small" x="345" y="356"><tspan font-weight="bold">Measure</tspan>: MMF exit face</text>
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
   <text class="small" x="345" y="378">near-field / speckle at 500 µs</text>
+=======
+  <text class="small" x="345" y="378">near-field / speckle at ≤ 500 µs</text>
+>>>>>>> Stashed changes
 =======
   <text class="small" x="345" y="378">near-field / speckle at ≤ 500 µs</text>
 >>>>>>> Stashed changes
@@ -93,7 +97,11 @@
   <text class="small" x="635" y="302"><tspan font-weight="bold">Measure</tspan>: widefield uniformity</text>
   <text class="small" x="635" y="324">sample/image plane speckle</text>
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
   <text class="small" x="635" y="344">at 500 µs over 30×30 µm²</text>
+=======
+  <text class="small" x="635" y="344">at ≤ 500 µs over 30×30 µm²</text>
+>>>>>>> Stashed changes
 =======
   <text class="small" x="635" y="344">at ≤ 500 µs over 30×30 µm²</text>
 >>>>>>> Stashed changes
