@@ -147,17 +147,27 @@ def fig_heatmap(*, out_path: Path, seed0: int, n_realizations: int) -> None:
         Z.append((o.intensity[:-1] / mu).astype(np.float64, copy=False))
     Zm = np.asarray(Z, dtype=np.float64)  # shape (n_realizations, n_times)
 
-    # Build edges for pcolormesh (vector SVG, stable diffs).
-    x_edges = np.concatenate([t_ps, [float(t_ps[-1] + dt)]])
-    y_edges = np.arange(0.0, float(n_realizations) + 1.0, 1.0)
+    # IMPORTANT: avoid giant SVGs.
+    #
+    # Matplotlib's pcolormesh emits one vector patch per cell, which becomes huge even for
+    # modest grids (e.g. 80×160). For the repo's "canonical" docs figure we instead
+    # rasterize the heatmap inside the SVG via imshow(), which embeds a compact PNG.
+    extent = [float(t_ps[0]), float(t_ps[-1] + dt), 0.0, float(n_realizations)]
 
     fig, ax = _new_figure(height_in=5.8)
-    m = ax.pcolormesh(x_edges, y_edges, Zm, shading="auto")
+    im = ax.imshow(
+        Zm,
+        aspect="auto",
+        origin="lower",
+        extent=extent,
+        interpolation="nearest",
+    )
+    im.set_rasterized(True)
 
     ax.set_title("Time × realization heatmap: normalized instantaneous intensity")
     ax.set_xlabel("time [ps]")
     ax.set_ylabel("realization index [count]")
-    cbar = fig.colorbar(m, ax=ax, shrink=0.92)
+    cbar = fig.colorbar(im, ax=ax, shrink=0.92)
     cbar.set_label("I(t)/⟨I⟩$_t$ [a.u.]")
     for spine in ax.spines.values():
         spine.set_linewidth(2.0)

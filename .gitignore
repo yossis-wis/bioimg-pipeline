@@ -60,3 +60,8 @@ configs/*.local.yaml
 # Email diagrams (kept locally; do not track)
 docs/emails/assets/*
 !docs/emails/assets/.gitignore
+
+# --- Flattened repo snapshots (artifacts) ---
+repo_context__*.txt
+repo_patch__*.diff
+repo_patch__*.patch

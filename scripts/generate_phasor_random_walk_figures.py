@@ -124,7 +124,7 @@ def fig_endpoints_scatter(*, out_path: Path, seed: int) -> None:
     )
 
     fig, ax = _new_figure(height_in=4.8)
-    ax.scatter(endpoints.real, endpoints.imag, s=10, alpha=0.35)
+    ax.scatter(endpoints.real, endpoints.imag, s=10, alpha=0.35, rasterized=True)
 
     ax.set_aspect("equal", adjustable="box")
     ax.grid(True, alpha=0.25)

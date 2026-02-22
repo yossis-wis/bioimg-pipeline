@@ -21,3 +21,24 @@ This repo is kept **text-only** (no tracked binaries).
   - `notebooks/08_cni_laser_system_diagrams.py`
   - driven by `configs/cni_laser_inquiry.yaml`
 - If you need a PNG for emailing, export from the tracked SVGs (e.g. via Inkscape) or toggle `EXPORT = True` in the notebook and copy the resulting PNGs into `docs/emails/assets/` (still gitignored).
+
+
+### If you accidentally committed a binary (PNG/PDF/etc)
+
+`gitignore` prevents *new* binaries from being added, but it does **not** remove files that are already tracked.
+
+To untrack a mistakenly-committed asset while keeping your local copy:
+
+```bash
+git rm --cached docs/emails/assets/<file.png>
+# (repeat for each file)
+git commit -m "Stop tracking email asset binaries"
+```
+
+If you want to also remove the file from your working tree, omit `--cached`.
+
+To catch this early, run:
+
+```bash
+python scripts/check_repo_bloat.py
+```

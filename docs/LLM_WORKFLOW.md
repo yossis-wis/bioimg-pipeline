@@ -116,6 +116,23 @@ Do not remove/rename required columns or manifest keys.
 Notebooks are stored as **Jupytext percent-format `.py` files** under `notebooks/`.
 Do not commit `.ipynb`.
 
+### 5) Keep the repo prompt-friendly (size + assets)
+
+This repo is often **flattened and attached to LLM prompts**.
+
+Rules:
+
+- Keep the repo **text-only**: do not commit binaries (PNG/PDF/PPTX/DOCX/XLSX/ZIP/etc).
+- Keep committed SVG figures **small** (see `docs/figures/STYLE_GUIDE.md`). If an SVG starts getting big, rasterize the heavy artists (e.g. `imshow` for heatmaps; `rasterized=True` for large scatters) or move the output to an untracked location.
+- Put local-only email attachments in `docs/emails/assets/` (gitignored).
+- Put large or publication-grade figure outputs in `docs/figures/generated/` (gitignored) or `$BIOIMG_DATA_ROOT/reports/`.
+
+Pre-commit sanity check:
+
+```bash
+python scripts/check_repo_bloat.py
+```
+
 ---
 
 ## Zip overlay workflow (human)

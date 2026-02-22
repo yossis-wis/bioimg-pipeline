@@ -43,7 +43,7 @@ DEFAULT_OUTPUT_DIR = "repo_snapshots"
 DEFAULT_PREFIX = "repo_context"
 DEFAULT_PATCH_PREFIX = "repo_patch"
 DEFAULT_BASE_REF = "HEAD"
-MAX_FILE_SIZE_KB_DEFAULT = 500  # Skip files larger than this (avoid data dumps)
+MAX_FILE_SIZE_KB_DEFAULT = 250  # Skip files larger than this (keep snapshots prompt-friendly)
 
 # Even for tracked files, we explicitly skip file types that are commonly binary
 # or huge when accidentally tracked.
