@@ -1,4 +1,4 @@
-# Supporting note: “wide-linewidth + square step-index MMF” for speckle-free widefield excitation (500 µs at 640 nm)
+# Supporting note: “wide-linewidth + square step-index MMF” for speckle-reduced widefield excitation (500 µs at 640 nm)
 
 This note is intended as an optional **1–2 page attachment** for vendors / applications engineers.
 
@@ -11,20 +11,25 @@ We want a practical, robust way to deliver **homogeneous widefield epi illuminat
 - Microscope: **Nikon Eclipse Ti2-E**
 - Objective: **100× high-NA (oil)**
 - Field at sample: **30×30 µm²**
+- We need **widefield epi** only (**not** TIRF, **not** HILO)
 
 Performance targets:
 
 - **640-ish excitation (most demanding)**
-  - Wavelength range of interest: **635–655 nm**
+  - Wavelength class: **635–655 nm**
   - Power density at sample: **10–30 kW/cm²** over 30×30 µm² (≈ 90–270 mW at sample)
   - Timing: **500 µs pulses** with a clean step (fast TTL and/or analog; rise/fall and jitter ≪ 500 µs)
-  - Goal: **no visible speckle / interference artifacts at the sample plane** at 500 µs, ideally **without mechanical scrambling**
+  - Goal: **no visible speckle / interference artifacts at the sample plane** at 500 µs, ideally even without mechanical scrambling
 
-- **Other desired lines** (full system, less time-critical)
+- **Other desired lines** (less time-critical)
   - 405 / 488 / 561 nm
   - Power density at sample: **≥3 kW/cm²** over 30×30 µm²
   - Exposures: **≥5 ms** are fine
-  - For these, adding a commercial **~10 kHz fiber agitator** is acceptable (but wide linewidth is still preferred)
+  - A commercial **~10 kHz fiber agitator** is acceptable here (and may be sufficient), though wide linewidth is still preferred
+
+Simple system picture (measurement points highlighted):
+
+![](../figures/wide_linewidth_mmf_widefield_system.svg)
 
 We strongly prefer a solution that is **robust for departmental use** (researchers without an optics background).
 
@@ -32,73 +37,69 @@ We strongly prefer a solution that is **robust for departmental use** (researche
 
 ## 2) The core idea we want vendor feedback on
 
-We are testing whether it’s possible to get speckle-free (or very low-speckle) widefield excitation by combining:
+We are testing whether it’s possible to get very low-speckle widefield excitation by combining:
 
-1) a **broad spectral linewidth / multi-longitudinal-mode laser** (many spectral spikes present simultaneously), and
-2) a **large-core, square, step-index multimode fiber** (MMF), e.g. **200–400 µm** core and **a few meters** long.
+1) a **broad spectral linewidth / multi-longitudinal-mode laser** (**many spectral spikes present simultaneously**), and  
+2) a **large-core, square, step-index multimode fiber** (MMF).
 
-The desired laser characteristic is **not** a swept source or a rapidly tuned single-frequency laser. We specifically want a spectrum that is **instantaneously multi-spike**, ideally with spikes of comparable (or smoothly varying / Gaussian-like) power across the band.
+**Definition of “broad” (important):** we do **not** mean a swept source or rapidly tuned single-frequency laser. We want a spectrum that is **instantaneously multi-spike**, ideally with many spikes (order 100+) and with spike powers that are roughly comparable (or smoothly varying / Gaussian-like) across the band — not a spectrum dominated by 1–2 spikes.
 
-A conceptual picture:
+**Fiber direction:** square, step-index, large core. Our initial target is:
+
+- core size: **400 µm** (200–400 µm acceptable)
+- NA: **higher NA preferred** (e.g. **NA ≈ 0.39** if available; NA ~0.22 is also common)
+- length: **~3 m** (a few meters)
+- coupling: SMA905 or free-space (we can handle coupling)
+
+A conceptual picture of “many spikes → many speckle realizations” at the MMF exit:
 
 ![](../figures/speckle_toy_exit_face_interference.svg)
 
-Intuition:
-
-- Each spectral spike produces its **own** speckle realization after the MMF.
-- If the spikes are sufficiently decorrelated by the fiber’s intermodal optical-path spread, the observed intensity tends toward an **incoherent sum** of many realizations.
-- This can reduce speckle contrast even for short exposures where mechanical averaging is not available.
+**Mechanical scrambling note:** we may still use a **~10 kHz fiber agitator** even at 640 nm. At 500 µs, a 10 kHz agitator has a 100 µs period, so the theoretical ceiling is ~5 distinct patterns during a 500 µs exposure. That helps (it multiplies whatever spectral averaging we already have), but it is **not sufficient by itself**, which is why the **instantaneous spectral diversity** is the main requirement.
 
 ---
 
-## 3) Prior art / evidence we can share
+## 3) What we want measured (most useful vendor data)
 
-We have compiled a small excerpt (figures + a representative diode spec sheet) in **`papers.zip`** (not tracked in git because this repo is text-only):
+If you have (or can easily take) any of the following, it would be extremely helpful. We care most about measurements at operating powers/currents relevant to our use case.
 
-- `papers.zip/papers/figures.pdf` and `papers.zip/papers/figures.docx`
-- Laser spec examples:
-  - `papers.zip/papers/Mockl2023laser638nm.pdf` (Lasertack LAB-638-1000)
-  - `papers.zip/papers/Ries2020laser638nm.pdf` / `papers.zip/papers/KwakwFrench2016laser638nm.pdf` (HL63193MG diode)
+### A) Spectrum (instantaneous)
+- **OSA traces** of the 635–655 nm source at several drive currents / output powers.
+- If possible: confirm the spectrum is **simultaneously multi-spike** (not scanned/swept).
+- Any note on whether the spectrum is “many similar spikes” vs “1–2 dominant spikes” is valuable.
 
-Key points from the literature excerpt:
+### B) Modulation / pulse fidelity
+- TTL and analog modulation specs and (ideally) **scope traces** for a **500 µs square pulse**:
+  - rise/fall time
+  - overshoot / ringing
+  - timing jitter / repeatability
 
-- **Ries et al., Biomed Opt Express (2020)**, “Cost-efficient open source laser engine for microscopy.”
-  - Shows speckle behavior for **square-core MMF** and multiple wavelengths.
-  - Notably, the **638 nm diode** case appears substantially more homogeneous than shorter wavelengths, and speckle contrast depends on diode operating point.
+### C) Speckle / homogeneity (near-field and sample plane)
+We care about two planes:
 
-- **Almahayni et al., J Phys Chem A (2023)**, “Simple, Economic, and Robust Rail-Based Setup for Super-Resolution Localization Microscopy.”
-  - Uses a **square-core MMF** and compares **speckle contrast** with and without fiber shaking.
-  - The red line (638 nm) shows lower speckle contrast than 561 nm even without shaking.
+1) **MMF exit face near-field** (camera image of the fiber face)  
+2) **Sample plane / image plane** after an objective (widefield illumination uniformity over ~30×30 µm²)
 
-- **Kwakwa et al., J Biophotonics (2016)**, “easySTORM: a robust, lower-cost approach to localisation and TIRF microscopy.”
-  - Supplementary figure compares **static optical fiber** vs **vibrating despeckler**, across different MMF core sizes.
-  - Larger-core fibers (e.g. 200–400 µm) look closer to uniform even before adding vibration.
+Helpful outputs include:
+- representative images (near-field and/or sample plane) at exposure **500 µs**
+- any quantitative speckle metric (e.g. speckle contrast), or even qualitative comparison images
 
-Representative “wide-linewidth diode module” spec (example only, from the excerpt):
-
-- **Lasertack LAB-638-1000** (example 1 W-class 638 nm module)
-  - Linewidth: **≤ 5 nm (2 nm typical)**
-  - Modulation options: **analog, TTL, PWM**
-  - Modulation bandwidth: **DC–500 kHz**
-  - Rise/fall time: **~1.4 µs**
-
-We are not assuming these exact parts are the correct answer—rather, this is meant to illustrate the type of spectrum + modulation behavior that seems promising.
+### D) “Multiple diodes combined” option
+If you recommend spectral broadening via combining multiple nearby diodes (635/640/645/650/655), any guidance (or an integrated offering) is very welcome.
 
 ---
 
-## 4) What we want from a vendor / applications engineer
+## 4) Questions (what would you recommend / what can you provide?)
 
-We would greatly appreciate any of the following:
-
-1) **Recommendation:** Does the “wide-linewidth + square step-index MMF” approach sound reasonable for **500 µs** illumination uniformity at ~640 nm?
-2) **Spectrum data:** any OSA traces showing the **instantaneous** spectrum (multi-spike). If you have data vs current/power, even better.
-3) **Homogeneity data:** any measurements of:
-   - fiber **near-field** uniformity,
-   - sample-plane or image-plane uniformity after an objective,
-   - or any speckle contrast characterization.
-4) **Modulation performance:** TTL and analog step behavior (especially for a **500 µs** square pulse). Any scope traces are useful.
-5) **Fiber guidance:** recommended fiber geometry (square vs round), NA, core size, and realistic lengths.
-6) **System architecture:** if broadening the spectrum via **multiple nearby diodes** (635/640/645/650/655) is more robust than “one very broad diode,” we’d like your recommendation.
+1) Does the “instantaneous multi-spike + square step-index MMF” approach sound reasonable for **500 µs** widefield uniformity at ~640 nm?
+2) What is the **broadest-linewidth** 635–655 nm source you can offer, and can you share **measured spectra**?
+3) Do you see any reason this approach would fail in practice (e.g., insufficient decorrelation, residual interference, dominant spikes, etc.)?
+4) What are the **modulation specs** (TTL and analog) for clean **500 µs** steps?
+5) Have you measured or can you comment on **illumination homogeneity / speckle** at:
+   - the **MMF exit face**, and/or
+   - a **widefield sample plane** after an objective?
+6) Fiber advice: square vs round, **core size**, **NA** (higher NA preferred), and realistic lengths.
+7) If multi-diode combination is the best way to widen the spectrum, can you supply it as an integrated, robust output (ideally into one MMF)?
 
 ---
 
@@ -108,13 +109,11 @@ We would greatly appreciate any of the following:
 - We are open to either:
   - **critical epi illumination** (imaging the fiber face to the sample), or
   - a **Köhler-like relay** (separate control of field stop and pupil fill).
-
-We are happy to take guidance on which is more practical and robust for coupling into a Ti2-E.
+- We are happy to take guidance on which is more practical and robust for coupling into a Ti2-E.
 
 ---
 
 ## 6) Procurement constraints
 
 - The most important item is the **laser source** (spectrum + fast modulation). We can source fiber/coupling optics separately.
-- If possible, we are aiming for **< US$1k** for a 640-ish source, but we understand that integrated multi-line systems may cost more.
-- A modular / upgradeable system (add wavelengths later, common MMF output) would be ideal.
+- If you offer an integrated **engine** (especially modular / user-upgradable to add wavelengths later to a common MMF output), that is preferred.
